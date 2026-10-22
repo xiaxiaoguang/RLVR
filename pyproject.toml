@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rlvr"
+version = "0.1.0"
+description = "RLVR data-difficulty experiments on a string function-composition task"
+requires-python = ">=3.11"
+dependencies = [
+    # data / config (step 1)
+    "numpy>=2.0",
+    "pandas>=2.2",
+    "pyarrow>=15",
+    "pyyaml>=6.0",
+    # model, pretraining, labelling, GRPO
+    "torch>=2.8",
+    "transformers>=4.57",     # LlamaForCausalLM (RoPE), generate(), save_pretrained()
+    "accelerate>=1.0",
+    "safetensors>=0.4",
+    "trl>=1.0",               # GRPOTrainer, only for the one-off reference comparison
+    # analysis: S-curve fits, regression / variable importance, plots
+    "scipy>=1.13",
+    "scikit-learn>=1.5",
+    "statsmodels>=0.14",
+    "matplotlib>=3.9",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6", "ipykernel>=6.29"]
+wandb = ["wandb>=0.18"]
+
+[tool.setuptools]
+packages = ["rlvr"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"

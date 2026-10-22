@@ -1,0 +1,6 @@
+name: easy_100
+n: 100
+seed: 0
+cells:
+  - {depth: 1, frac: 0.5}
+  - {depth: 2, frac: 0.5}

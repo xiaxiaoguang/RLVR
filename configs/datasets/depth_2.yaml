@@ -1,0 +1,5 @@
+name: depth_2
+n: 500
+seed: 0
+cells:
+  - {depth: 2, frac: 1.0}

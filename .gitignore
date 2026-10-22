@@ -1,0 +1,8 @@
+data/pretrain/
+data/labels/
+runs/
+checkpoints/
+__pycache__/
+*.pyc
+*.egg-info/
+RLVR.md

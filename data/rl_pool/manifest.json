@@ -1,0 +1,30 @@
+{
+ "n": 28400,
+ "seed": 2002,
+ "depths": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6
+ ],
+ "groups": [
+  "H",
+  "L",
+  "mixed"
+ ],
+ "per_cell": 1200,
+ "extra_cells": [
+  {
+   "depth": 2,
+   "group": "L",
+   "n": 4000
+  },
+  {
+   "depth": 4,
+   "group": "H",
+   "n": 4000
+  }
+ ]
+}

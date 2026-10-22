@@ -1,0 +1,10 @@
+# C: SFL-style. Static draw weighted by p(1-p); GRPO's learnability sampler
+# keeps re-weighting with online p during training.
+name: learnability
+model_id: pt-mid-s0
+n: 500
+seed: 0
+weight: learnability
+sampler: learnability
+cells:
+  - {depth: [1, 2, 3, 4], frac: 1.0}

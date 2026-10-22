@@ -1,0 +1,29 @@
+{
+ "spec": {
+  "name": "depth_2",
+  "n": 500,
+  "seed": 0,
+  "cells": [
+   {
+    "depth": 2,
+    "frac": 1.0
+   }
+  ]
+ },
+ "source": "configs/datasets/depth_2.yaml",
+ "summary": {
+  "n": 500,
+  "by_depth": {
+   "2": 500
+  },
+  "by_group": {
+   "mixed": 175,
+   "L": 169,
+   "H": 156
+  },
+  "by_str_len": {
+   "5": 500
+  },
+  "unique_combos": 211
+ }
+}

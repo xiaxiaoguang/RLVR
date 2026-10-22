@@ -1,0 +1,38 @@
+{
+ "spec": {
+  "name": "online_filter",
+  "n": "all",
+  "seed": 0,
+  "sampler": "online_filter",
+  "cells": [
+   {
+    "depth": [
+     1,
+     2,
+     3,
+     4
+    ],
+    "frac": 1.0
+   }
+  ]
+ },
+ "source": "configs/datasets/online_filter.yaml",
+ "summary": {
+  "n": 13200,
+  "by_depth": {
+   "1": 2400,
+   "2": 3600,
+   "3": 3600,
+   "4": 3600
+  },
+  "by_group": {
+   "H": 4800,
+   "L": 4800,
+   "mixed": 3600
+  },
+  "by_str_len": {
+   "5": 13200
+  },
+  "unique_combos": 5247
+ }
+}

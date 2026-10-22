@@ -1,0 +1,155 @@
+[
+ {
+  "id": 0,
+  "name": "F00",
+  "function": "complement",
+  "spec": "complement",
+  "group": "H",
+  "example": "cajfb -> hjaei"
+ },
+ {
+  "id": 1,
+  "name": "F01",
+  "function": "shift_m1",
+  "spec": {
+   "name": "shift",
+   "k": -1
+  },
+  "group": "L",
+  "example": "cajfb -> bjiea"
+ },
+ {
+  "id": 2,
+  "name": "F02",
+  "function": "shift_p1",
+  "spec": {
+   "name": "shift",
+   "k": 1
+  },
+  "group": "H",
+  "example": "cajfb -> dbagc"
+ },
+ {
+  "id": 3,
+  "name": "F03",
+  "function": "shift_p3",
+  "spec": {
+   "name": "shift",
+   "k": 3
+  },
+  "group": "L",
+  "example": "cajfb -> fdcie"
+ },
+ {
+  "id": 4,
+  "name": "F04",
+  "function": "mirror_first_half",
+  "spec": "mirror_first_half",
+  "group": "L",
+  "example": "cajfb -> cajac"
+ },
+ {
+  "id": 5,
+  "name": "F05",
+  "function": "rotr1",
+  "spec": {
+   "name": "rotate",
+   "k": -1
+  },
+  "group": "L",
+  "example": "cajfb -> bcajf"
+ },
+ {
+  "id": 6,
+  "name": "F06",
+  "function": "rotl1",
+  "spec": {
+   "name": "rotate",
+   "k": 1
+  },
+  "group": "H",
+  "example": "cajfb -> ajfbc"
+ },
+ {
+  "id": 7,
+  "name": "F07",
+  "function": "swap_halves",
+  "spec": "swap_halves",
+  "group": "H",
+  "example": "cajfb -> fbjca"
+ },
+ {
+  "id": 8,
+  "name": "F08",
+  "function": "max_to_front",
+  "spec": "max_to_front",
+  "group": "L",
+  "example": "cajfb -> jcafb"
+ },
+ {
+  "id": 9,
+  "name": "F09",
+  "function": "rotl2",
+  "spec": {
+   "name": "rotate",
+   "k": 2
+  },
+  "group": "L",
+  "example": "cajfb -> jfbca"
+ },
+ {
+  "id": 10,
+  "name": "F10",
+  "function": "swap_ends",
+  "spec": "swap_ends",
+  "group": "L",
+  "example": "cajfb -> bajfc"
+ },
+ {
+  "id": 11,
+  "name": "F11",
+  "function": "swap_adjacent",
+  "spec": "swap_adjacent",
+  "group": "H",
+  "example": "cajfb -> acfjb"
+ },
+ {
+  "id": 12,
+  "name": "F12",
+  "function": "sort_desc",
+  "spec": {
+   "name": "sort",
+   "descending": true
+  },
+  "group": "L",
+  "example": "cajfb -> jfcba"
+ },
+ {
+  "id": 13,
+  "name": "F13",
+  "function": "reverse",
+  "spec": "reverse",
+  "group": "H",
+  "example": "cajfb -> bfjac"
+ },
+ {
+  "id": 14,
+  "name": "F14",
+  "function": "sort_asc",
+  "spec": "sort",
+  "group": "H",
+  "example": "cajfb -> abcfj"
+ },
+ {
+  "id": 15,
+  "name": "F15",
+  "function": "even_pos_p1",
+  "spec": {
+   "name": "shift_at",
+   "k": 1,
+   "parity": 0
+  },
+  "group": "H",
+  "example": "cajfb -> daafc"
+ }
+]

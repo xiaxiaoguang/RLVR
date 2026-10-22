@@ -1,0 +1,34 @@
+{
+ "spec": {
+  "name": "easy_100",
+  "n": 100,
+  "seed": 0,
+  "cells": [
+   {
+    "depth": 1,
+    "frac": 0.5
+   },
+   {
+    "depth": 2,
+    "frac": 0.5
+   }
+  ]
+ },
+ "source": "configs/datasets/easy_100.yaml",
+ "summary": {
+  "n": 100,
+  "by_depth": {
+   "1": 50,
+   "2": 50
+  },
+  "by_group": {
+   "L": 41,
+   "H": 39,
+   "mixed": 20
+  },
+  "by_str_len": {
+   "5": 100
+  },
+  "unique_combos": 58
+ }
+}

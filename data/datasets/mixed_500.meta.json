@@ -1,0 +1,44 @@
+{
+ "spec": {
+  "name": "mixed_500",
+  "n": 500,
+  "seed": 0,
+  "cells": [
+   {
+    "depth": 1,
+    "frac": 0.25
+   },
+   {
+    "depth": 2,
+    "frac": 0.25
+   },
+   {
+    "depth": 3,
+    "frac": 0.25
+   },
+   {
+    "depth": 4,
+    "frac": 0.25
+   }
+  ]
+ },
+ "source": "configs/datasets/mixed_500.yaml",
+ "summary": {
+  "n": 500,
+  "by_depth": {
+   "1": 125,
+   "2": 125,
+   "3": 125,
+   "4": 125
+  },
+  "by_group": {
+   "L": 187,
+   "H": 177,
+   "mixed": 136
+  },
+  "by_str_len": {
+   "5": 500
+  },
+  "unique_combos": 351
+ }
+}

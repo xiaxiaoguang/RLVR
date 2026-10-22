@@ -1,0 +1,44 @@
+{
+ "spec": {
+  "name": "mixed_2000",
+  "n": 2000,
+  "seed": 0,
+  "cells": [
+   {
+    "depth": 1,
+    "frac": 0.25
+   },
+   {
+    "depth": 2,
+    "frac": 0.25
+   },
+   {
+    "depth": 3,
+    "frac": 0.25
+   },
+   {
+    "depth": 4,
+    "frac": 0.25
+   }
+  ]
+ },
+ "source": "configs/datasets/mixed_2000.yaml",
+ "summary": {
+  "n": 2000,
+  "by_depth": {
+   "1": 500,
+   "2": 500,
+   "3": 500,
+   "4": 500
+  },
+  "by_group": {
+   "L": 767,
+   "H": 731,
+   "mixed": 502
+  },
+  "by_str_len": {
+   "5": 2000
+  },
+  "unique_combos": 1145
+ }
+}

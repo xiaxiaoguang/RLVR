@@ -1,0 +1,4 @@
+# Base model 'mid'. Everything else: defaults in rlvr/params.py
+pretrain:
+  level: mid
+  n_comp: 20000

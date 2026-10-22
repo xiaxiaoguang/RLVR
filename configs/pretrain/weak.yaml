@@ -1,0 +1,4 @@
+# Base model 'weak'. Everything else: defaults in rlvr/params.py
+pretrain:
+  level: weak
+  n_comp: 2000

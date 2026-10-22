@@ -1,0 +1,11 @@
+# conda env create -f environment.yml && conda activate rlvr
+# Exact versions (reproducible): pip install -r requirements.lock.txt && pip install -e . --no-deps
+name: rlvr
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      # torch from PyPI ships its CUDA 13 runtime; needs NVIDIA driver >= 580 (A6000 node has 595 / CUDA 13.2)
+      - -e .[dev]

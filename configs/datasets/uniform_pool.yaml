@@ -1,0 +1,6 @@
+name: uniform_pool
+n: all
+seed: 0
+sampler: static          # consumed by the GRPO sampler
+cells:
+  - {depth: [1, 2, 3, 4], frac: 1.0}

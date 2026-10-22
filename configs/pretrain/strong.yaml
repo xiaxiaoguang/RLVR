@@ -1,0 +1,4 @@
+# Base model 'strong'. Everything else: defaults in rlvr/params.py
+pretrain:
+  level: strong
+  n_comp: 200000
