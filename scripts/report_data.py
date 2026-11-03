@@ -62,13 +62,15 @@ def main():
 
     # --- sets ---------------------------------------------------------------
     sets: dict[str, pd.DataFrame] = {}
-    for f in sorted((data / "eval").glob("*/*.jsonl")):
+    for f in sorted((data / "eval" / cfg["eval"]["version"]).glob("*.jsonl")):
         sets[f"eval/{f.stem}"] = load_frame(f)
     pool = load_frame(data / "rl_pool/candidates.jsonl")
     sets["rl_pool"] = pool
     corpora = {}
     for d in sorted((data / "pretrain").glob("pt-*")):
-        c = pd.read_parquet(d / "corpus.parquet")
+        if not (d / "preview.jsonl").exists():
+            continue
+        c = load_frame(d / "preview.jsonl")
         corpora[d.name] = c
         sets[f"pretrain/{d.name}/comp"] = c[c.kind == "comp"]
         sets[f"pretrain/{d.name}/atom"] = c[c.kind == "atom"]
@@ -109,29 +111,25 @@ def main():
         checks.append((f"problems outside the {pool_name} pool in {k}", bad, 0))
     for name, d in datasets.items():
         checks.append((f"dataset {name} not subset of rl_pool", len(set(d.pid) - pid_sets["rl_pool"]), 0))
-        checks.append((f"dataset {name} max depth <= 4 (5-6 reserved for E3)", bool(d.depth.max() <= 4), True))
+        checks.append((f"dataset {name} max depth <= 5 (6-8 reserved for E3)", bool(d.depth.max() <= 5), True))
     recomputed = sum(task.from_dict(r).answer != r["answer"] for r in pool.head(3000).to_dict("records"))
     checks.append(("answers that disagree with recomputation (rl_pool, 3000)", recomputed, 0))
     out += ["## Leakage and consistency checks", "",
             md_table(pd.DataFrame([{"check": c, "value": v, "expected": e, "ok": "yes" if v == e else "**NO**"}
                                    for c, v, e in checks])), ""]
 
-    # --- pretrain corpora ----------------------------------------------------
+    # --- pretrain corpora (streamed; previews from scripts/preview_stream.py) -----
     if corpora:
         st = [json.loads((data / "pretrain" / n / "stats.json").read_text()) for n in corpora]
-        cols = ["run_name", "unique_atoms", "unique_comps", "sequences", "comp_sequences", "target_tokens",
-                "total_tokens", "comp_target_token_frac", "atom_count_range", "max_seq_len", "comp_by_group"]
-        out += ["## Pretraining corpora", "", md_table(pd.DataFrame(st)[cols]), ""]
-        fe = pd.DataFrame({s["run_name"]: s["comp_func_exposure"] for s in st})
+        table = pd.DataFrame([{"run_name": x["run_name"], **{k: f"{v:.4f}" for k, v in x["target_token_frac"].items()},
+                               "full_tokens": f"{x['full_run']['tokens'] / 1e9:.2f}B",
+                               "full_examples": f"{x['full_run']['examples'] / 1e6:.1f}M",
+                               "full_comps": f"{x['full_run']['comp_examples'] / 1e6:.2f}M"} for x in st])
+        out += ["## Pretraining corpora (supervised-token shares; projected full run)", "", md_table(table), ""]
+        fe = pd.DataFrame({x["run_name"]: x["comp_func_exposure"] for x in st}).fillna(0).astype(int)
         fe.insert(0, "group", ["H" if int(i[1:]) in task.H else "L" for i in fe.index])
         fe.index.name = "func"
-        out += ["### Function exposure in compositions (occurrences)", "", md_table(fe), ""]
-        if len(corpora) > 1:
-            names = list(corpora)
-            comp = {n: list(c[c.kind == "comp"].pid) for n, c in corpora.items()}
-            nested = all(comp[b][: len(comp[a])] == comp[a] for a, b in zip(names, names[1:])
-                         if len(comp[a]) <= len(comp[b]))
-            out += [f"Corpora with smaller n_comp are prefixes of larger ones (same seed): **{nested}**", ""]
+        out += ["### Function exposure in compositions (occurrences in the preview)", "", md_table(fe), ""]
 
     # --- RL datasets ----------------------------------------------------------
     drows = []

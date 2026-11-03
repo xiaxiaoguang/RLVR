@@ -73,19 +73,22 @@ def param(key: str, default: Any, doc: str = "", **kw) -> Param:
 # Global
 # =============================================================================
 param("seed", 0, "global seed (pretraining corpus, RL run)", code="P11/R13", priority=REPEAT, levels=(0, 1, 2))
+param("git_commit", "", "written by training scripts into run_config.yaml")
+param("world_size", 1, "GPUs used for pretraining; written by scripts/pretrain.py into run_config.yaml")
 param("imports", [], "modules imported before validation; use them to register new atoms/rewards/...")
 param("paths.data", "data", "root of generated data")
-param("paths.runs", "runs", "root of run logs and checkpoints")
+param("paths.runs", "runs", "root of run logs and intermediate checkpoints")
+param("paths.checkpoints", "checkpoints", "root of final base-model checkpoints")
 
 # =============================================================================
 # Task (frozen after week 1: changing these changes pids, pools and names)
 # =============================================================================
-param("task.alphabet", "abcdefghij", "input alphabet", code="P8", priority=FROZEN)
-param("task.str_len", 5, "input length, or list of lengths sampled uniformly", code="P8",
+param("task.alphabet", "abcdefghijklmnopqrstuvwxyz", "input alphabet", code="P8", priority=FROZEN)
+param("task.str_len", [6, 7, 8, 9, 10], "input length, or list of lengths sampled uniformly", code="P8",
       priority=FROZEN, types=(int, list))
 param("task.name_seed", 12345, "seed of the label -> Fxx display-name shuffle", priority=FROZEN)
 param("task.cot", True, "write intermediate steps in the target", code="P7", priority=FROZEN)
-param("task.max_depth", 6, "largest depth used anywhere", priority=FROZEN)
+param("task.max_depth", 8, "largest depth used anywhere", priority=FROZEN)
 param("task.functions", {
     "reverse": "reverse",
     "rotl1": {"name": "rotate", "k": 1},
@@ -103,9 +106,21 @@ param("task.functions", {
     "even_pos_p1": {"name": "shift_at", "k": 1, "parity": 0},
     "max_to_front": "max_to_front",
     "mirror_first_half": "mirror_first_half",
+    # v1 additions
+    "rotl3": {"name": "rotate", "k": 3},
+    "reverse_first_half": {"name": "reverse_half", "first": True},
+    "riffle": "riffle",
+    "shift_p5": {"name": "shift", "k": 5},
+    "shift_by_pos": {"name": "shift_by_pos", "k": 1},
+    "sort_first_half": {"name": "sort_half", "first": True},
+    "odd_pos_m1": {"name": "shift_at", "k": -1, "parity": 1},
+    "min_to_back": "min_to_back",
 }, "label -> atom spec (rlvr.atoms.ATOMS); label order fixes the Fxx shuffle", priority=FROZEN)
-param("task.h_group", ["reverse", "rotl1", "swap_adjacent", "swap_halves",
-                       "shift_p1", "complement", "sort_asc", "even_pos_p1"],
+# 12 / 12, every category on both sides: position 5/5, character 3/3, sorting 2/1, conditional 2/3.
+param("task.h_group", ["reverse", "rotl1", "swap_adjacent", "swap_halves", "riffle",
+                       "shift_p1", "complement", "shift_by_pos",
+                       "sort_asc", "sort_first_half",
+                       "even_pos_p1", "max_to_front"],
       "labels of the high-exposure group H; the rest form L", code="P6", priority=FROZEN)
 
 # =============================================================================
@@ -115,65 +130,101 @@ param("splits.salt", "rlvr-split-v1", "salt of the pid -> bucket hash", priority
 param("splits.pools", {"pretrain": [0, 900], "rl": [900, 950], "eval": [950, 1000]},
       "bucket ranges (of 1000) per pool", priority=FROZEN)
 param("splits.heldout_seed", 777, "seed choosing held-out function pairs", priority=FROZEN)
-param("splits.heldout_pairs_per_group_pair", 4, "held-out ordered pairs per HH/HL/LH/LL", priority=FROZEN)
+param("splits.heldout_pairs_per_group_pair", 6, "held-out ordered pairs per HH/HL/LH/LL", priority=FROZEN)
 
 # =============================================================================
 # Evaluation sets and RL candidate pool
 # =============================================================================
-param("eval.version", "v1", "bump when eval sets change")
+param("eval.version", "v2", "bump when eval sets change")
 param("eval.seed", 1001, "eval-set sampling seed")
 param("eval.sets", {
     "E1": {"depths": [1], "groups": ["H", "L"], "per_cell": 50, "by_function": True},
-    "E2": {"depths": [2, 3, 4], "groups": ["H", "L", "mixed"], "per_cell": 134},
-    "E3": {"depths": [5, 6], "groups": ["H", "L", "mixed"], "per_cell": 100},
-    "E4": {"depths": [2, 3, 4], "groups": [None], "per_cell": 200, "novel": True},
-    "probe": {"depths": [1, 2, 3, 4, 5, 6], "groups": ["H", "L", "mixed"], "per_cell": 24},
-    "calib": {"depths": [1, 2, 3, 4, 5, 6], "groups": ["H", "L", "mixed"], "per_cell": 200},
+    "E2": {"depths": [2, 3, 4, 5], "groups": ["H", "L", "mixed"], "per_cell": 150},
+    "E3": {"depths": [6, 7, 8], "groups": ["H", "L", "mixed"], "per_cell": 100},
+    "E4": {"depths": [2, 3, 4, 5], "groups": [None], "per_cell": 200, "novel": True},
+    "probe": {"depths": [1, 2, 3, 4, 5, 6, 7, 8], "groups": ["H", "L", "mixed"], "per_cell": 25},
+    "calib": {"depths": [1, 2, 3, 4, 5, 6, 7, 8], "groups": ["H", "L", "mixed"], "per_cell": 200},
 }, "eval set name -> stratification (E1 atomic, E2 in-dist, E3 deeper, E4 novel pairs)")
 param("rl_pool.seed", 2002, "candidate sampling seed")
-param("rl_pool.depths", [1, 2, 3, 4, 5, 6], "candidate depths")
+param("rl_pool.depths", [1, 2, 3, 4, 5, 6, 7, 8], "candidate depths")
 param("rl_pool.groups", ["H", "L", "mixed"], "candidate groups")
-param("rl_pool.per_cell", 1200, "candidates per (depth, group) cell")
-param("rl_pool.extra_cells", [{"depth": 2, "group": "L", "n": 4000}, {"depth": 4, "group": "H", "n": 4000}],
+param("rl_pool.per_cell", 1000, "candidates per (depth, group) cell")
+param("rl_pool.extra_cells", [{"depth": 2, "group": "L", "n": 4000}, {"depth": 4, "group": "H", "n": 4000},
+                              {"depth": 5, "group": "H", "n": 4000}],
       "oversampled cells (origin=extra) for the matched-p datasets")
 
 # =============================================================================
 # Model (P)
 # =============================================================================
-param("model.n_layer", 4, "transformer layers", code="P1", priority=FROZEN, levels=(2, 4, 6))
-param("model.d_model", 256, "hidden size", code="P1", priority=FROZEN)
-param("model.n_head", 4, "attention heads", code="P1", priority=FROZEN)
-param("model.d_ff", 1024, "FFN size", code="P1", priority=FROZEN)
-param("model.max_len", 256, "max sequence length", priority=FROZEN)
+param("model.n_layer", 12, "transformer layers", code="P1", priority=FROZEN, levels=(6, 12, 24))
+param("model.d_model", 768, "hidden size", code="P1", priority=FROZEN, levels=(384, 768, 1024))
+param("model.n_head", 12, "attention heads (head_dim = d_model / n_head)", code="P1", priority=FROZEN)
+param("model.d_ff", 2048, "SwiGLU FFN size", code="P1", priority=FROZEN)
+param("model.max_len", 512, "max position (depth 8, length 10 is ~290 tokens; + pos offset)", priority=FROZEN)
+param("model.attn_impl", "sdpa", "HF attention implementation", choices=("sdpa", "eager", "flash_attention_2"))
 param("model.pos", "rope", "position encoding", code="P2", priority=FROZEN, choices=("rope",))
 
 # =============================================================================
 # Pretraining (P)
 # =============================================================================
 param("pretrain.level", "mid", "base-model name tag: pt-{level}-s{seed}")
-param("pretrain.n_atom_per_func", 5000, "unique depth-1 problems per function", code="P3", priority=FROZEN)
-param("pretrain.n_comp", 20000, "unique composition examples (model strength)", code="P4", priority=CORE,
-      levels=(2000, 20000, 200000))
-param("pretrain.comp_repeat", 1, "times each composition appears in the corpus")
-param("pretrain.min_comp_depth", 2, "smallest composition depth")
-param("pretrain.max_comp_depth", 2, "largest composition depth", code="P5", priority=OPTIONAL, levels=(2, 3))
-param("pretrain.h_ratio", 0.9, "fraction of compositions using only H functions", code="P6", priority=CORE,
-      levels=(0.5, 0.9))
+# Corpus: streamed and never repeated (rlvr.stream). Shares are of supervised (target) tokens.
+param("pretrain.comp_frac", 0.01, "share of supervised tokens from composition examples (model strength)",
+      code="P4", priority=CORE, levels=(0.001, 0.01, 0.1))
+param("pretrain.comp_depth_mix", {2: 0.6, 3: 0.35, 4: 0.05},
+      "composition depth -> share of composition examples", code="P5", priority=OPTIONAL)
+param("pretrain.h_only_depths", [4], "composition depths that use only H functions", code="P5b", priority=FROZEN)
+param("pretrain.h_ratio", 0.9, "fraction of the other compositions using only H functions", code="P6",
+      priority=CORE, levels=(0.5, 0.9))
 param("pretrain.noise_frac", 0.0, "fraction of compositions with one corrupted step", code="P10",
       priority=OPTIONAL, levels=(0.0, 0.1))
-param("pretrain.total_target_tokens", 64_000_000, "supervised-token budget, equal across levels")
-param("pretrain.steps", 10_000, "optimizer steps", code="P9", priority=OPTIONAL)
-param("pretrain.batch_size", 256, "sequences per step")
-param("pretrain.lr", 1e-3, "peak learning rate (AdamW, cosine)")
-param("pretrain.warmup_frac", 0.05, "warmup fraction")
-param("pretrain.eval_every", 1000, "greedy eval on E1-E4 + checkpoint every N steps")
+param("pretrain.pos_offset_max", 128, "random start position in [0, max] per example (0 = off)", code="P2b",
+      priority=OPTIONAL, levels=(0, 128))
+# Optimisation. Batches are length-bucketed and filled to a supervised-token budget, so
+# every level sees the same supervised tokens per step and in total.
+param("pretrain.steps", 9_500, "optimizer steps; ~63 min on 4 idle A100s (0.40 s/step), re-check with --bench", code="P9",
+      priority=OPTIONAL)
+param("pretrain.target_tokens_per_step", 192_000, "global supervised tokens per optimizer step (~270k total)")
+param("pretrain.micro_target_tokens", 6_000,
+      "supervised tokens per micro-batch per GPU (memory knob: ~1 GB per 1k eager, less compiled)")
+param("pretrain.bucket_examples", 20_000, "examples sorted by length together when forming micro-batches")
+param("pretrain.num_workers", 4, "data-generation worker processes per GPU")
+param("pretrain.lr", 6e-4, "peak learning rate (AdamW, cosine)")
+param("pretrain.min_lr_frac", 0.1, "final learning rate as a fraction of the peak")
+param("pretrain.warmup_frac", 0.02, "warmup fraction")
+param("pretrain.weight_decay", 0.1, "AdamW weight decay (not on norms/biases)")
+param("pretrain.grad_clip", 1.0, "gradient-norm clip")
+param("pretrain.compile", True, "torch.compile the model")
+param("pretrain.target_minutes", 60, "--bench suggests steps so training alone takes this long")
+param("pretrain.save_at", [0.25, 0.5], "fractions of training with an extra checkpoint (P9; final always saved)")
+param("pretrain.eval_every", 2000, "greedy eval interval (steps; rank 0 only)")
+param("pretrain.log_every", 50, "metrics.jsonl interval (steps)")
+param("pretrain.eval_sets", ["E1", "E2", "E3", "E4", "probe"], "eval sets scored during pretraining")
+
+# =============================================================================
+# Shared evaluation / generation settings
+# =============================================================================
+param("eval.max_new_tokens", 256, "max completion length at eval (depth 8, length 10 needs ~240)")
+param("eval.batch_size", 256, "prompts per greedy generate() batch (256 -> ~6 GB)")
+
+# =============================================================================
+# Calibration and gate check after pretraining (doc: 门槛检查)
+# =============================================================================
+param("gate.depth1_greedy", 0.98, "min greedy accuracy on E1 (depth 1), overall and per function")
+param("gate.p_range", [0.4, 0.6], "p range of the matched-p datasets (inclusive)")
+param("gate.min_matched", 300, "min problems with p in p_range in each matched cell")
+param("gate.matched_cells", [{"depth": 2, "group": "L"}, {"depth": 4, "group": "H"}],
+      "RL-pool cells that need enough p~0.5 problems (shallow L, deep H)")
+param("gate.spread_depths", [2, 3, 4, 5], "depths whose calib p must not be all 0 or all 1")
+param("gate.min_spread_frac", 0.2, "min fraction of calib problems with 0 < p_hat < 1 at each spread depth")
+param("gate.min_final_loss", 1e-4, "final pretraining loss below this means the task is still too easy")
 
 # =============================================================================
 # Difficulty labelling (D10)
 # =============================================================================
 param("label.k", 32, "samples per problem for p_hat", code="D10", priority=FROZEN)
 param("label.temperature", 1.0, "sampling temperature for labelling")
-param("label.batch_size", 512, "problems per generate() batch")
+param("label.batch_size", 16, "problems per generate() batch (x k sequences; 16 x 16 -> ~6 GB)")
 
 # =============================================================================
 # RL data (D) - dataset composition itself lives in configs/datasets/*.yaml
@@ -190,11 +241,12 @@ param("data.p_ema", 0.9, "EMA factor of the online per-problem p(t)")
 # =============================================================================
 param("rl.group_size", 8, "rollouts per prompt G", code="R1", priority=CORE, levels=(4, 8, 32))
 param("rl.prompts_per_step", 64, "prompts per step B", code="R2", priority=FROZEN)
-param("rl.lr", 3e-5, "constant learning rate", code="R3", priority=OPTIONAL, levels=(1e-5, 3e-5, 1e-4))
+param("rl.lr", 1e-5, "constant learning rate", code="R3", priority=OPTIONAL, levels=(3e-6, 1e-5, 3e-5))
 param("rl.warmup_steps", 10, "linear warmup steps")
 param("rl.steps", 500, "training steps (total rollouts = steps x B x G)", code="R4", priority=FROZEN)
 param("rl.temperature", 1.0, "rollout temperature", code="R5", priority=OPTIONAL, levels=(0.7, 1.0))
-param("rl.max_new_tokens", 128, "max completion length (depth 6 needs ~111)", code="R6", priority=FROZEN)
+param("rl.max_new_tokens", 256, "max completion length (depth 8, length 10 needs ~240)", code="R6",
+      priority=FROZEN)
 param("rl.adv_std_norm", True, "divide advantages by group std (False = Dr.GRPO)", code="R7",
       priority=OPTIONAL, levels=(True, False))
 param("rl.loss_agg", "token", "loss aggregation", code="R8", priority=FROZEN, choices=("token", "sequence"))

@@ -1,4 +1,5 @@
-# Base model 'mid'. Everything else: defaults in rlvr/params.py
+# Base model 'mid'. Everything else: defaults in rlvr/params.py.
+# comp_frac is a starting guess; set it from the pilot sweep (scripts/sweep.py).
 pretrain:
   level: mid
-  n_comp: 20000
+  comp_frac: 0.01

@@ -17,21 +17,25 @@ def stratified_set(splits: Splits, pool: str, depths, groups, per_cell: int,
                    by_function: bool = False) -> list[Problem]:
     """per_cell problems per (depth, group) cell, unique and not in `exclude`
     (which is updated in place so successive sets stay disjoint).
-    by_function (depth 1 only): per_cell problems per function in the group."""
+    by_function (depth 1 only): per_cell problems per function in the group.
+    Input lengths cycle through task.str_lens, so every cell is balanced over length."""
     task = splits.task
+    lens = task.str_lens
     out = []
     for depth, group in cells_for(depths, groups):
         if by_function:
             assert depth == 1
             funcs = task.H if group == "H" else task.L if group == "L" else range(task.n_funcs)
             for f in funcs:
-                for _ in range(per_cell):
-                    p = splits.sample(pool, 1, rng, func_pool=[f], exclude=exclude)
+                for i in range(per_cell):
+                    p = splits.sample(pool, 1, rng, func_pool=[f], exclude=exclude,
+                                      str_len=lens[i % len(lens)])
                     exclude.add(p.pid)
                     out.append(p)
             continue
-        for _ in range(per_cell):
-            p = splits.sample(pool, depth, rng, group=group, novel=novel, exclude=exclude)
+        for i in range(per_cell):
+            p = splits.sample(pool, depth, rng, group=group, novel=novel, exclude=exclude,
+                              str_len=lens[i % len(lens)])
             exclude.add(p.pid)
             out.append(p)
     return out

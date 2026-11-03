@@ -1,0 +1,98 @@
+{
+ "version": "v2",
+ "sets": {
+  "E1": {
+   "n": 1200,
+   "depths": [
+    1
+   ],
+   "groups": [
+    "H",
+    "L"
+   ],
+   "per_cell": 50,
+   "by_function": true
+  },
+  "E2": {
+   "n": 1800,
+   "depths": [
+    2,
+    3,
+    4,
+    5
+   ],
+   "groups": [
+    "H",
+    "L",
+    "mixed"
+   ],
+   "per_cell": 150
+  },
+  "E3": {
+   "n": 900,
+   "depths": [
+    6,
+    7,
+    8
+   ],
+   "groups": [
+    "H",
+    "L",
+    "mixed"
+   ],
+   "per_cell": 100
+  },
+  "E4": {
+   "n": 800,
+   "depths": [
+    2,
+    3,
+    4,
+    5
+   ],
+   "groups": [
+    null
+   ],
+   "per_cell": 200,
+   "novel": true
+  },
+  "probe": {
+   "n": 575,
+   "depths": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "groups": [
+    "H",
+    "L",
+    "mixed"
+   ],
+   "per_cell": 25
+  },
+  "calib": {
+   "n": 4600,
+   "depths": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "groups": [
+    "H",
+    "L",
+    "mixed"
+   ],
+   "per_cell": 200
+  }
+ }
+}

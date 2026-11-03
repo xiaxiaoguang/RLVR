@@ -1,0 +1,8 @@
+# Pilot sweep (scripts/sweep.py): same model, one GPU, ~4% of the full token budget.
+# The sweep overrides pretrain.level, comp_frac and pos_offset_max per run.
+base: mid.yaml
+pretrain:
+  steps: 400
+  eval_every: 200
+  save_at: []
+  eval_sets: [E1, E2, E3]

@@ -2,108 +2,112 @@
  {
   "id": 0,
   "name": "F00",
-  "function": "complement",
-  "spec": "complement",
+  "function": "max_to_front",
+  "spec": "max_to_front",
   "group": "H",
-  "example": "cajfb -> hjaei"
+  "example": "abcdef -> fabcde"
  },
  {
   "id": 1,
   "name": "F01",
-  "function": "shift_m1",
-  "spec": {
-   "name": "shift",
-   "k": -1
-  },
+  "function": "mirror_first_half",
+  "spec": "mirror_first_half",
   "group": "L",
-  "example": "cajfb -> bjiea"
+  "example": "abcdef -> abccba"
  },
  {
   "id": 2,
   "name": "F02",
-  "function": "shift_p1",
+  "function": "sort_desc",
   "spec": {
-   "name": "shift",
-   "k": 1
+   "name": "sort",
+   "descending": true
   },
-  "group": "H",
-  "example": "cajfb -> dbagc"
+  "group": "L",
+  "example": "abcdef -> fedcba"
  },
  {
   "id": 3,
   "name": "F03",
-  "function": "shift_p3",
-  "spec": {
-   "name": "shift",
-   "k": 3
-  },
-  "group": "L",
-  "example": "cajfb -> fdcie"
- },
- {
-  "id": 4,
-  "name": "F04",
-  "function": "mirror_first_half",
-  "spec": "mirror_first_half",
-  "group": "L",
-  "example": "cajfb -> cajac"
- },
- {
-  "id": 5,
-  "name": "F05",
-  "function": "rotr1",
-  "spec": {
-   "name": "rotate",
-   "k": -1
-  },
-  "group": "L",
-  "example": "cajfb -> bcajf"
- },
- {
-  "id": 6,
-  "name": "F06",
-  "function": "rotl1",
-  "spec": {
-   "name": "rotate",
-   "k": 1
-  },
-  "group": "H",
-  "example": "cajfb -> ajfbc"
- },
- {
-  "id": 7,
-  "name": "F07",
-  "function": "swap_halves",
-  "spec": "swap_halves",
-  "group": "H",
-  "example": "cajfb -> fbjca"
- },
- {
-  "id": 8,
-  "name": "F08",
-  "function": "max_to_front",
-  "spec": "max_to_front",
-  "group": "L",
-  "example": "cajfb -> jcafb"
- },
- {
-  "id": 9,
-  "name": "F09",
   "function": "rotl2",
   "spec": {
    "name": "rotate",
    "k": 2
   },
   "group": "L",
-  "example": "cajfb -> jfbca"
+  "example": "abcdef -> cdefab"
+ },
+ {
+  "id": 4,
+  "name": "F04",
+  "function": "odd_pos_m1",
+  "spec": {
+   "name": "shift_at",
+   "k": -1,
+   "parity": 1
+  },
+  "group": "L",
+  "example": "abcdef -> aaccee"
+ },
+ {
+  "id": 5,
+  "name": "F05",
+  "function": "rotl3",
+  "spec": {
+   "name": "rotate",
+   "k": 3
+  },
+  "group": "L",
+  "example": "abcdef -> defabc"
+ },
+ {
+  "id": 6,
+  "name": "F06",
+  "function": "shift_p1",
+  "spec": {
+   "name": "shift",
+   "k": 1
+  },
+  "group": "H",
+  "example": "abcdef -> bcdefg"
+ },
+ {
+  "id": 7,
+  "name": "F07",
+  "function": "sort_first_half",
+  "spec": {
+   "name": "sort_half",
+   "first": true
+  },
+  "group": "H",
+  "example": "abcdef -> abcdef"
+ },
+ {
+  "id": 8,
+  "name": "F08",
+  "function": "complement",
+  "spec": "complement",
+  "group": "H",
+  "example": "abcdef -> zyxwvu"
+ },
+ {
+  "id": 9,
+  "name": "F09",
+  "function": "rotr1",
+  "spec": {
+   "name": "rotate",
+   "k": -1
+  },
+  "group": "L",
+  "example": "abcdef -> fabcde"
  },
  {
   "id": 10,
   "name": "F10",
-  "function": "swap_ends",
-  "spec": "swap_ends",
-  "group": "L",
-  "example": "cajfb -> bajfc"
+  "function": "riffle",
+  "spec": "riffle",
+  "group": "H",
+  "example": "abcdef -> adbecf"
  },
  {
   "id": 11,
@@ -111,38 +115,117 @@
   "function": "swap_adjacent",
   "spec": "swap_adjacent",
   "group": "H",
-  "example": "cajfb -> acfjb"
+  "example": "abcdef -> badcfe"
  },
  {
   "id": 12,
   "name": "F12",
-  "function": "sort_desc",
+  "function": "shift_p5",
   "spec": {
-   "name": "sort",
-   "descending": true
+   "name": "shift",
+   "k": 5
   },
   "group": "L",
-  "example": "cajfb -> jfcba"
+  "example": "abcdef -> fghijk"
  },
  {
   "id": 13,
   "name": "F13",
-  "function": "reverse",
-  "spec": "reverse",
-  "group": "H",
-  "example": "cajfb -> bfjac"
+  "function": "reverse_first_half",
+  "spec": {
+   "name": "reverse_half",
+   "first": true
+  },
+  "group": "L",
+  "example": "abcdef -> cbadef"
  },
  {
   "id": 14,
   "name": "F14",
-  "function": "sort_asc",
-  "spec": "sort",
+  "function": "rotl1",
+  "spec": {
+   "name": "rotate",
+   "k": 1
+  },
   "group": "H",
-  "example": "cajfb -> abcfj"
+  "example": "abcdef -> bcdefa"
  },
  {
   "id": 15,
   "name": "F15",
+  "function": "shift_by_pos",
+  "spec": {
+   "name": "shift_by_pos",
+   "k": 1
+  },
+  "group": "H",
+  "example": "abcdef -> acegik"
+ },
+ {
+  "id": 16,
+  "name": "F16",
+  "function": "swap_ends",
+  "spec": "swap_ends",
+  "group": "L",
+  "example": "abcdef -> fbcdea"
+ },
+ {
+  "id": 17,
+  "name": "F17",
+  "function": "min_to_back",
+  "spec": "min_to_back",
+  "group": "L",
+  "example": "abcdef -> bcdefa"
+ },
+ {
+  "id": 18,
+  "name": "F18",
+  "function": "shift_m1",
+  "spec": {
+   "name": "shift",
+   "k": -1
+  },
+  "group": "L",
+  "example": "abcdef -> zabcde"
+ },
+ {
+  "id": 19,
+  "name": "F19",
+  "function": "swap_halves",
+  "spec": "swap_halves",
+  "group": "H",
+  "example": "abcdef -> defabc"
+ },
+ {
+  "id": 20,
+  "name": "F20",
+  "function": "sort_asc",
+  "spec": "sort",
+  "group": "H",
+  "example": "abcdef -> abcdef"
+ },
+ {
+  "id": 21,
+  "name": "F21",
+  "function": "shift_p3",
+  "spec": {
+   "name": "shift",
+   "k": 3
+  },
+  "group": "L",
+  "example": "abcdef -> defghi"
+ },
+ {
+  "id": 22,
+  "name": "F22",
+  "function": "reverse",
+  "spec": "reverse",
+  "group": "H",
+  "example": "abcdef -> fedcba"
+ },
+ {
+  "id": 23,
+  "name": "F23",
   "function": "even_pos_p1",
   "spec": {
    "name": "shift_at",
@@ -150,6 +233,6 @@
    "parity": 0
   },
   "group": "H",
-  "example": "cajfb -> daafc"
+  "example": "abcdef -> bbddff"
  }
 ]

@@ -1,6 +1,7 @@
 """Character-level tokenizer (frozen after week 1).
 
-Vocab: <pad> <bos> <eos>, then a-j, F, 0-9, ( ) = ; :, Q, A, newline.
+Vocab: <pad> <bos> <eos>, then the alphabet (default a-z), F, 0-9, ( ) = ; :, Q, A, newline
+(48 tokens for a-z).
 """
 from __future__ import annotations
 
@@ -13,7 +14,7 @@ IGNORE_INDEX = -100
 
 
 class CharTokenizer:
-    def __init__(self, alphabet: str = "abcdefghij"):
+    def __init__(self, alphabet: str = "abcdefghijklmnopqrstuvwxyz"):
         chars = list(alphabet) + ["F"] + list("0123456789") + list("()=;:") + ["Q", "A", "\n"]
         assert len(set(chars)) == len(chars), "alphabet clashes with syntax chars"
         self.alphabet = alphabet

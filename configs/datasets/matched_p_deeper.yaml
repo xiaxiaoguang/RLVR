@@ -1,0 +1,9 @@
+# E': deeper than any pretraining composition, high-exposure functions, p ~ 0.5 (optional)
+name: matched_p_deeper
+model_id: pt-mid-s0
+n: 500
+seed: 0
+cells:
+  - {depth: 5, group: H, p_bin: "0.4-0.6", frac: 1.0}
+pool_origin: [base, extra]
+match_covariates: [str_len]

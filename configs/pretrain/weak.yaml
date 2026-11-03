@@ -1,4 +1,5 @@
-# Base model 'weak'. Everything else: defaults in rlvr/params.py
+# Base model 'weak'. Everything else: defaults in rlvr/params.py.
+# comp_frac is a starting guess; set it from the pilot sweep (scripts/sweep.py).
 pretrain:
   level: weak
-  n_comp: 2000
+  comp_frac: 0.001

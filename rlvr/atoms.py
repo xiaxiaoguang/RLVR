@@ -52,6 +52,29 @@ def swap_halves():
     return f
 
 
+@ATOMS.register()
+def reverse_half(first: bool = True):
+    """Reverse only the first (or last) floor(n/2) chars; an odd middle stays."""
+    def f(s, A):
+        n, h = len(s), len(s) // 2
+        return s[:h][::-1] + s[h:] if first else s[:n - h] + s[n - h:][::-1]
+    return f
+
+
+@ATOMS.register()
+def riffle():
+    """Interleave the first ceil(n/2) chars with the rest: a0 b0 a1 b1 ..."""
+    def f(s, A):
+        h = (len(s) + 1) // 2
+        out = []
+        for i in range(h):
+            out.append(s[i])
+            if h + i < len(s):
+                out.append(s[h + i])
+        return out
+    return f
+
+
 # ---- character transforms --------------------------------------------------
 
 @ATOMS.register()
@@ -62,7 +85,7 @@ def shift(k: int = 1):
 
 @ATOMS.register()
 def complement():
-    """a<->j, b<->i, ..."""
+    """Mirror the alphabet: first<->last, second<->second-to-last, ..."""
     return lambda s, A: [A - 1 - c for c in s]
 
 
@@ -72,11 +95,28 @@ def shift_at(k: int = 1, parity: int = 0):
     return lambda s, A: [(c + k) % A if i % 2 == parity else c for i, c in enumerate(s)]
 
 
+@ATOMS.register()
+def shift_by_pos(k: int = 1):
+    """Add k * i to the char at position i, cyclically."""
+    return lambda s, A: [(c + k * i) % A for i, c in enumerate(s)]
+
+
 # ---- sorting -----------------------------------------------------------------
 
 @ATOMS.register()
 def sort(descending: bool = False):
     return lambda s, A: sorted(s, reverse=descending)
+
+
+@ATOMS.register()
+def sort_half(first: bool = True, descending: bool = False):
+    """Sort only the first (or last) floor(n/2) chars; the rest stays in place."""
+    def f(s, A):
+        n, h = len(s), len(s) // 2
+        if first:
+            return sorted(s[:h], reverse=descending) + s[h:]
+        return s[:n - h] + sorted(s[n - h:], reverse=descending)
+    return f
 
 
 # ---- conditional transforms ------------------------------------------------

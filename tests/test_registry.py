@@ -45,16 +45,20 @@ def test_parameterized_atoms():
 
 def test_config_defaults_and_overrides():
     cfg = load_config()
-    assert cfg["pretrain"]["n_comp"] == PARAMS.get("pretrain.n_comp").default
+    assert cfg["pretrain"]["comp_frac"] == PARAMS.get("pretrain.comp_frac").default
     cfg = load_config("configs/pretrain/weak.yaml", ["pretrain.h_ratio=0.5", "task.str_len=[4,5,6]"])
-    assert cfg["pretrain"]["n_comp"] == 2000 and cfg["pretrain"]["h_ratio"] == 0.5
+    assert cfg["pretrain"]["comp_frac"] == 0.001 and cfg["pretrain"]["h_ratio"] == 0.5
     assert cfg["task"]["str_len"] == [4, 5, 6]
-    assert PARAMS_DEFAULTS["pretrain"]["n_comp"] == 20000, "defaults must not be mutated"
+    assert PARAMS_DEFAULTS["pretrain"]["comp_frac"] == 0.01, "defaults must not be mutated"
+    mb = load_config("configs/pretrain/midbal.yaml")["pretrain"]
+    assert mb["level"] == "midbal" and mb["h_ratio"] == 0.5 and mb["comp_frac"] == 0.01, "base: inheritance"
+    cfg = load_config(None, ["pretrain.comp_depth_mix={2: 0.5, 3: 0.5}"])
+    assert cfg["pretrain"]["comp_depth_mix"] == {2: 0.5, 3: 0.5}, "dict params are replaced whole"
 
 
 def test_config_validation():
-    msg = raises(ValueError, load_config, None, ["pretrain.n_compp=3"])
-    assert "unknown config key 'pretrain.n_compp'" in msg and "pretrain.n_comp" in msg
+    msg = raises(ValueError, load_config, None, ["pretrain.comp_fracc=3"])
+    assert "unknown config key 'pretrain.comp_fracc'" in msg and "pretrain.comp_frac" in msg
     assert "expected int" in raises(ValueError, load_config, None, ["rl.group_size=8.5"])
     assert "expected int" in raises(ValueError, load_config, None, ["rl.group_size=true"])
     assert "not in" in raises(ValueError, load_config, None, ["rl.reward=nope"])

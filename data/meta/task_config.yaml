@@ -1,9 +1,14 @@
 task:
-  alphabet: abcdefghij
-  str_len: 5
+  alphabet: abcdefghijklmnopqrstuvwxyz
+  str_len:
+  - 6
+  - 7
+  - 8
+  - 9
+  - 10
   name_seed: 12345
   cot: true
-  max_depth: 6
+  max_depth: 8
   functions:
     reverse: reverse
     rotl1:
@@ -38,15 +43,40 @@ task:
       parity: 0
     max_to_front: max_to_front
     mirror_first_half: mirror_first_half
+    rotl3:
+      name: rotate
+      k: 3
+    reverse_first_half:
+      name: reverse_half
+      first: true
+    riffle: riffle
+    shift_p5:
+      name: shift
+      k: 5
+    shift_by_pos:
+      name: shift_by_pos
+      k: 1
+    sort_first_half:
+      name: sort_half
+      first: true
+    odd_pos_m1:
+      name: shift_at
+      k: -1
+      parity: 1
+    min_to_back: min_to_back
   h_group:
   - reverse
   - rotl1
   - swap_adjacent
   - swap_halves
+  - riffle
   - shift_p1
   - complement
+  - shift_by_pos
   - sort_asc
+  - sort_first_half
   - even_pos_p1
+  - max_to_front
 splits:
   salt: rlvr-split-v1
   pools:
@@ -60,4 +90,4 @@ splits:
     - 950
     - 1000
   heldout_seed: 777
-  heldout_pairs_per_group_pair: 4
+  heldout_pairs_per_group_pair: 6

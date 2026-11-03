@@ -1,13 +1,14 @@
 """String function-composition task: problem generation, formatting, parsing, reward.
 
 A problem applies `depth` length-preserving atomic functions to an input string,
-innermost first. Function display names are F00-F15; the name -> function
+innermost first. Function display names are F00-F23 (one per entry of
+task.functions); the name -> function
 mapping is shuffled with a fixed seed so the model cannot infer behaviour from
 the name.
 
-    Q:F03(F11(F07(abcde)))=
-    F07(abcde)=bcdef;F11(bcdef)=fedcb;F03(fedcb)=gfedc;
-    A:gfedc<eos>
+    Q:F03(F11(F07(abcdefgh)))=
+    F07(abcdefgh)=bcdefghi;F11(bcdefghi)=ihgfedcb;F03(ihgfedcb)=jihgfedc;
+    A:jihgfedc<eos>
 """
 from __future__ import annotations
 

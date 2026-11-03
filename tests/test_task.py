@@ -20,22 +20,32 @@ def by_name(name):
 
 def test_atoms():
     cases = {
-        "reverse": "edcba", "rotl1": "bcdea", "rotr1": "eabcd", "rotl2": "cdeab",
-        "swap_adjacent": "badce", "swap_ends": "ebcda", "swap_halves": "decab",
-        "shift_p1": "bcdef", "shift_m1": "jabcd", "shift_p3": "defgh",
-        "complement": "jihgf", "sort_asc": "abcde", "sort_desc": "edcba",
-        "even_pos_p1": "bbddf", "max_to_front": "eabcd", "mirror_first_half": "abcba",
+        "reverse": "hgfedcba", "rotl1": "bcdefgha", "rotr1": "habcdefg", "rotl2": "cdefghab",
+        "rotl3": "defghabc", "swap_adjacent": "badcfehg", "swap_ends": "hbcdefga",
+        "swap_halves": "efghabcd", "reverse_first_half": "dcbaefgh", "riffle": "aebfcgdh",
+        "shift_p1": "bcdefghi", "shift_m1": "zabcdefg", "shift_p3": "defghijk", "shift_p5": "fghijklm",
+        "complement": "zyxwvuts", "shift_by_pos": "acegikmo",
+        "sort_asc": "abcdefgh", "sort_desc": "hgfedcba", "sort_first_half": "abcdefgh",
+        "even_pos_p1": "bbddffhh", "odd_pos_m1": "aacceegg",
+        "max_to_front": "habcdefg", "min_to_back": "bcdefgha", "mirror_first_half": "abcddcba",
     }
+    assert sorted(cases) == sorted(CFG["task"]["functions"]), "every function has a case"
     for name, want in cases.items():
-        assert TASK.apply(by_name(name), "abcde") == want, name
-    assert TASK.apply(by_name("max_to_front"), "cajfb") == "jcafb"
-    assert TASK.apply(by_name("shift_p3"), "hij") == "abc"
-    assert TASK.apply(by_name("swap_halves"), "abcdef") == "defabc"
+        assert TASK.apply(by_name(name), "abcdefgh") == want, name
+    # odd lengths, wrap-around, and inputs where sorting / max / min matter
+    odd = {"swap_halves": ("abcde", "decab"), "riffle": ("abcde", "adbec"),
+           "reverse_first_half": ("abcde", "bacde"), "sort_first_half": ("edcba", "decba"),
+           "mirror_first_half": ("abcde", "abcba"), "shift_m1": ("abc", "zab"), "shift_p5": ("xyz", "cde"),
+           "shift_by_pos": ("zzz", "zab"), "complement": ("amz", "zna"),
+           "sort_asc": ("dbca", "abcd"), "sort_desc": ("dbca", "dcba"),
+           "max_to_front": ("cajfb", "jcafb"), "min_to_back": ("cajfb", "cjfba")}
+    for name, (x, want) in odd.items():
+        assert TASK.apply(by_name(name), x) == want, name
 
 
 def test_length_preserving_all_lengths():
     rng = random.Random(0)
-    for n in range(1, 9):
+    for n in range(1, 13):
         for _ in range(50):
             x = TASK.sample_x(rng, n)
             for f in range(TASK.n_funcs):
@@ -45,7 +55,7 @@ def test_length_preserving_all_lengths():
 def test_name_shuffle_and_groups():
     assert sorted(TASK.id2name) == sorted(CFG["task"]["functions"])
     assert TASK.id2name != list(CFG["task"]["functions"]), "names should be shuffled"
-    assert len(TASK.H) == len(TASK.L) == 8
+    assert TASK.n_funcs == 24 and len(TASK.H) == len(TASK.L) == 12
     assert Task(CFG["task"]).id2name == TASK.id2name, "shuffle must be deterministic"
 
 
@@ -77,19 +87,19 @@ def test_pid_and_group():
 
 def test_tokenizer():
     tok = CharTokenizer()
-    assert tok.vocab_size == 32
-    p = TASK.sample_problem(6, random.Random(1))
+    assert tok.vocab_size == 48
+    p = TASK.sample_problem(TASK.max_depth, random.Random(1), str_len=max(TASK.str_lens))
     ids, labels = tok.encode_example(TASK.format_prompt(p), TASK.format_target(p))
     assert ids[0] == tok.bos_id and ids[-1] == tok.eos_id
     n_prompt = len(tok.encode(TASK.format_prompt(p), add_bos=True))
     assert labels[:n_prompt] == [IGNORE_INDEX] * n_prompt and labels[n_prompt:] == ids[n_prompt:]
     assert tok.decode(ids) == "<bos>" + TASK.format_prompt(p) + TASK.format_target(p)
-    assert len(ids) <= 256
+    assert len(ids) <= CFG["model"]["max_len"] - CFG["pretrain"]["pos_offset_max"]
 
 
 def test_splits():
     rng = random.Random(0)
-    assert len(SPLITS.heldout_pairs) == 16
+    assert len(SPLITS.heldout_pairs) == 4 * CFG["splits"]["heldout_pairs_per_group_pair"] == 24
     for pool in ("pretrain", "rl", "eval"):
         for d in (1, 2, 4):
             p = SPLITS.sample(pool, d, rng)

@@ -1,0 +1,5 @@
+# Base model 'mid-bal': mid with balanced H/L exposure among compositions (P6).
+base: mid.yaml
+pretrain:
+  level: midbal
+  h_ratio: 0.5

@@ -1,8 +1,29 @@
+# Generated artifacts (regenerate or copy separately; see README)
 data/pretrain/
 data/labels/
 runs/
 checkpoints/
+RLVR.md
+
+# Python / tooling caches
 __pycache__/
 *.pyc
 *.egg-info/
-RLVR.md
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+torchinductor_*/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Logs and stray outputs
+*.log
+nohup.out
+wandb/
+core.*

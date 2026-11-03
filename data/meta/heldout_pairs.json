@@ -1,114 +1,170 @@
 [
  {
   "inner": "F00",
-  "outer": "F09",
-  "inner_fn": "complement",
-  "outer_fn": "rotl2",
-  "groups": "HL"
- },
- {
-  "inner": "F01",
-  "outer": "F09",
-  "inner_fn": "shift_m1",
-  "outer_fn": "rotl2",
-  "groups": "LL"
- },
- {
-  "inner": "F01",
-  "outer": "F12",
-  "inner_fn": "shift_m1",
-  "outer_fn": "sort_desc",
-  "groups": "LL"
- },
- {
-  "inner": "F03",
-  "outer": "F14",
-  "inner_fn": "shift_p3",
-  "outer_fn": "sort_asc",
-  "groups": "LH"
- },
- {
-  "inner": "F03",
-  "outer": "F15",
-  "inner_fn": "shift_p3",
+  "outer": "F23",
+  "inner_fn": "max_to_front",
   "outer_fn": "even_pos_p1",
+  "groups": "HH"
+ },
+ {
+  "inner": "F01",
+  "outer": "F00",
+  "inner_fn": "mirror_first_half",
+  "outer_fn": "max_to_front",
   "groups": "LH"
+ },
+ {
+  "inner": "F02",
+  "outer": "F15",
+  "inner_fn": "sort_desc",
+  "outer_fn": "shift_by_pos",
+  "groups": "LH"
+ },
+ {
+  "inner": "F03",
+  "outer": "F07",
+  "inner_fn": "rotl2",
+  "outer_fn": "sort_first_half",
+  "groups": "LH"
+ },
+ {
+  "inner": "F03",
+  "outer": "F12",
+  "inner_fn": "rotl2",
+  "outer_fn": "shift_p5",
+  "groups": "LL"
+ },
+ {
+  "inner": "F03",
+  "outer": "F21",
+  "inner_fn": "rotl2",
+  "outer_fn": "shift_p3",
+  "groups": "LL"
  },
  {
   "inner": "F05",
-  "outer": "F01",
-  "inner_fn": "rotr1",
+  "outer": "F18",
+  "inner_fn": "rotl3",
   "outer_fn": "shift_m1",
   "groups": "LL"
  },
  {
-  "inner": "F06",
-  "outer": "F00",
+  "inner": "F07",
+  "outer": "F09",
+  "inner_fn": "sort_first_half",
+  "outer_fn": "rotr1",
+  "groups": "HL"
+ },
+ {
+  "inner": "F07",
+  "outer": "F12",
+  "inner_fn": "sort_first_half",
+  "outer_fn": "shift_p5",
+  "groups": "HL"
+ },
+ {
+  "inner": "F11",
+  "outer": "F08",
+  "inner_fn": "swap_adjacent",
+  "outer_fn": "complement",
+  "groups": "HH"
+ },
+ {
+  "inner": "F12",
+  "outer": "F03",
+  "inner_fn": "shift_p5",
+  "outer_fn": "rotl2",
+  "groups": "LL"
+ },
+ {
+  "inner": "F12",
+  "outer": "F06",
+  "inner_fn": "shift_p5",
+  "outer_fn": "shift_p1",
+  "groups": "LH"
+ },
+ {
+  "inner": "F13",
+  "outer": "F03",
+  "inner_fn": "reverse_first_half",
+  "outer_fn": "rotl2",
+  "groups": "LL"
+ },
+ {
+  "inner": "F13",
+  "outer": "F06",
+  "inner_fn": "reverse_first_half",
+  "outer_fn": "shift_p1",
+  "groups": "LH"
+ },
+ {
+  "inner": "F13",
+  "outer": "F07",
+  "inner_fn": "reverse_first_half",
+  "outer_fn": "sort_first_half",
+  "groups": "LH"
+ },
+ {
+  "inner": "F14",
+  "outer": "F02",
+  "inner_fn": "rotl1",
+  "outer_fn": "sort_desc",
+  "groups": "HL"
+ },
+ {
+  "inner": "F14",
+  "outer": "F08",
   "inner_fn": "rotl1",
   "outer_fn": "complement",
   "groups": "HH"
  },
  {
-  "inner": "F07",
-  "outer": "F06",
+  "inner": "F15",
+  "outer": "F22",
+  "inner_fn": "shift_by_pos",
+  "outer_fn": "reverse",
+  "groups": "HH"
+ },
+ {
+  "inner": "F19",
+  "outer": "F04",
+  "inner_fn": "swap_halves",
+  "outer_fn": "odd_pos_m1",
+  "groups": "HL"
+ },
+ {
+  "inner": "F19",
+  "outer": "F14",
   "inner_fn": "swap_halves",
   "outer_fn": "rotl1",
   "groups": "HH"
  },
  {
-  "inner": "F08",
-  "outer": "F11",
-  "inner_fn": "max_to_front",
-  "outer_fn": "swap_adjacent",
-  "groups": "LH"
+  "inner": "F20",
+  "outer": "F12",
+  "inner_fn": "sort_asc",
+  "outer_fn": "shift_p5",
+  "groups": "HL"
  },
  {
-  "inner": "F10",
-  "outer": "F02",
-  "inner_fn": "swap_ends",
-  "outer_fn": "shift_p1",
-  "groups": "LH"
- },
- {
-  "inner": "F10",
-  "outer": "F04",
-  "inner_fn": "swap_ends",
-  "outer_fn": "mirror_first_half",
+  "inner": "F21",
+  "outer": "F13",
+  "inner_fn": "shift_p3",
+  "outer_fn": "reverse_first_half",
   "groups": "LL"
  },
  {
-  "inner": "F11",
-  "outer": "F00",
-  "inner_fn": "swap_adjacent",
-  "outer_fn": "complement",
+  "inner": "F22",
+  "outer": "F10",
+  "inner_fn": "reverse",
+  "outer_fn": "riffle",
   "groups": "HH"
  },
  {
-  "inner": "F11",
-  "outer": "F04",
-  "inner_fn": "swap_adjacent",
-  "outer_fn": "mirror_first_half",
-  "groups": "HL"
- },
- {
-  "inner": "F13",
-  "outer": "F02",
-  "inner_fn": "reverse",
-  "outer_fn": "shift_p1",
-  "groups": "HH"
- },
- {
-  "inner": "F13",
-  "outer": "F05",
-  "inner_fn": "reverse",
-  "outer_fn": "rotr1",
-  "groups": "HL"
- },
- {
-  "inner": "F15",
-  "outer": "F03",
+  "inner": "F23",
+  "outer": "F16",
   "inner_fn": "even_pos_p1",
-  "outer_fn": "shift_p3",
+  "outer_fn": "swap_ends",
   "groups": "HL"
  }
 ]

@@ -7,4 +7,4 @@ seed: 0
 weight: learnability
 sampler: learnability
 cells:
-  - {depth: [1, 2, 3, 4], frac: 1.0}
+  - {depth: [1, 2, 3, 4, 5], frac: 1.0}

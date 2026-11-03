@@ -2,7 +2,8 @@ name: mixed_500
 n: 500
 seed: 0
 cells:
-  - {depth: 1, frac: 0.25}
-  - {depth: 2, frac: 0.25}
-  - {depth: 3, frac: 0.25}
-  - {depth: 4, frac: 0.25}
+  - {depth: 1, frac: 0.2}
+  - {depth: 2, frac: 0.2}
+  - {depth: 3, frac: 0.2}
+  - {depth: 4, frac: 0.2}
+  - {depth: 5, frac: 0.2}
