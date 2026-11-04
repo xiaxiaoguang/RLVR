@@ -7,3 +7,4 @@ cells:
   - {depth: 4, group: H, p_bin: "0.4-0.6", frac: 1.0}
 pool_origin: [base, extra]
 match_covariates: [str_len]
+p_label: relabel     # select on the independent second labelling (calibrate.py label.relabel_*)

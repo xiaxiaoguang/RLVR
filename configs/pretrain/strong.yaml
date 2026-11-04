@@ -3,3 +3,9 @@
 pretrain:
   level: strong
   comp_frac: 0.1
+# The matched-p datasets use pt-mid-s0, and strong is meant to saturate shallow depths, so
+# few p ~ 0.5 problems in d2-L and a narrow spread are expected: only the atom check is hard.
+# spread / matched_cells / target are still reported (as warnings) in gate.json.
+gate:
+  hard_checks: [depth1_greedy]
+  target: {depth: 4, p_range: [0.4, 0.6]}     # doc: strong d4 mean p ~ 0.5

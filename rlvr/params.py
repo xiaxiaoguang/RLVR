@@ -210,21 +210,40 @@ param("eval.batch_size", 256, "prompts per greedy generate() batch (256 -> ~6 GB
 # =============================================================================
 # Calibration and gate check after pretraining (doc: 门槛检查)
 # =============================================================================
-param("gate.depth1_greedy", 0.98, "min greedy accuracy on E1 (depth 1), overall and per function")
+param("gate.depth1_greedy", 0.98,
+      "min greedy accuracy on E1 (depth 1): overall, and per function via its Wilson upper bound")
+param("gate.depth1_func_z", 1.96, "z of the per-function Wilson bound (50 problems: <= 2 errors pass)")
 param("gate.p_range", [0.4, 0.6], "p range of the matched-p datasets (inclusive)")
-param("gate.min_matched", 300, "min problems with p in p_range in each matched cell")
+param("gate.min_matched", 300, "min problems with p in p_range in each matched cell (total)")
+param("gate.min_matched_per_len", 120,
+      "min problems with p in p_range per input length in each matched cell; the matched-p datasets "
+      "stratify on str_len, so n=500 over 5 lengths needs 100 each (+ margin)")
 param("gate.matched_cells", [{"depth": 2, "group": "L"}, {"depth": 4, "group": "H"}],
       "RL-pool cells that need enough p~0.5 problems (shallow L, deep H)")
 param("gate.spread_depths", [2, 3, 4, 5], "depths whose calib p must not be all 0 or all 1")
 param("gate.min_spread_frac", 0.2, "min fraction of calib problems with 0 < p_hat < 1 at each spread depth")
-param("gate.min_final_loss", 1e-4, "final pretraining loss below this means the task is still too easy")
+param("gate.loss_depths", [3], "composition depths whose final pretraining loss (loss_d*) is checked")
+param("gate.min_final_loss", 1e-3,
+      "min per-token loss at gate.loss_depths; lower means those compositions are saturated")
+param("gate.target", None, "level design target {depth, p_range: [lo, hi]} for the mean calib p (null = skip)",
+      types=(dict,))
+param("gate.hard_checks", ["depth1_greedy", "spread", "matched_cells"],
+      "checks that fail the gate (exit 1); the others are warnings. Choices: depth1_greedy, spread, "
+      "matched_cells, final_loss, target")
 
 # =============================================================================
 # Difficulty labelling (D10)
 # =============================================================================
 param("label.k", 32, "samples per problem for p_hat", code="D10", priority=FROZEN)
 param("label.temperature", 1.0, "sampling temperature for labelling")
-param("label.batch_size", 16, "problems per generate() batch (x k sequences; 16 x 16 -> ~6 GB)")
+param("label.batch_size", 16,
+      "problems per generate() batch at label.k (x k sequences; 16 x 16 -> ~6 GB); scaled down for relabel_k")
+param("label.relabel_k", 64,
+      "independent second labelling of the screened matched-cell candidates (0 = off); the matched-p "
+      "datasets select on it, which shrinks the winner's-curse bias of selecting on a noisy p_hat")
+param("label.relabel_range", [0.3, 0.7], "first-pass p_hat range screened for the second labelling")
+param("label.relabel_cells", [{"depth": 2, "group": "L"}, {"depth": 4, "group": "H"}, {"depth": 5, "group": "H"}],
+      "RL-pool cells that get the second labelling (the matched-p dataset cells)")
 
 # =============================================================================
 # RL data (D) - dataset composition itself lives in configs/datasets/*.yaml

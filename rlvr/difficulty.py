@@ -28,14 +28,14 @@ def p_bin(p: float) -> str:
 
 
 def in_p_range(p, spec) -> np.ndarray:
-    """spec: a bin name, a list of bin names, or a [lo, hi) numeric range."""
+    """spec: a bin name, a list of bin names, or an inclusive [lo, hi] numeric range. NaN is in none."""
     p = np.asarray(p, dtype=float)
     if isinstance(spec, str):
         spec = [spec]
     if len(spec) == 2 and all(isinstance(v, (int, float)) for v in spec):
         lo, hi = spec
         return (p >= lo) & (p <= hi)
-    names = np.array([p_bin(v) for v in p]) if p.size else np.array([], dtype=str)
+    names = np.array([p_bin(v) if not np.isnan(v) else "" for v in p]) if p.size else np.array([], dtype=str)
     return np.isin(names, list(spec))
 
 

@@ -3,3 +3,9 @@
 pretrain:
   level: weak
   comp_frac: 0.001
+# The matched-p datasets use pt-mid-s0, and weak is meant to be poor at depth >= 3, so few
+# p ~ 0.5 problems in d4-H and a narrow spread are expected: only the atom check is hard.
+# spread / matched_cells / target are still reported (as warnings) in gate.json.
+gate:
+  hard_checks: [depth1_greedy]
+  target: {depth: 3, p_range: [0.05, 0.2]}    # doc: weak d3 mean p ~ 0.1

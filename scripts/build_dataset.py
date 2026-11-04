@@ -16,6 +16,11 @@ Spec keys:
   sampler:         static | online_filter | learnability (consumed by GRPO, recorded only)
   pool_origin:     candidate origins to draw from; default [base] (the balanced
                    depth x group grid). Add `extra` for the oversampled cells.
+  p_label:         first (default) | relabel. Which pass-rate estimate p_bin / p_range / weight
+                   use. relabel = the independent second labelling from calibrate.py
+                   (label.relabel_*); only relabelled problems are eligible, which shrinks the
+                   winner's curse of selecting p ~ 0.5 problems on the noisy first-pass p_hat.
+                   Covariate proportions still come from the whole pool.
 
 Output: data/datasets/{name}.jsonl (structural) or data/datasets/{model_id}/{name}.jsonl
 (p-based), one problem per line, plus {name}.meta.json.
@@ -34,6 +39,7 @@ import pandas as pd  # noqa: E402
 
 from rlvr.config import load_config, load_yaml, resolve  # noqa: E402
 from rlvr.difficulty import WEIGHTS, in_p_range, p_bin  # noqa: E402
+from rlvr.gate import RELABEL_COLS  # noqa: E402
 from rlvr.io import load_frame, write_jsonl  # noqa: E402
 
 
@@ -42,8 +48,10 @@ class SpecError(RuntimeError):
 
 
 SPEC_KEYS = {"name", "n", "seed", "model_id", "cells", "match_covariates", "n_unique_combos",
-             "weight", "sampler", "pool_origin"}
+             "weight", "sampler", "pool_origin", "p_label"}
 CELL_KEYS = {"frac", "depth", "group", "p_bin", "p_range"}
+LABEL_COLS = ["pid", "p_hat", "n_correct", "k", "ci_lo", "ci_hi"]
+P_LABELS = {"first": "p_hat", "relabel": "p_hat_relabel"}
 
 
 def validate_spec(spec: dict) -> None:
@@ -55,6 +63,8 @@ def validate_spec(spec: dict) -> None:
     for k in ("name", "n", "cells"):
         if k not in spec:
             errors.append(f"missing '{k}'")
+    if spec.get("p_label", "first") not in P_LABELS:
+        errors.append(f"p_label must be one of {list(P_LABELS)}")
     if spec.get("weight") is not None:
         try:
             WEIGHTS.build(spec["weight"])
@@ -82,25 +92,25 @@ def allocate(n: int, fracs: list[float]) -> list[int]:
     return counts.tolist()
 
 
-def cell_mask(df: pd.DataFrame, cell: dict) -> np.ndarray:
+def cell_mask(df: pd.DataFrame, cell: dict, p_col: str = "p_hat") -> np.ndarray:
     m = np.ones(len(df), dtype=bool)
     if "depth" in cell:
         m &= df.depth.isin(_as_list(cell["depth"])).to_numpy()
     if "group" in cell:
         m &= df.group.isin(_as_list(cell["group"])).to_numpy()
     if "p_bin" in cell:
-        m &= in_p_range(df.p_hat, cell["p_bin"])
+        m &= in_p_range(df[p_col], cell["p_bin"])
     if "p_range" in cell:
-        m &= in_p_range(df.p_hat, cell["p_range"])
+        m &= in_p_range(df[p_col], cell["p_range"])
     return m
 
 
-def draw(sub: pd.DataFrame, k: int, rng, weight_fn) -> pd.DataFrame:
+def draw(sub: pd.DataFrame, k: int, rng, weight_fn, p_col: str = "p_hat") -> pd.DataFrame:
     if k > len(sub):
         raise SpecError(f"need {k} but only {len(sub)} candidates")
     w = None
     if weight_fn is not None:
-        w = np.asarray(weight_fn(sub.p_hat.to_numpy()), dtype=float)
+        w = np.asarray(weight_fn(sub[p_col].to_numpy()), dtype=float)
         if (w > 0).sum() < k:
             raise SpecError(f"need {k} but only {(w > 0).sum()} candidates with positive weight")
         w = w / w.sum()
@@ -110,11 +120,21 @@ def draw(sub: pd.DataFrame, k: int, rng, weight_fn) -> pd.DataFrame:
 def build(spec: dict, pool: pd.DataFrame, labels: pd.DataFrame | None) -> pd.DataFrame:
     rng = np.random.default_rng(spec.get("seed", 0))
     df = pool[pool.origin.isin(spec.get("pool_origin", ["base"]))]
+    p_col = P_LABELS[spec.get("p_label", "first")]
+    eligible = np.ones(len(df), dtype=bool)
     if labels is not None:
-        df = df.merge(labels[["pid", "p_hat", "n_correct", "k", "ci_lo", "ci_hi"]], on="pid", how="left")
+        cols = LABEL_COLS
+        if p_col != "p_hat":
+            if p_col not in labels:
+                raise SpecError(f"labels have no {p_col}; rerun calibrate.py with label.relabel_k > 0")
+            cols = cols + list(RELABEL_COLS.values())
+        df = df.merge(labels[cols], on="pid", how="left")
         if df.p_hat.isna().any():
             print(f"  warning: {df.p_hat.isna().sum()} pool problems have no label; dropped")
             df = df[df.p_hat.notna()]
+        eligible = df[p_col].notna().to_numpy()
+        if p_col != "p_hat":
+            print(f"  p_label=relabel: {eligible.sum()} relabelled candidates eligible")
     cells = spec["cells"]
     fracs = [c["frac"] for c in cells]
     if abs(sum(fracs) - 1) > 1e-6:
@@ -123,9 +143,10 @@ def build(spec: dict, pool: pd.DataFrame, labels: pd.DataFrame | None) -> pd.Dat
     counts = [None] * len(cells) if n_all else allocate(spec["n"], fracs)
     weight_fn = WEIGHTS.build(spec["weight"]) if spec.get("weight") is not None else None
     covs = spec.get("match_covariates") or []
+    ref = df.groupby(covs).size() / len(df) if covs else None  # covariate proportions of the whole pool
     parts = []
     for ci, (cell, k) in enumerate(zip(cells, counts)):
-        sub = df[cell_mask(df, cell)]
+        sub = df[cell_mask(df, cell, p_col) & eligible]
         if spec.get("n_unique_combos"):
             n_combo = max(1, round(spec["n_unique_combos"] * cell["frac"]))
             combos = sub.funcs.map(tuple)
@@ -138,17 +159,20 @@ def build(spec: dict, pool: pd.DataFrame, labels: pd.DataFrame | None) -> pd.Dat
             got = sub
         elif covs:
             # Stratify on covariates with proportions taken from the whole pool.
-            ref = df.groupby(covs).size() / len(df)
             vals = sub[covs].to_numpy()
             strata = []
             for key, kc in zip(ref.index, allocate(k, ref.tolist())):
                 if kc:
-                    m = (vals == np.array(key if isinstance(key, tuple) else [key])).all(1)
-                    strata.append(draw(sub[m], kc, rng, weight_fn))
+                    key = key if isinstance(key, tuple) else (key,)
+                    m = (vals == np.array(key)).all(1)
+                    try:
+                        strata.append(draw(sub[m], kc, rng, weight_fn, p_col))
+                    except SpecError as e:
+                        raise SpecError(f"cell {ci} {cell}, {dict(zip(covs, key))}: {e}") from None
             got = pd.concat(strata)
         else:
             try:
-                got = draw(sub, k, rng, weight_fn)
+                got = draw(sub, k, rng, weight_fn, p_col)
             except SpecError as e:
                 raise SpecError(f"cell {ci} {cell}: {e}") from None
         parts.append(got.assign(cell=ci))
@@ -168,6 +192,9 @@ def summarize(out: pd.DataFrame) -> dict:
     if "p_hat" in out:
         s["by_p_bin"] = out.p_hat.map(p_bin).value_counts().to_dict()
         s["mean_p"] = float(out.p_hat.mean())
+    if "p_hat_relabel" in out:  # the estimate the selection used; mean_p above is the first pass
+        s["by_p_bin_relabel"] = out.p_hat_relabel.map(p_bin).value_counts().to_dict()
+        s["mean_p_relabel"] = float(out.p_hat_relabel.mean())
     return s
 
 

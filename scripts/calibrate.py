@@ -9,13 +9,22 @@ Output:
   runs/{model_id}/calib/calib_labels.parquet   p_hat for the calib set (depth 1-8 x H/L/mixed x 200)
   runs/{model_id}/calib/heatmap.png            mean p_hat and signal fraction per (depth, group)
   runs/{model_id}/calib/gate.json              gate check (also printed); exit code 1 if it fails
-  data/labels/{model_id}.parquet               p_hat for the whole RL pool (+ origin), for build_dataset.py
+  data/labels/{model_id}.parquet               p_hat for the whole RL pool (+ origin), for build_dataset.py;
+                                               *_relabel columns for the second labelling (below)
 
-Gate (doc: 门槛检查):
-  1. E1 (depth 1) greedy accuracy >= gate.depth1_greedy, overall and for every function
-  2. at each gate.spread_depths depth, >= gate.min_spread_frac of calib problems have 0 < p_hat < 1
-  3. each gate.matched_cells RL-pool cell has >= gate.min_matched problems with p_hat in gate.p_range
-  4. pretraining loss at the checkpoint's step >= gate.min_final_loss (else the task is still too easy)
+Second labelling (label.relabel_*): RL-pool problems in label.relabel_cells whose first-pass
+p_hat is in label.relabel_range are labelled again with label.relabel_k independent samples.
+The matched-p datasets (p_label: relabel) and gate check 3 select on that second estimate,
+which shrinks the winner's-curse bias of selecting p ~ 0.5 problems on a noisy 32-sample p_hat.
+
+Gate (doc: 门槛检查; details in rlvr/gate.py). gate.hard_checks fail the gate (exit 1), the
+other checks are warnings:
+  1. depth1_greedy  E1 greedy accuracy >= gate.depth1_greedy overall; per function via Wilson bound
+  2. spread         at each gate.spread_depths depth, >= gate.min_spread_frac of calib 0 < p_hat < 1
+  3. matched_cells  >= gate.min_matched problems with p in gate.p_range per matched cell, and
+                    >= gate.min_matched_per_len at every input length
+  4. final_loss     composition loss at gate.loss_depths >= gate.min_final_loss (soft by default)
+  5. target         mean calib p at the level's design depth in gate.target.p_range (soft)
 """
 from __future__ import annotations
 
@@ -35,6 +44,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
+from rlvr import gate as G  # noqa: E402
 from rlvr.config import load_config, resolve  # noqa: E402
 from rlvr.evaluate import greedy_eval, label_pass_rates  # noqa: E402
 from rlvr.io import load_problems, read_jsonl  # noqa: E402
@@ -86,6 +96,7 @@ def main():
     model_id, run_name, ckpt_step = ids_for(ckpt)
     cfg = load_config(ckpt / "run_config.yaml", args.overrides)
     lc, gc, ec = cfg["label"], cfg["gate"], cfg["eval"]
+    G.check_config(gc, lc)
     task = Task(cfg["task"])
     model, tok = load_model(ckpt, args.device)
     data = resolve(cfg["paths"]["data"])
@@ -93,33 +104,26 @@ def main():
     out = resolve(cfg["paths"]["runs"]) / model_id / "calib"
     out.mkdir(parents=True, exist_ok=True)
 
-    def label(problems, **extra):
+    def label(problems, k=None, **extra):
+        k = k or lc["k"]
+        bs = max(1, lc["batch_size"] * lc["k"] // k)  # same number of sequences per batch at any k
         t = time.time()
-        df = label_pass_rates(model, tok, task, problems, lc["k"], lc["temperature"], lc["batch_size"],
+        df = label_pass_rates(model, tok, task, problems, k, lc["temperature"], bs,
                               ec["max_new_tokens"], model_id, extra)
-        print(f"labelled {len(problems)} problems x {lc['k']} in {time.time() - t:.0f}s", flush=True)
+        print(f"labelled {len(problems)} problems x {k} in {time.time() - t:.0f}s", flush=True)
         return df
 
-    gate = {"model_id": model_id, "checks": {}}
+    gate = {"model_id": model_id, "hard_checks": gc["hard_checks"], "checks": {}}
 
     # 1. depth-1 greedy accuracy
     rows = greedy_eval(model, tok, task, {"E1": load_problems(task, eval_dir / "E1.jsonl")},
                        max_new_tokens=ec["max_new_tokens"], batch_size=ec["batch_size"])
-    e1 = next(r["greedy_acc"] for r in rows if r["depth"] == "all")
-    weak_funcs = {r["func"]: round(r["greedy_acc"], 3) for r in rows
-                  if "func" in r and r["greedy_acc"] < gc["depth1_greedy"]}
-    gate["checks"]["depth1_greedy"] = {"value": e1, "min": gc["depth1_greedy"],
-                                       "pass": e1 >= gc["depth1_greedy"] and not weak_funcs,
-                                       "funcs_below_min": weak_funcs}
+    gate["checks"]["depth1_greedy"] = G.depth1_greedy(rows, gc)
 
-    # 4. pretraining loss (memorised / trivial task -> loss ~ 0)
+    # 4. composition loss at the checkpoint's step (saturated in-distribution compositions)
     metrics_path = resolve(cfg["paths"]["runs"]) / run_name / "metrics.jsonl"
-    if metrics_path.exists():
-        m = [r for r in read_jsonl(metrics_path) if ckpt_step is None or r["step"] <= ckpt_step]
-        if m:
-            gate["checks"]["final_loss"] = {"step": m[-1]["step"], "value": m[-1]["loss"],
-                                            "min": gc["min_final_loss"],
-                                            "pass": m[-1]["loss"] >= gc["min_final_loss"]}
+    if metrics_path.exists() and (fl := G.final_loss(read_jsonl(metrics_path), gc, ckpt_step)) is not None:
+        gate["checks"]["final_loss"] = fl
 
     # 2. calibration heatmap + spread over depths
     calib_rows = read_jsonl(eval_dir / "calib.jsonl")
@@ -133,35 +137,32 @@ def main():
     calib = label([task.from_dict(r) for r in calib_rows])
     calib.to_parquet(out / "calib_labels.parquet", index=False)
     heatmap(calib, f"{model_id}: p_hat at T={lc['temperature']}, k={lc['k']}", out / "heatmap.png")
-    spread = {}
-    for d in gc["spread_depths"]:
-        p = calib.p_hat[calib.depth == d]
-        spread[d] = {"mean_p": float(p.mean()), "signal_frac": float(((p > 0) & (p < 1)).mean())}
-    gate["checks"]["spread"] = {"by_depth": spread, "min_signal_frac": gc["min_spread_frac"],
-                                "pass": all(v["signal_frac"] >= gc["min_spread_frac"] for v in spread.values())}
+    gate["checks"]["spread"] = G.spread(calib, gc)
+    # 5. the level's design target (pilot sweep), e.g. weak d3 ~ 0.1
+    if (tg := G.target(calib, gc)) is not None:
+        gate["checks"]["target"] = tg
     gate["calib_mean_p"] = {f"d{d}-{g}": round(float(v), 3)
                             for (d, g), v in calib.groupby(["depth", "group"]).p_hat.mean().items()}
 
-    # 3. RL-pool labels and matched-p cells
+    # 3. RL-pool labels (+ independent second labelling of the screened matched cells) and matched-p cells
     if not args.skip_pool:
         pool_rows = read_jsonl(data / "rl_pool" / "candidates.jsonl")
-        pool = label([task.from_dict(r) for r in pool_rows], origin=[r.get("origin", "base") for r in pool_rows])
+        pool_problems = [task.from_dict(r) for r in pool_rows]
+        pool = label(pool_problems, origin=[r.get("origin", "base") for r in pool_rows])
+        mask = G.relabel_mask(pool, lc)
+        if lc["relabel_k"]:
+            again = label([p for p, m in zip(pool_problems, mask) if m], k=lc["relabel_k"]) if mask.any() else None
+            pool = G.attach_relabel(pool, mask, again)
         (data / "labels").mkdir(parents=True, exist_ok=True)
         pool.to_parquet(data / "labels" / f"{model_id}.parquet", index=False)
-        lo, hi = gc["p_range"]
-        cells = {}
-        for c in gc["matched_cells"]:
-            sel = pool[(pool.depth == c["depth"]) & (pool.group == c["group"])]
-            n = int(((sel.p_hat >= lo) & (sel.p_hat <= hi)).sum())
-            cells[f"d{c['depth']}-{c['group']}"] = {"n_in_range": n, "n_cell": len(sel),
-                                                     "mean_p": float(sel.p_hat.mean())}
-        gate["checks"]["matched_cells"] = {"p_range": [lo, hi], "min": gc["min_matched"], "cells": cells,
-                                           "pass": all(v["n_in_range"] >= gc["min_matched"] for v in cells.values())}
+        relabelled = lc["relabel_cells"] if lc["relabel_k"] else []
+        gate["checks"]["matched_cells"] = G.matched_cells(pool, gc, relabelled)
 
-    gate["pass"] = all(c["pass"] for c in gate["checks"].values())
+    gate.update(G.verdict(gate["checks"], gc["hard_checks"]))
     (out / "gate.json").write_text(json.dumps(gate, indent=1))
     print(json.dumps(gate, indent=1))
-    print(f"{model_id}: gate {'PASS' if gate['pass'] else 'FAIL'}; outputs in {out}")
+    warn = f" (warnings: {', '.join(gate['warnings'])})" if gate["warnings"] else ""
+    print(f"{model_id}: gate {'PASS' if gate['pass'] else 'FAIL'}{warn}; outputs in {out}")
     sys.exit(0 if gate["pass"] else 1)
 
 
