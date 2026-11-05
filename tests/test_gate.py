@@ -163,6 +163,23 @@ def test_matched_specs_use_relabel():
         assert spec["p_label"] == "relabel" and spec["match_covariates"] == ["str_len"]
 
 
+def test_relabel_report():
+    spec = importlib.util.spec_from_file_location("relabel_report", ROOT / "scripts" / "relabel_report.py")
+    RR = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(RR)
+    pool, labels = synthetic_pool_and_labels()
+    df = pool.merge(labels, on="pid")
+    rep = RR.report(df, [{"depth": 2, "group": "L"}, {"depth": 4, "group": "H"}], [0.4, 0.6])
+    r, first = rep["d2-L"], df[df.p_hat == 0.5]
+    assert r["n_cell"] == 1000 and r["n_relabelled"] == int(df.p_hat_relabel.notna().sum())
+    assert r["first_selected"]["n"] == len(first) and r["first_selected"]["mean_p_hat"] == 0.5
+    assert abs(r["first_selected"]["mean_p_hat_relabel"] - first.p_hat_relabel.mean()) < 1e-4
+    assert r["first_selected"]["frac_relabel_in_range"] == round(float((first.p_hat_relabel == 0.5).mean()), 4)
+    assert r["relabel_selected"]["n"] == int((df.p_hat_relabel == 0.5).sum())
+    assert sum(r["relabel_selected"]["n_by_len"].values()) == r["relabel_selected"]["n"]
+    assert rep["d4-H"]["n_cell"] == 0 and rep["d4-H"]["first_selected"]["mean_p_hat"] is None
+
+
 if __name__ == "__main__":
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]
     for fn in fns:

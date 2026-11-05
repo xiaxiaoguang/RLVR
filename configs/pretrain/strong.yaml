@@ -1,8 +1,9 @@
 # Base model 'strong'. Everything else: defaults in rlvr/params.py.
-# comp_frac is a starting guess; set it from the pilot sweep (scripts/sweep.py).
+# comp_frac from the pilot sweep (runs/sweep/summary.md, 2026-11-04): pilot d4 tops out at 0.10
+# (cf 0.1), extrapolated d4 ~0.5 at cf ~0.3; / 25 for the 25x token budget -> 0.013, rounded down.
 pretrain:
   level: strong
-  comp_frac: 0.1
+  comp_frac: 0.01
 # The matched-p datasets use pt-mid-s0, and strong is meant to saturate shallow depths, so
 # few p ~ 0.5 problems in d2-L and a narrow spread are expected: only the atom check is hard.
 # spread / matched_cells / target are still reported (as warnings) in gate.json.
