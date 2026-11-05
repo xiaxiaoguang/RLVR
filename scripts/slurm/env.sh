@@ -1,7 +1,13 @@
 # Perlmutter (NERSC) job environment, sourced by scripts/slurm/*.sbatch from the repo root.
-# Paths follow the account's storage layout: env on CFS, caches on scratch; runs/, checkpoints/
-# and data/labels/ are symlinks into $SCRATCH. Override RLVR_ENV to use another env.
-RLVR_ENV=${RLVR_ENV:-/global/cfs/cdirs/m4788/yupengsu/conda_envs/rlvr}
+# Paths follow the account's storage layout: caches on scratch; runs/, checkpoints/ and data/labels/
+# are symlinks into $SCRATCH. The env lives on scratch (Lustre, mounted natively on compute nodes):
+# compute nodes see CFS and HOME through DVS, and on 2026-11-05 a DVS hang on the then-CFS env's
+# python stalled both training jobs until NODE_FAIL. If scratch purges it, rebuild it from the repo:
+#   conda create -p $RLVR_ENV python=3.11 pip && $RLVR_ENV/bin/python -m pip install \
+#     -r requirements.lock.txt && $RLVR_ENV/bin/python -m pip install -e . --no-deps
+# (in scripts `conda` is not defined: `module load conda`, then use $CONDA_EXE). Override RLVR_ENV
+# to use another env.
+RLVR_ENV=${RLVR_ENV:-/pscratch/sd/y/yupengsu/conda_envs/rlvr}
 [ -x "$RLVR_ENV/bin/python" ] || { echo "no python in $RLVR_ENV" >&2; exit 2; }
 export PATH=$RLVR_ENV/bin:$PATH
 export PIP_CACHE_DIR=${PIP_CACHE_DIR:-/pscratch/sd/y/yupengsu/cache/pip}
