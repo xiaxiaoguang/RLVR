@@ -180,6 +180,19 @@ def test_relabel_report():
     assert rep["d4-H"]["n_cell"] == 0 and rep["d4-H"]["first_selected"]["mean_p_hat"] is None
 
 
+def test_calibrate_shards():
+    """Multi-GPU labelling: strided shards gathered back give the single-GPU row order."""
+    spec = importlib.util.spec_from_file_location("calibrate", ROOT / "scripts" / "calibrate.py")
+    CA = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(CA)
+    full = pd.DataFrame({"pid": [f"p{i}" for i in range(10)], "p_hat": np.linspace(0, 1, 10)})
+    for world in (1, 3, 4, 12):
+        idx = [CA.shard(len(full), r, world) for r in range(world)]
+        assert sorted(j for i in idx for j in i) == list(range(len(full)))
+        parts = [full.iloc[i].assign(_i=i) if i else pd.DataFrame() for i in idx]  # ranks may hold nothing
+        assert CA.merge_shards(parts[::-1]).equals(full)
+
+
 if __name__ == "__main__":
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]
     for fn in fns:

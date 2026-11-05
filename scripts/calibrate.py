@@ -2,6 +2,11 @@
 
     python scripts/calibrate.py checkpoints/pt-mid-s0 [--skip-pool] [key=value ...]
     python scripts/calibrate.py runs/pt-mid-s0/ckpt/step-3000 --skip-pool   # model_id pt-mid-s0-step-3000
+    torchrun --standalone --nproc_per_node=4 scripts/calibrate.py checkpoints/pt-mid-s0   # 4 GPUs
+
+Under torchrun each rank labels every world-th problem (sampling seed 1000 * seed + rank) and
+the shards are gathered back into the original order; E1 greedy, the gate and all outputs run
+on rank 0. Labelling is the whole cost, so 4 GPUs take ~1/4 of the time.
 
 p_hat = correct / label.k samples at label.temperature (doc: 校准热力图, 难度标注).
 
@@ -29,7 +34,9 @@ other checks are warnings:
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
+import os
 import sys
 import time
 from collections import Counter
@@ -43,6 +50,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
+import torch  # noqa: E402
+import torch.distributed as dist  # noqa: E402
 
 from rlvr import gate as G  # noqa: E402
 from rlvr.config import load_config, resolve  # noqa: E402
@@ -83,47 +92,90 @@ def heatmap(df: pd.DataFrame, title: str, path: Path) -> None:
     plt.close(fig)
 
 
+def shard(n: int, rank: int, world: int) -> list[int]:
+    """Indices of the problems one rank labels: strided, so every rank gets every cell."""
+    return list(range(rank, n, world))
+
+
+def merge_shards(parts: list[pd.DataFrame]) -> pd.DataFrame:
+    """Gathered per-rank label frames (each with column _i = problem index) -> original order."""
+    parts = [d for d in parts if len(d)]
+    return pd.concat(parts).sort_values("_i").drop(columns="_i").reset_index(drop=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("ckpt", help="checkpoint dir, e.g. checkpoints/pt-mid-s0")
     ap.add_argument("--skip-pool", action="store_true", help="skip RL-pool labelling (gate 3 not checked)")
     ap.add_argument("--calib-per-cell", type=int, default=0,
                     help="label only the first N calib problems per (depth, group) cell (pilot sweep)")
+    ap.add_argument("--pool-first", type=int, default=0,
+                    help="label only the first N RL-pool candidates (smoke tests; writes the same outputs)")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("overrides", nargs="*")
     args = ap.parse_args()
+    ddp = "WORLD_SIZE" in os.environ
+    if ddp:
+        dist.init_process_group("nccl", timeout=datetime.timedelta(hours=3))  # ranks wait for the slowest shard
+        rank, world = dist.get_rank(), dist.get_world_size()
+        torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
+        device = f"cuda:{os.environ['LOCAL_RANK']}"
+    else:
+        rank, world, device = 0, 1, args.device
+    master = rank == 0
     ckpt = resolve(args.ckpt)
     model_id, run_name, ckpt_step = ids_for(ckpt)
     cfg = load_config(ckpt / "run_config.yaml", args.overrides)
     lc, gc, ec = cfg["label"], cfg["gate"], cfg["eval"]
     G.check_config(gc, lc)
     task = Task(cfg["task"])
-    model, tok = load_model(ckpt, args.device)
+    torch.manual_seed(1000 * cfg["seed"] + rank)  # independent sampling per rank
+    model, tok = load_model(ckpt, device)
     data = resolve(cfg["paths"]["data"])
     eval_dir = data / "eval" / ec["version"]
     out = resolve(cfg["paths"]["runs"]) / model_id / "calib"
-    out.mkdir(parents=True, exist_ok=True)
+    if master:
+        out.mkdir(parents=True, exist_ok=True)
 
     def label(problems, k=None, **extra):
+        """Label on all ranks (each its shard) and return the full frame on every rank."""
         k = k or lc["k"]
         bs = max(1, lc["batch_size"] * lc["k"] // k)  # same number of sequences per batch at any k
         t = time.time()
-        df = label_pass_rates(model, tok, task, problems, k, lc["temperature"], bs,
-                              ec["max_new_tokens"], model_id, extra)
-        print(f"labelled {len(problems)} problems x {k} in {time.time() - t:.0f}s", flush=True)
+        idx = shard(len(problems), rank, world)
+        df = label_pass_rates(model, tok, task, [problems[i] for i in idx], k, lc["temperature"], bs,
+                              ec["max_new_tokens"], model_id,
+                              {c: [v[i] for i in idx] for c, v in extra.items()}) if idx else pd.DataFrame()
+        if ddp:
+            df["_i"] = idx
+            parts = [None] * world
+            dist.all_gather_object(parts, df)
+            df = merge_shards(parts)
+        if master:
+            print(f"labelled {len(problems)} problems x {k} on {world} GPU(s) in {time.time() - t:.0f}s", flush=True)
         return df
+
+    def write_gate(gate, final):
+        gate.update(G.verdict(gate["checks"], gc["hard_checks"]))
+        (out / "gate.json").write_text(json.dumps(gate, indent=1))
+        if final:
+            print(json.dumps(gate, indent=1))
+        warn = f" (warnings: {', '.join(gate['warnings'])})" if gate["warnings"] else ""
+        print(f"{model_id}: {'' if final else 'interim '}gate {'PASS' if gate['pass'] else 'FAIL'}{warn}; "
+              f"outputs in {out}", flush=True)
 
     gate = {"model_id": model_id, "hard_checks": gc["hard_checks"], "checks": {}}
 
-    # 1. depth-1 greedy accuracy
-    rows = greedy_eval(model, tok, task, {"E1": load_problems(task, eval_dir / "E1.jsonl")},
-                       max_new_tokens=ec["max_new_tokens"], batch_size=ec["batch_size"])
-    gate["checks"]["depth1_greedy"] = G.depth1_greedy(rows, gc)
+    if master:
+        # 1. depth-1 greedy accuracy
+        rows = greedy_eval(model, tok, task, {"E1": load_problems(task, eval_dir / "E1.jsonl")},
+                           max_new_tokens=ec["max_new_tokens"], batch_size=ec["batch_size"])
+        gate["checks"]["depth1_greedy"] = G.depth1_greedy(rows, gc)
 
-    # 4. composition loss at the checkpoint's step (saturated in-distribution compositions)
-    metrics_path = resolve(cfg["paths"]["runs"]) / run_name / "metrics.jsonl"
-    if metrics_path.exists() and (fl := G.final_loss(read_jsonl(metrics_path), gc, ckpt_step)) is not None:
-        gate["checks"]["final_loss"] = fl
+        # 4. composition loss at the checkpoint's step (saturated in-distribution compositions)
+        metrics_path = resolve(cfg["paths"]["runs"]) / run_name / "metrics.jsonl"
+        if metrics_path.exists() and (fl := G.final_loss(read_jsonl(metrics_path), gc, ckpt_step)) is not None:
+            gate["checks"]["final_loss"] = fl
 
     # 2. calibration heatmap + spread over depths
     calib_rows = read_jsonl(eval_dir / "calib.jsonl")
@@ -135,35 +187,42 @@ def main():
                 kept.append(r)
         calib_rows = kept
     calib = label([task.from_dict(r) for r in calib_rows])
-    calib.to_parquet(out / "calib_labels.parquet", index=False)
-    heatmap(calib, f"{model_id}: p_hat at T={lc['temperature']}, k={lc['k']}", out / "heatmap.png")
-    gate["checks"]["spread"] = G.spread(calib, gc)
-    # 5. the level's design target (pilot sweep), e.g. weak d3 ~ 0.1
-    if (tg := G.target(calib, gc)) is not None:
-        gate["checks"]["target"] = tg
-    gate["calib_mean_p"] = {f"d{d}-{g}": round(float(v), 3)
-                            for (d, g), v in calib.groupby(["depth", "group"]).p_hat.mean().items()}
+    if master:
+        calib.to_parquet(out / "calib_labels.parquet", index=False)
+        heatmap(calib, f"{model_id}: p_hat at T={lc['temperature']}, k={lc['k']}", out / "heatmap.png")
+        gate["checks"]["spread"] = G.spread(calib, gc)
+        # 5. the level's design target (pilot sweep), e.g. weak d3 ~ 0.1
+        if (tg := G.target(calib, gc)) is not None:
+            gate["checks"]["target"] = tg
+        gate["calib_mean_p"] = {f"d{d}-{g}": round(float(v), 3)
+                                for (d, g), v in calib.groupby(["depth", "group"]).p_hat.mean().items()}
+        if not args.skip_pool:  # interim gate.json (as with --skip-pool) while the pool is labelled
+            write_gate(dict(gate, checks=dict(gate["checks"])), final=False)
 
     # 3. RL-pool labels (+ independent second labelling of the screened matched cells) and matched-p cells
     if not args.skip_pool:
         pool_rows = read_jsonl(data / "rl_pool" / "candidates.jsonl")
+        if args.pool_first:
+            pool_rows = pool_rows[:args.pool_first]
         pool_problems = [task.from_dict(r) for r in pool_rows]
         pool = label(pool_problems, origin=[r.get("origin", "base") for r in pool_rows])
-        mask = G.relabel_mask(pool, lc)
+        mask = G.relabel_mask(pool, lc)  # same on every rank: all hold the gathered pool
         if lc["relabel_k"]:
             again = label([p for p, m in zip(pool_problems, mask) if m], k=lc["relabel_k"]) if mask.any() else None
             pool = G.attach_relabel(pool, mask, again)
-        (data / "labels").mkdir(parents=True, exist_ok=True)
-        pool.to_parquet(data / "labels" / f"{model_id}.parquet", index=False)
-        relabelled = lc["relabel_cells"] if lc["relabel_k"] else []
-        gate["checks"]["matched_cells"] = G.matched_cells(pool, gc, relabelled)
+        if master:
+            (data / "labels").mkdir(parents=True, exist_ok=True)
+            pool.to_parquet(data / "labels" / f"{model_id}.parquet", index=False)
+            relabelled = lc["relabel_cells"] if lc["relabel_k"] else []
+            gate["checks"]["matched_cells"] = G.matched_cells(pool, gc, relabelled)
 
-    gate.update(G.verdict(gate["checks"], gc["hard_checks"]))
-    (out / "gate.json").write_text(json.dumps(gate, indent=1))
-    print(json.dumps(gate, indent=1))
-    warn = f" (warnings: {', '.join(gate['warnings'])})" if gate["warnings"] else ""
-    print(f"{model_id}: gate {'PASS' if gate['pass'] else 'FAIL'}{warn}; outputs in {out}")
-    sys.exit(0 if gate["pass"] else 1)
+    ok = True
+    if master:
+        write_gate(gate, final=True)
+        ok = gate["pass"]
+    if ddp:
+        dist.destroy_process_group()
+    sys.exit(0 if ok else 1)
 
 
 if __name__ == "__main__":
