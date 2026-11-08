@@ -1,0 +1,130 @@
+{
+ "run_name": "pt-weak-cf0.000125-s0",
+ "world_size": 4,
+ "steps": 9500,
+ "examples": 52413738,
+ "target_tokens": 1834574736,
+ "tokens": 2778040230,
+ "pad_frac": 0.08557042053458308,
+ "noisy_examples": 0,
+ "rejects": {
+  "pool": 5845187,
+  "heldout": 3877,
+  "eval_dup": 0
+ },
+ "by_kind": {
+  "atom": {
+   "examples": 52410354,
+   "target_tokens": 1834343832,
+   "target_token_frac": 0.9998741375886907
+  },
+  "comp": {
+   "examples": 3384,
+   "target_tokens": 230904,
+   "target_token_frac": 0.00012586241130925504
+  }
+ },
+ "by_depth": {
+  "d1": {
+   "examples": 52410354,
+   "target_tokens": 1834343832,
+   "target_token_frac": 0.9998741375886907
+  },
+  "d2": {
+   "examples": 2065,
+   "target_tokens": 119900,
+   "target_token_frac": 6.535574574706233e-05
+  },
+  "d3": {
+   "examples": 1160,
+   "target_tokens": 94072,
+   "target_token_frac": 5.1277278681548355e-05
+  },
+  "d4": {
+   "examples": 159,
+   "target_tokens": 16932,
+   "target_token_frac": 9.229386880644365e-06
+  }
+ },
+ "by_group": {
+  "H": {
+   "examples": 26214397,
+   "target_tokens": 917614364,
+   "target_token_frac": 0.5001782407626048
+  },
+  "L": {
+   "examples": 26199099,
+   "target_tokens": 916943910,
+   "target_token_frac": 0.4998127860406773
+  },
+  "mixed": {
+   "examples": 242,
+   "target_tokens": 16462,
+   "target_token_frac": 8.9731967179995e-06
+  }
+ },
+ "by_cell": {
+  "atom|d1|H": {
+   "examples": 26211347,
+   "target_tokens": 917405884
+  },
+  "atom|d1|L": {
+   "examples": 26199007,
+   "target_tokens": 916937948
+  },
+  "comp|d2|H": {
+   "examples": 1858,
+   "target_tokens": 107679
+  },
+  "comp|d2|L": {
+   "examples": 69,
+   "target_tokens": 4092
+  },
+  "comp|d2|mixed": {
+   "examples": 138,
+   "target_tokens": 8129
+  },
+  "comp|d3|H": {
+   "examples": 1033,
+   "target_tokens": 83869
+  },
+  "comp|d3|L": {
+   "examples": 23,
+   "target_tokens": 1870
+  },
+  "comp|d3|mixed": {
+   "examples": 104,
+   "target_tokens": 8333
+  },
+  "comp|d4|H": {
+   "examples": 159,
+   "target_tokens": 16932
+  }
+ },
+ "comp_func_exposure": {
+  "F00": 643,
+  "F01": 44,
+  "F02": 42,
+  "F03": 38,
+  "F04": 42,
+  "F05": 42,
+  "F06": 649,
+  "F07": 685,
+  "F08": 623,
+  "F09": 41,
+  "F10": 651,
+  "F11": 678,
+  "F12": 43,
+  "F13": 44,
+  "F14": 611,
+  "F15": 654,
+  "F16": 39,
+  "F17": 52,
+  "F18": 44,
+  "F19": 638,
+  "F20": 690,
+  "F21": 38,
+  "F22": 588,
+  "F23": 627
+ }
+}

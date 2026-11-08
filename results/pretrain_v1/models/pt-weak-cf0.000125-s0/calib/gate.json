@@ -1,0 +1,137 @@
+{
+ "model_id": "pt-weak-cf0.000125-s0",
+ "hard_checks": [
+  "depth1_greedy"
+ ],
+ "checks": {
+  "depth1_greedy": {
+   "value": 1.0,
+   "min": 0.98,
+   "func_z": 1.96,
+   "funcs_below_min": {},
+   "worst_funcs": {
+    "F00": 1.0,
+    "F01": 1.0,
+    "F02": 1.0
+   },
+   "pass": true,
+   "hard": true
+  },
+  "final_loss": {
+   "step": 9500,
+   "value": 3.846352228720207e-06,
+   "by_depth": {
+    "d3": 0.05796966701745987
+   },
+   "min": 0.001,
+   "pass": true,
+   "hard": false
+  },
+  "spread": {
+   "by_depth": {
+    "2": {
+     "mean_p": 0.43953125,
+     "signal_frac": 0.62
+    },
+    "3": {
+     "mean_p": 0.11369791666666666,
+     "signal_frac": 0.3883333333333333
+    },
+    "4": {
+     "mean_p": 0.010885416666666667,
+     "signal_frac": 0.07333333333333333
+    },
+    "5": {
+     "mean_p": 0.00140625,
+     "signal_frac": 0.023333333333333334
+    }
+   },
+   "min_signal_frac": 0.2,
+   "pass": false,
+   "hard": false
+  },
+  "target": {
+   "depth": 3,
+   "p_range": [
+    0.05,
+    0.2
+   ],
+   "value": 0.11369791666666666,
+   "pass": true,
+   "hard": false
+  },
+  "matched_cells": {
+   "p_range": [
+    0.4,
+    0.6
+   ],
+   "min": 300,
+   "min_per_len": 120,
+   "cells": {
+    "d2-L": {
+     "p_col": "p_hat_relabel",
+     "n_in_range": 210,
+     "n_cell": 5000,
+     "n_in_range_by_len": {
+      "6": 40,
+      "7": 39,
+      "8": 45,
+      "9": 48,
+      "10": 38
+     },
+     "mean_p": 0.18695625,
+     "mean_p_selected": 0.5003720238095238,
+     "pass": false
+    },
+    "d4-H": {
+     "p_col": "p_hat_relabel",
+     "n_in_range": 36,
+     "n_cell": 5000,
+     "n_in_range_by_len": {
+      "6": 18,
+      "7": 10,
+      "8": 3,
+      "9": 4,
+      "10": 1
+     },
+     "mean_p": 0.02168125,
+     "mean_p_selected": 0.4874131944444444,
+     "pass": false
+    }
+   },
+   "pass": false,
+   "hard": false
+  }
+ },
+ "calib_mean_p": {
+  "d1-H": 1.0,
+  "d1-L": 1.0,
+  "d2-H": 0.721,
+  "d2-L": 0.186,
+  "d2-mixed": 0.411,
+  "d3-H": 0.251,
+  "d3-L": 0.011,
+  "d3-mixed": 0.08,
+  "d4-H": 0.028,
+  "d4-L": 0.002,
+  "d4-mixed": 0.002,
+  "d5-H": 0.004,
+  "d5-L": 0.0,
+  "d5-mixed": 0.0,
+  "d6-H": 0.006,
+  "d6-L": 0.0,
+  "d6-mixed": 0.001,
+  "d7-H": 0.001,
+  "d7-L": 0.0,
+  "d7-mixed": 0.0,
+  "d8-H": 0.0,
+  "d8-L": 0.0,
+  "d8-mixed": 0.0
+ },
+ "pass": true,
+ "warnings": [
+  "spread",
+  "matched_cells"
+ ],
+ "not_run": []
+}

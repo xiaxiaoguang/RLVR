@@ -1,0 +1,104 @@
+{
+ "model_id": "pt-pilot-cf0.01-po128-s0",
+ "hard_checks": [
+  "depth1_greedy",
+  "spread",
+  "matched_cells"
+ ],
+ "checks": {
+  "depth1_greedy": {
+   "value": 0.9966666666666667,
+   "min": 0.98,
+   "func_z": 1.96,
+   "funcs_below_min": {
+    "F17": {
+     "acc": 0.94,
+     "n": 50,
+     "upper": 0.979
+    }
+   },
+   "worst_funcs": {
+    "F17": 0.94,
+    "F15": 0.98,
+    "F00": 1.0
+   },
+   "pass": false,
+   "hard": true
+  },
+  "final_loss": {
+   "step": 400,
+   "value": 0.0019279292318969965,
+   "by_depth": {
+    "d3": 0.19659221172332764
+   },
+   "min": 0.001,
+   "pass": true,
+   "hard": false
+  },
+  "spread": {
+   "by_depth": {
+    "2": {
+     "mean_p": 0.11208333333333333,
+     "signal_frac": 0.35333333333333333
+    },
+    "3": {
+     "mean_p": 0.0033333333333333335,
+     "signal_frac": 0.03333333333333333
+    },
+    "4": {
+     "mean_p": 0.0,
+     "signal_frac": 0.0
+    },
+    "5": {
+     "mean_p": 0.0004166666666666667,
+     "signal_frac": 0.006666666666666667
+    }
+   },
+   "min_signal_frac": 0.2,
+   "pass": false,
+   "hard": true
+  },
+  "target": {
+   "depth": 3,
+   "p_range": [
+    0.35,
+    0.55
+   ],
+   "value": 0.0033333333333333335,
+   "pass": false,
+   "hard": false
+  }
+ },
+ "calib_mean_p": {
+  "d1-H": 0.981,
+  "d1-L": 0.994,
+  "d2-H": 0.179,
+  "d2-L": 0.061,
+  "d2-mixed": 0.096,
+  "d3-H": 0.01,
+  "d3-L": 0.0,
+  "d3-mixed": 0.0,
+  "d4-H": 0.0,
+  "d4-L": 0.0,
+  "d4-mixed": 0.0,
+  "d5-H": 0.001,
+  "d5-L": 0.0,
+  "d5-mixed": 0.0,
+  "d6-H": 0.0,
+  "d6-L": 0.0,
+  "d6-mixed": 0.0,
+  "d7-H": 0.0,
+  "d7-L": 0.0,
+  "d7-mixed": 0.0,
+  "d8-H": 0.0,
+  "d8-L": 0.0,
+  "d8-mixed": 0.0
+ },
+ "pass": false,
+ "warnings": [
+  "target"
+ ],
+ "not_run": [
+  "matched_cells"
+ ]
+}
