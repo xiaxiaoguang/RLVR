@@ -1,0 +1,96 @@
+{
+ "model_id": "pt-pilot-cf0.1-po128-s0",
+ "hard_checks": [
+  "depth1_greedy",
+  "spread",
+  "matched_cells"
+ ],
+ "checks": {
+  "depth1_greedy": {
+   "value": 0.9966666666666667,
+   "min": 0.98,
+   "func_z": 1.96,
+   "funcs_below_min": {},
+   "worst_funcs": {
+    "F02": 0.98,
+    "F11": 0.98,
+    "F13": 0.98
+   },
+   "pass": true,
+   "hard": true
+  },
+  "final_loss": {
+   "step": 400,
+   "value": 0.0014100410044193268,
+   "by_depth": {
+    "d3": 0.011811143718659878
+   },
+   "min": 0.001,
+   "pass": true,
+   "hard": false
+  },
+  "spread": {
+   "by_depth": {
+    "2": {
+     "mean_p": 0.8133333333333334,
+     "signal_frac": 0.42
+    },
+    "3": {
+     "mean_p": 0.51625,
+     "signal_frac": 0.5866666666666667
+    },
+    "4": {
+     "mean_p": 0.10333333333333333,
+     "signal_frac": 0.31333333333333335
+    },
+    "5": {
+     "mean_p": 0.009583333333333333,
+     "signal_frac": 0.03333333333333333
+    }
+   },
+   "min_signal_frac": 0.2,
+   "pass": false,
+   "hard": true
+  },
+  "target": {
+   "depth": 3,
+   "p_range": [
+    0.35,
+    0.55
+   ],
+   "value": 0.51625,
+   "pass": true,
+   "hard": false
+  }
+ },
+ "calib_mean_p": {
+  "d1-H": 0.994,
+  "d1-L": 0.994,
+  "d2-H": 0.934,
+  "d2-L": 0.748,
+  "d2-mixed": 0.759,
+  "d3-H": 0.762,
+  "d3-L": 0.292,
+  "d3-mixed": 0.494,
+  "d4-H": 0.231,
+  "d4-L": 0.006,
+  "d4-mixed": 0.072,
+  "d5-H": 0.026,
+  "d5-L": 0.0,
+  "d5-mixed": 0.003,
+  "d6-H": 0.009,
+  "d6-L": 0.0,
+  "d6-mixed": 0.001,
+  "d7-H": 0.0,
+  "d7-L": 0.0,
+  "d7-mixed": 0.0,
+  "d8-H": 0.0,
+  "d8-L": 0.0,
+  "d8-mixed": 0.0
+ },
+ "pass": false,
+ "warnings": [],
+ "not_run": [
+  "matched_cells"
+ ]
+}

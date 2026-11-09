@@ -1,0 +1,98 @@
+{
+ "model_id": "pt-pilot-cf0.0003-po128-s0",
+ "hard_checks": [
+  "depth1_greedy",
+  "spread",
+  "matched_cells"
+ ],
+ "checks": {
+  "depth1_greedy": {
+   "value": 0.9983333333333333,
+   "min": 0.98,
+   "func_z": 1.96,
+   "funcs_below_min": {},
+   "worst_funcs": {
+    "F20": 0.98,
+    "F22": 0.98,
+    "F00": 1.0
+   },
+   "pass": true,
+   "hard": true
+  },
+  "final_loss": {
+   "step": 400,
+   "value": 0.0008175293914973736,
+   "by_depth": {
+    "d3": 1.6368474960327148
+   },
+   "min": 0.001,
+   "pass": true,
+   "hard": false
+  },
+  "spread": {
+   "by_depth": {
+    "2": {
+     "mean_p": 0.0,
+     "signal_frac": 0.0
+    },
+    "3": {
+     "mean_p": 0.0,
+     "signal_frac": 0.0
+    },
+    "4": {
+     "mean_p": 0.0,
+     "signal_frac": 0.0
+    },
+    "5": {
+     "mean_p": 0.0,
+     "signal_frac": 0.0
+    }
+   },
+   "min_signal_frac": 0.2,
+   "pass": false,
+   "hard": true
+  },
+  "target": {
+   "depth": 3,
+   "p_range": [
+    0.35,
+    0.55
+   ],
+   "value": 0.0,
+   "pass": false,
+   "hard": false
+  }
+ },
+ "calib_mean_p": {
+  "d1-H": 0.984,
+  "d1-L": 1.0,
+  "d2-H": 0.0,
+  "d2-L": 0.0,
+  "d2-mixed": 0.0,
+  "d3-H": 0.0,
+  "d3-L": 0.0,
+  "d3-mixed": 0.0,
+  "d4-H": 0.0,
+  "d4-L": 0.0,
+  "d4-mixed": 0.0,
+  "d5-H": 0.0,
+  "d5-L": 0.0,
+  "d5-mixed": 0.0,
+  "d6-H": 0.0,
+  "d6-L": 0.0,
+  "d6-mixed": 0.0,
+  "d7-H": 0.0,
+  "d7-L": 0.0,
+  "d7-mixed": 0.0,
+  "d8-H": 0.0,
+  "d8-L": 0.0,
+  "d8-mixed": 0.0
+ },
+ "pass": false,
+ "warnings": [
+  "target"
+ ],
+ "not_run": [
+  "matched_cells"
+ ]
+}

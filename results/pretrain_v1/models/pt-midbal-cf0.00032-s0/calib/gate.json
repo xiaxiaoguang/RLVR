@@ -1,0 +1,136 @@
+{
+ "model_id": "pt-midbal-cf0.00032-s0",
+ "hard_checks": [
+  "depth1_greedy",
+  "spread",
+  "matched_cells"
+ ],
+ "checks": {
+  "depth1_greedy": {
+   "value": 1.0,
+   "min": 0.98,
+   "func_z": 1.96,
+   "funcs_below_min": {},
+   "worst_funcs": {
+    "F00": 1.0,
+    "F01": 1.0,
+    "F02": 1.0
+   },
+   "pass": true,
+   "hard": true
+  },
+  "final_loss": {
+   "step": 9500,
+   "value": 5.872833753528539e-06,
+   "by_depth": {
+    "d3": 0.009067056700587273
+   },
+   "min": 0.001,
+   "pass": true,
+   "hard": false
+  },
+  "spread": {
+   "by_depth": {
+    "2": {
+     "mean_p": 0.9058333333333334,
+     "signal_frac": 0.40166666666666667
+    },
+    "3": {
+     "mean_p": 0.5491666666666667,
+     "signal_frac": 0.8016666666666666
+    },
+    "4": {
+     "mean_p": 0.11880208333333334,
+     "signal_frac": 0.49833333333333335
+    },
+    "5": {
+     "mean_p": 0.0013020833333333333,
+     "signal_frac": 0.015
+    }
+   },
+   "min_signal_frac": 0.2,
+   "pass": false,
+   "hard": true
+  },
+  "target": {
+   "depth": 3,
+   "p_range": [
+    0.35,
+    0.55
+   ],
+   "value": 0.5491666666666667,
+   "pass": true,
+   "hard": false
+  },
+  "matched_cells": {
+   "p_range": [
+    0.4,
+    0.6
+   ],
+   "min": 300,
+   "min_per_len": 120,
+   "cells": {
+    "d2-L": {
+     "p_col": "p_hat_relabel",
+     "n_in_range": 159,
+     "n_cell": 5000,
+     "n_in_range_by_len": {
+      "6": 12,
+      "7": 29,
+      "8": 37,
+      "9": 37,
+      "10": 44
+     },
+     "mean_p": 0.8739375,
+     "mean_p_selected": 0.5064858490566038,
+     "pass": false
+    },
+    "d4-H": {
+     "p_col": "p_hat_relabel",
+     "n_in_range": 391,
+     "n_cell": 5000,
+     "n_in_range_by_len": {
+      "6": 101,
+      "7": 63,
+      "8": 84,
+      "9": 63,
+      "10": 80
+     },
+     "mean_p": 0.19295625,
+     "mean_p_selected": 0.49420556265984655,
+     "pass": false
+    }
+   },
+   "pass": false,
+   "hard": true
+  }
+ },
+ "calib_mean_p": {
+  "d1-H": 1.0,
+  "d1-L": 1.0,
+  "d2-H": 0.938,
+  "d2-L": 0.87,
+  "d2-mixed": 0.91,
+  "d3-H": 0.656,
+  "d3-L": 0.438,
+  "d3-mixed": 0.553,
+  "d4-H": 0.18,
+  "d4-L": 0.081,
+  "d4-mixed": 0.096,
+  "d5-H": 0.001,
+  "d5-L": 0.001,
+  "d5-mixed": 0.002,
+  "d6-H": 0.013,
+  "d6-L": 0.0,
+  "d6-mixed": 0.003,
+  "d7-H": 0.0,
+  "d7-L": 0.0,
+  "d7-mixed": 0.001,
+  "d8-H": 0.0,
+  "d8-L": 0.0,
+  "d8-mixed": 0.0
+ },
+ "pass": false,
+ "warnings": [],
+ "not_run": []
+}

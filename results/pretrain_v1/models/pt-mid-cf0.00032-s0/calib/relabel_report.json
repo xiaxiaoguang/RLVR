@@ -1,0 +1,83 @@
+{
+ "model_id": "pt-mid-cf0.00032-s0",
+ "p_range": [
+  0.4,
+  0.6
+ ],
+ "relabel_range": [
+  0.3,
+  0.7
+ ],
+ "relabel_k": 64,
+ "cells": {
+  "d2-L": {
+   "n_cell": 5000,
+   "mean_p_hat_cell": 0.5389,
+   "n_relabelled": 883,
+   "first_selected": {
+    "n": 442,
+    "mean_p_hat": 0.5024,
+    "mean_p_hat_relabel": 0.5064,
+    "frac_relabel_in_range": 0.5611
+   },
+   "relabel_selected": {
+    "n": 369,
+    "n_by_len": {
+     "6": 73,
+     "7": 75,
+     "8": 81,
+     "9": 84,
+     "10": 56
+    },
+    "mean_p_hat_relabel": 0.5041,
+    "mean_p_hat": 0.5082
+   }
+  },
+  "d4-H": {
+   "n_cell": 5000,
+   "mean_p_hat_cell": 0.1606,
+   "n_relabelled": 775,
+   "first_selected": {
+    "n": 385,
+    "mean_p_hat": 0.4913,
+    "mean_p_hat_relabel": 0.4716,
+    "frac_relabel_in_range": 0.5714
+   },
+   "relabel_selected": {
+    "n": 326,
+    "n_by_len": {
+     "6": 103,
+     "7": 31,
+     "8": 103,
+     "9": 18,
+     "10": 71
+    },
+    "mean_p_hat_relabel": 0.4967,
+    "mean_p_hat": 0.5005
+   }
+  },
+  "d5-H": {
+   "n_cell": 5000,
+   "mean_p_hat_cell": 0.0032,
+   "n_relabelled": 6,
+   "first_selected": {
+    "n": 1,
+    "mean_p_hat": 0.5938,
+    "mean_p_hat_relabel": 0.6094,
+    "frac_relabel_in_range": 0.0
+   },
+   "relabel_selected": {
+    "n": 1,
+    "n_by_len": {
+     "6": 0,
+     "7": 1,
+     "8": 0,
+     "9": 0,
+     "10": 0
+    },
+    "mean_p_hat_relabel": 0.4844,
+    "mean_p_hat": 0.6875
+   }
+  }
+ }
+}

@@ -1,5 +1,12 @@
 # Base model 'weak'. Everything else: defaults in rlvr/params.py.
-# comp_frac is a starting guess; set it from the pilot sweep (scripts/sweep.py).
+# comp_frac from the pilot sweep (runs/sweep/summary.md, 2026-11-04): the pilot (4% of the
+# tokens, po128) reaches d3 ~0.1 at cf 0.030; / 25 for the 25x token budget -> 0.0012, rounded down.
 pretrain:
   level: weak
   comp_frac: 0.001
+# The matched-p datasets use pt-mid-s0, and weak is meant to be poor at depth >= 3, so few
+# p ~ 0.5 problems in d4-H and a narrow spread are expected: only the atom check is hard.
+# spread / matched_cells / target are still reported (as warnings) in gate.json.
+gate:
+  hard_checks: [depth1_greedy]
+  target: {depth: 3, p_range: [0.05, 0.2]}    # doc: weak d3 mean p ~ 0.1

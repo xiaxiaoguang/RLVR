@@ -276,11 +276,12 @@ v0 预先生成 246 万条样本存进 parquet，按 `count` 重复。v1 要约 
 
 1. `checkpoints/pt-{weak,mid,strong,midbal}-s{seed}/`，使用 `save_pretrained` 格式，附带 tokenizer、`run_config.yaml`、`stats.json`；另有 25% / 50% 的中间 checkpoint。
 2. **校准热力图：** 每个模型在（深度 1–8 × H/L/mixed）上的成功率（温度 1.0，每格 200 题，每题 32 次采样）。
-3. **门槛检查（不通过就调 `comp_frac` 或 `h_ratio` 重训）：**
-   - 深度 1 的贪心准确率 ≥ 98%（每个函数单独看）。
+3. **门槛检查（`calibrate.py`，实现见 `rlvr/gate.py`）：** `gate.hard_checks` 里的检查不通过就调 `comp_frac` 或 `h_ratio` 重训，其余检查只作为警告写进 `gate.json`。mid 和 midbal 的硬性检查是前三项。weak 和 strong 不用于匹配数据集，按设计在匹配格和 spread 上就可能不达标，所以只有第一项是硬性的，其余几项结合设计目标人工判断，不要因为它们而重训。
+   - 深度 1 的贪心准确率 ≥ 98%。总体看点估计；每个函数只有 50 题，按 Wilson 上界判断，上界低于 98% 才算不通过（相当于 50 题最多错 2 题）。
    - 深度 2–5 的成功率分散在 0–1 之间：每个深度上 0 < p̂ < 1 的题 ≥ 20%。
-   - 浅题（深度 2，L 组）和深题（深度 4，H 组）中，p 在 0.4–0.6 的题各至少 300 道。这是解耦实验能否进行的前提。
-   - 训练 loss 不能接近 0（例如 < 1e-4）；如果接近 0，说明任务仍然太容易，或者生成器出现了重复。
+   - 深度 2 L 组和深度 4 H 组中，p 在 0.4–0.6 的题各至少 300 道，并且每个串长（6–10）各至少 120 道。匹配数据集按串长分层抽样，n=500 时每个串长需要 100 道。这里的 p 用下文的二次独立标注。这是解耦实验能否进行的前提。
+   - 组合样本的训练 loss 不能接近 0：看深度 3 的 `loss_d3` ≥ 1e-3（默认只作警告）。总体 loss 主要由原子样本决定，原子正确率到 99.7% 左右就会低于 1e-4，它反映的是 `comp_frac` 的大小，而不是任务是否太容易，所以不再用它判断。
+   - 设计目标（警告）：weak 的 d3 平均 p 在 0.05–0.2，mid 的 d3 在 0.35–0.55，strong 的 d4 在 0.4–0.6（`gate.target`）。
 
 ## 难度标注与 RL 数据集构建（label.py, build\_dataset.py）
 
@@ -291,7 +292,7 @@ v0 预先生成 246 万条样本存进 parquet，按 `count` 重复。v1 要约 
 1. 为每个基础模型从 RL 池生成约 3 万道候选题，覆盖深度 1–8、H/L/mixed，另外对两个匹配格多采样。
 2. 每题用 `generate(do_sample=True, temperature=1.0, num_return_sequences=32)` 采样，用 `reward()` 判分，得到 p̂ = 正确数 / 32。
 3. 同时记录 Wilson 95% 置信区间。K=32 时 p̂ 的标准误最大约 0.09，分箱时要考虑这个噪声。
-4. 输出 `labels/{model_id}.parquet`，列为：`pid, depth, funcs, group(H/L/mixed), str_len, n_correct, k, p_hat, ci_lo, ci_hi, model_id`。
+4. 输出 `labels/{model_id}.parquet`，列为：`pid, depth, funcs, group(H/L/mixed), str_len, n_correct, k, p_hat, ci_lo, ci_hi, model_id`；做过二次标注的题另有 `n_correct_relabel, k_relabel, p_hat_relabel, ci_lo_relabel, ci_hi_relabel`，其余为空。
 5. 代价：每个模型约 100 万次生成，85M 模型配 KV cache、batch 1024，单卡约 20–30 分钟；4 个模型在 8 卡上可以并行完成。
 
 ```python
@@ -299,6 +300,8 @@ def label_pass_rates(model, problems, k=32, temperature=1.0, batch_size=1024) ->
     # 批量采样 + 判分；纯推理，torch.no_grad()
     ...
 ```
+
+**二次独立标注（减小赢家诅咒）：** 只凭 32 次采样的 p̂ 挑 p≈0.5 的题，会系统性地挑中「运气好」的题。格子里多数题 p 偏低时，挑出来的题真实 p 偏低；多数题 p 偏高时则偏高。按 Beta 先验粗算，d2-L 均值 0.2、d4-H 均值 0.8 时，两组选中题的真实均值约为 0.44 和 0.56，约 40% 的题真实 p 不在 0.4–0.6。因此对 `label.relabel_cells`（d2-L、d4-H、d5-H）中首轮 p̂ 在 0.3–0.7 的题，再独立采样 64 次（`label.relabel_k`），匹配数据集（规格里 `p_label: relabel`）按第二次估计选题，串长比例仍按整个题池。同样的粗算下，两组真实均值变为约 0.47 和 0.53，区间外的比例降到约 23%。第二次估计本身仍有少量选择偏差，所以报告中同时给出两组的两次估计（`meta.json` 里的 `mean_p` 和 `mean_p_relabel`）。额外代价取决于有多少题落在 0.3–0.7，按每格 1000–2000 道估计，约为首轮标注的 20–35%。
 
 **训练中的在线 p：** p 会随 RL 训练变化。不必额外采样，直接从 rollout 日志按题汇总，每一步得到该题的组内正确率，再做指数滑动平均，得到每道题的 p(t) 曲线。
 

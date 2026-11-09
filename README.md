@@ -41,6 +41,9 @@ scripts/
   sweep.py            pilot sweep comp_frac x pos_offset_max (1 GPU per run) -> runs/sweep/summary.*
   calibrate.py        p heatmap + gate check -> runs/pt-*/calib/; RL-pool labels -> data/labels/pt-*.parquet
   pretrain_all.sh     weak+strong then mid+midbal, 4 GPUs each, then calibrate
+  slurm/              Perlmutter: pt-{level}.sbatch (1 node, 4-GPU training + quick calibration),
+                      calib.sbatch (1 shared GPU, full calibration, chained with --dependency=afterok)
+  relabel_report.py   winner's-curse check: first-pass p in [0.4, 0.6] vs the second labelling
 configs/              overrides only: pretrain/{weak,mid,strong,midbal,pilot}.yaml, datasets/*.yaml
 tests/                python tests/test_task.py; python tests/test_registry.py; python tests/test_model.py
 ```
@@ -89,9 +92,15 @@ python scripts/build_dataset.py configs/datasets/*.yaml
   `data/labels/v0/`) use the same names: move them away before `pretrain_all.sh`.
 - **Compiler.** Whole-model `torch.compile` lowers RoPE setup to a CPU kernel that needs a C++20
   host compiler (RHEL 8's g++ 8.5 is too old), so only the decoder layers are compiled.
-- `gate.json` checks: E1 greedy >= 0.98 overall and for every function, >= 20% of calib problems
-  at depths 2-5 with 0 < p_hat < 1, >= 300 RL-pool problems with p in [0.4, 0.6] in both
-  depth-2 L and depth-4 H, and pretraining loss >= 1e-4. `calibrate.py` exits 1 on failure.
+- `gate.json` checks (`rlvr/gate.py`): E1 greedy >= 0.98 overall and per function (Wilson upper
+  bound, 50 problems each), >= 20% of calib problems at depths 2-5 with 0 < p_hat < 1, >= 300
+  RL-pool problems with p in [0.4, 0.6] in both depth-2 L and depth-4 H and >= 120 at every
+  str_len (p from the second labelling), depth-3 composition loss >= 1e-3, and the level's
+  design target. Only `gate.hard_checks` fail the gate (exit 1; the rest are warnings): the first
+  three for mid/midbal, only the E1 check for weak/strong (`configs/pretrain/{weak,strong}.yaml`).
+- Second labelling: RL-pool problems in d2-L / d4-H / d5-H with a first-pass p_hat in [0.3, 0.7]
+  get 64 more independent samples (`label.relabel_*`, `*_relabel` columns); the matched-p specs
+  select on it (`p_label: relabel`) to shrink the winner's curse of selecting on a 32-sample p_hat.
 
 ## Parameters and registries
 

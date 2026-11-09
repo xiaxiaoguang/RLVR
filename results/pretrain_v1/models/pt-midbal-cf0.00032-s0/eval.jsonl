@@ -1,0 +1,435 @@
+{"step": 2000, "eval_set": "E1", "depth": "all", "group": "all", "n": 1200, "greedy_acc": 0.9983333333333333, "format_err": 0.0, "mean_len": 35.00083333333333}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "n": 600, "greedy_acc": 0.9983333333333333, "format_err": 0.0, "mean_len": 35.001666666666665}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "n": 600, "greedy_acc": 0.9983333333333333, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F00", "label": "max_to_front", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F01", "label": "mirror_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F02", "label": "sort_desc", "n": 50, "greedy_acc": 0.98, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F03", "label": "rotl2", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F04", "label": "odd_pos_m1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F05", "label": "rotl3", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F06", "label": "shift_p1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F07", "label": "sort_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F08", "label": "complement", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F09", "label": "rotr1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F10", "label": "riffle", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F11", "label": "swap_adjacent", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F12", "label": "shift_p5", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F13", "label": "reverse_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F14", "label": "rotl1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F15", "label": "shift_by_pos", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F16", "label": "swap_ends", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F17", "label": "min_to_back", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F18", "label": "shift_m1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F19", "label": "swap_halves", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F20", "label": "sort_asc", "n": 50, "greedy_acc": 0.98, "format_err": 0.0, "mean_len": 35.02}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F21", "label": "shift_p3", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F22", "label": "reverse", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F23", "label": "even_pos_p1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E2", "depth": "all", "group": "all", "n": 1800, "greedy_acc": 0.0077777777777777776, "format_err": 0.215, "mean_len": 94.63777777777777}
+{"step": 2000, "eval_set": "E2", "depth": 2, "group": "H", "n": 150, "greedy_acc": 0.05333333333333334, "format_err": 0.07333333333333333, "mean_len": 64.37333333333333}
+{"step": 2000, "eval_set": "E2", "depth": 2, "group": "L", "n": 150, "greedy_acc": 0.013333333333333334, "format_err": 0.04, "mean_len": 63.08}
+{"step": 2000, "eval_set": "E2", "depth": 2, "group": "mixed", "n": 150, "greedy_acc": 0.02666666666666667, "format_err": 0.04666666666666667, "mean_len": 63.45333333333333}
+{"step": 2000, "eval_set": "E2", "depth": 3, "group": "H", "n": 150, "greedy_acc": 0.0, "format_err": 0.1, "mean_len": 83.16}
+{"step": 2000, "eval_set": "E2", "depth": 3, "group": "L", "n": 150, "greedy_acc": 0.0, "format_err": 0.1, "mean_len": 88.99333333333334}
+{"step": 2000, "eval_set": "E2", "depth": 3, "group": "mixed", "n": 150, "greedy_acc": 0.0, "format_err": 0.08666666666666667, "mean_len": 90.06}
+{"step": 2000, "eval_set": "E2", "depth": 4, "group": "H", "n": 150, "greedy_acc": 0.0, "format_err": 0.28, "mean_len": 120.08666666666667}
+{"step": 2000, "eval_set": "E2", "depth": 4, "group": "L", "n": 150, "greedy_acc": 0.0, "format_err": 0.3333333333333333, "mean_len": 113.28}
+{"step": 2000, "eval_set": "E2", "depth": 4, "group": "mixed", "n": 150, "greedy_acc": 0.0, "format_err": 0.28, "mean_len": 114.18}
+{"step": 2000, "eval_set": "E2", "depth": 5, "group": "H", "n": 150, "greedy_acc": 0.0, "format_err": 0.43333333333333335, "mean_len": 109.36666666666666}
+{"step": 2000, "eval_set": "E2", "depth": 5, "group": "L", "n": 150, "greedy_acc": 0.0, "format_err": 0.4066666666666667, "mean_len": 118.58}
+{"step": 2000, "eval_set": "E2", "depth": 5, "group": "mixed", "n": 150, "greedy_acc": 0.0, "format_err": 0.4, "mean_len": 107.04}
+{"step": 2000, "eval_set": "E3", "depth": "all", "group": "all", "n": 900, "greedy_acc": 0.0, "format_err": 0.6344444444444445, "mean_len": 144.51111111111112}
+{"step": 2000, "eval_set": "E3", "depth": 6, "group": "H", "n": 100, "greedy_acc": 0.0, "format_err": 0.53, "mean_len": 119.58}
+{"step": 2000, "eval_set": "E3", "depth": 6, "group": "L", "n": 100, "greedy_acc": 0.0, "format_err": 0.61, "mean_len": 118.47}
+{"step": 2000, "eval_set": "E3", "depth": 6, "group": "mixed", "n": 100, "greedy_acc": 0.0, "format_err": 0.55, "mean_len": 116.42}
+{"step": 2000, "eval_set": "E3", "depth": 7, "group": "H", "n": 100, "greedy_acc": 0.0, "format_err": 0.64, "mean_len": 151.78}
+{"step": 2000, "eval_set": "E3", "depth": 7, "group": "L", "n": 100, "greedy_acc": 0.0, "format_err": 0.62, "mean_len": 150.66}
+{"step": 2000, "eval_set": "E3", "depth": 7, "group": "mixed", "n": 100, "greedy_acc": 0.0, "format_err": 0.63, "mean_len": 157.69}
+{"step": 2000, "eval_set": "E3", "depth": 8, "group": "H", "n": 100, "greedy_acc": 0.0, "format_err": 0.71, "mean_len": 156.86}
+{"step": 2000, "eval_set": "E3", "depth": 8, "group": "L", "n": 100, "greedy_acc": 0.0, "format_err": 0.7, "mean_len": 164.36}
+{"step": 2000, "eval_set": "E3", "depth": 8, "group": "mixed", "n": 100, "greedy_acc": 0.0, "format_err": 0.72, "mean_len": 164.78}
+{"step": 2000, "eval_set": "E4", "depth": "all", "group": "all", "n": 800, "greedy_acc": 0.0025, "format_err": 0.2125, "mean_len": 95.93}
+{"step": 2000, "eval_set": "E4", "depth": 2, "group": "H", "n": 47, "greedy_acc": 0.0, "format_err": 0.0851063829787234, "mean_len": 65.23404255319149}
+{"step": 2000, "eval_set": "E4", "depth": 2, "group": "L", "n": 60, "greedy_acc": 0.03333333333333333, "format_err": 0.05, "mean_len": 64.76666666666667}
+{"step": 2000, "eval_set": "E4", "depth": 2, "group": "mixed", "n": 93, "greedy_acc": 0.0, "format_err": 0.043010752688172046, "mean_len": 64.95698924731182}
+{"step": 2000, "eval_set": "E4", "depth": 3, "group": "H", "n": 33, "greedy_acc": 0.0, "format_err": 0.06060606060606061, "mean_len": 91.84848484848484}
+{"step": 2000, "eval_set": "E4", "depth": 3, "group": "L", "n": 26, "greedy_acc": 0.0, "format_err": 0.19230769230769232, "mean_len": 77.88461538461539}
+{"step": 2000, "eval_set": "E4", "depth": 3, "group": "mixed", "n": 141, "greedy_acc": 0.0, "format_err": 0.10638297872340426, "mean_len": 88.56028368794327}
+{"step": 2000, "eval_set": "E4", "depth": 4, "group": "H", "n": 10, "greedy_acc": 0.0, "format_err": 0.2, "mean_len": 134.5}
+{"step": 2000, "eval_set": "E4", "depth": 4, "group": "L", "n": 15, "greedy_acc": 0.0, "format_err": 0.4666666666666667, "mean_len": 121.73333333333333}
+{"step": 2000, "eval_set": "E4", "depth": 4, "group": "mixed", "n": 175, "greedy_acc": 0.0, "format_err": 0.2571428571428571, "mean_len": 119.49142857142857}
+{"step": 2000, "eval_set": "E4", "depth": 5, "group": "H", "n": 6, "greedy_acc": 0.0, "format_err": 0.3333333333333333, "mean_len": 129.33333333333334}
+{"step": 2000, "eval_set": "E4", "depth": 5, "group": "L", "n": 8, "greedy_acc": 0.0, "format_err": 0.5, "mean_len": 115.75}
+{"step": 2000, "eval_set": "E4", "depth": 5, "group": "mixed", "n": 186, "greedy_acc": 0.0, "format_err": 0.41397849462365593, "mean_len": 109.80645161290323}
+{"step": 2000, "eval_set": "probe", "depth": "all", "group": "all", "n": 575, "greedy_acc": 0.09739130434782609, "format_err": 0.3373913043478261, "mean_len": 107.06086956521739}
+{"step": 2000, "eval_set": "probe", "depth": 1, "group": "H", "n": 25, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "probe", "depth": 1, "group": "L", "n": 25, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "probe", "depth": 2, "group": "H", "n": 25, "greedy_acc": 0.12, "format_err": 0.08, "mean_len": 62.04}
+{"step": 2000, "eval_set": "probe", "depth": 2, "group": "L", "n": 25, "greedy_acc": 0.08, "format_err": 0.0, "mean_len": 59.96}
+{"step": 2000, "eval_set": "probe", "depth": 2, "group": "mixed", "n": 25, "greedy_acc": 0.04, "format_err": 0.04, "mean_len": 64.64}
+{"step": 2000, "eval_set": "probe", "depth": 3, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.04, "mean_len": 89.36}
+{"step": 2000, "eval_set": "probe", "depth": 3, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.08, "mean_len": 88.92}
+{"step": 2000, "eval_set": "probe", "depth": 3, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 91.0}
+{"step": 2000, "eval_set": "probe", "depth": 4, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.2, "mean_len": 113.64}
+{"step": 2000, "eval_set": "probe", "depth": 4, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.28, "mean_len": 116.24}
+{"step": 2000, "eval_set": "probe", "depth": 4, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.2, "mean_len": 123.8}
+{"step": 2000, "eval_set": "probe", "depth": 5, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.48, "mean_len": 99.92}
+{"step": 2000, "eval_set": "probe", "depth": 5, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.48, "mean_len": 114.36}
+{"step": 2000, "eval_set": "probe", "depth": 5, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.56, "mean_len": 108.04}
+{"step": 2000, "eval_set": "probe", "depth": 6, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.56, "mean_len": 127.2}
+{"step": 2000, "eval_set": "probe", "depth": 6, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.48, "mean_len": 113.76}
+{"step": 2000, "eval_set": "probe", "depth": 6, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.56, "mean_len": 104.0}
+{"step": 2000, "eval_set": "probe", "depth": 7, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.64, "mean_len": 124.08}
+{"step": 2000, "eval_set": "probe", "depth": 7, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.48, "mean_len": 161.6}
+{"step": 2000, "eval_set": "probe", "depth": 7, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.76, "mean_len": 155.4}
+{"step": 2000, "eval_set": "probe", "depth": 8, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.64, "mean_len": 169.72}
+{"step": 2000, "eval_set": "probe", "depth": 8, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.56, "mean_len": 142.76}
+{"step": 2000, "eval_set": "probe", "depth": 8, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.64, "mean_len": 161.96}
+{"step": 4000, "eval_set": "E1", "depth": "all", "group": "all", "n": 1200, "greedy_acc": 0.9991666666666666, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "H", "n": 600, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "L", "n": 600, "greedy_acc": 0.9983333333333333, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F00", "label": "max_to_front", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F01", "label": "mirror_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F02", "label": "sort_desc", "n": 50, "greedy_acc": 0.98, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F03", "label": "rotl2", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F04", "label": "odd_pos_m1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F05", "label": "rotl3", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F06", "label": "shift_p1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F07", "label": "sort_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F08", "label": "complement", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F09", "label": "rotr1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F10", "label": "riffle", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F11", "label": "swap_adjacent", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F12", "label": "shift_p5", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F13", "label": "reverse_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F14", "label": "rotl1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F15", "label": "shift_by_pos", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F16", "label": "swap_ends", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F17", "label": "min_to_back", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F18", "label": "shift_m1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F19", "label": "swap_halves", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F20", "label": "sort_asc", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F21", "label": "shift_p3", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F22", "label": "reverse", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F23", "label": "even_pos_p1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "E2", "depth": "all", "group": "all", "n": 1800, "greedy_acc": 0.03944444444444444, "format_err": 0.03611111111111111, "mean_len": 71.28444444444445}
+{"step": 4000, "eval_set": "E2", "depth": 2, "group": "H", "n": 150, "greedy_acc": 0.14666666666666667, "format_err": 0.013333333333333334, "mean_len": 55.9}
+{"step": 4000, "eval_set": "E2", "depth": 2, "group": "L", "n": 150, "greedy_acc": 0.09333333333333334, "format_err": 0.02, "mean_len": 57.3}
+{"step": 4000, "eval_set": "E2", "depth": 2, "group": "mixed", "n": 150, "greedy_acc": 0.18, "format_err": 0.013333333333333334, "mean_len": 56.22666666666667}
+{"step": 4000, "eval_set": "E2", "depth": 3, "group": "H", "n": 150, "greedy_acc": 0.03333333333333333, "format_err": 0.013333333333333334, "mean_len": 71.76}
+{"step": 4000, "eval_set": "E2", "depth": 3, "group": "L", "n": 150, "greedy_acc": 0.0, "format_err": 0.03333333333333333, "mean_len": 73.62}
+{"step": 4000, "eval_set": "E2", "depth": 3, "group": "mixed", "n": 150, "greedy_acc": 0.013333333333333334, "format_err": 0.013333333333333334, "mean_len": 72.00666666666666}
+{"step": 4000, "eval_set": "E2", "depth": 4, "group": "H", "n": 150, "greedy_acc": 0.0, "format_err": 0.06, "mean_len": 78.46}
+{"step": 4000, "eval_set": "E2", "depth": 4, "group": "L", "n": 150, "greedy_acc": 0.006666666666666667, "format_err": 0.04, "mean_len": 81.64666666666666}
+{"step": 4000, "eval_set": "E2", "depth": 4, "group": "mixed", "n": 150, "greedy_acc": 0.0, "format_err": 0.04, "mean_len": 81.46}
+{"step": 4000, "eval_set": "E2", "depth": 5, "group": "H", "n": 150, "greedy_acc": 0.0, "format_err": 0.06, "mean_len": 75.56}
+{"step": 4000, "eval_set": "E2", "depth": 5, "group": "L", "n": 150, "greedy_acc": 0.0, "format_err": 0.06666666666666667, "mean_len": 73.95333333333333}
+{"step": 4000, "eval_set": "E2", "depth": 5, "group": "mixed", "n": 150, "greedy_acc": 0.0, "format_err": 0.06, "mean_len": 77.52}
+{"step": 4000, "eval_set": "E3", "depth": "all", "group": "all", "n": 900, "greedy_acc": 0.0, "format_err": 0.04, "mean_len": 66.9888888888889}
+{"step": 4000, "eval_set": "E3", "depth": 6, "group": "H", "n": 100, "greedy_acc": 0.0, "format_err": 0.06, "mean_len": 66.66}
+{"step": 4000, "eval_set": "E3", "depth": 6, "group": "L", "n": 100, "greedy_acc": 0.0, "format_err": 0.09, "mean_len": 64.43}
+{"step": 4000, "eval_set": "E3", "depth": 6, "group": "mixed", "n": 100, "greedy_acc": 0.0, "format_err": 0.06, "mean_len": 67.3}
+{"step": 4000, "eval_set": "E3", "depth": 7, "group": "H", "n": 100, "greedy_acc": 0.0, "format_err": 0.01, "mean_len": 66.98}
+{"step": 4000, "eval_set": "E3", "depth": 7, "group": "L", "n": 100, "greedy_acc": 0.0, "format_err": 0.03, "mean_len": 67.13}
+{"step": 4000, "eval_set": "E3", "depth": 7, "group": "mixed", "n": 100, "greedy_acc": 0.0, "format_err": 0.04, "mean_len": 66.96}
+{"step": 4000, "eval_set": "E3", "depth": 8, "group": "H", "n": 100, "greedy_acc": 0.0, "format_err": 0.03, "mean_len": 66.73}
+{"step": 4000, "eval_set": "E3", "depth": 8, "group": "L", "n": 100, "greedy_acc": 0.0, "format_err": 0.02, "mean_len": 68.69}
+{"step": 4000, "eval_set": "E3", "depth": 8, "group": "mixed", "n": 100, "greedy_acc": 0.0, "format_err": 0.02, "mean_len": 68.02}
+{"step": 4000, "eval_set": "E4", "depth": "all", "group": "all", "n": 800, "greedy_acc": 0.03375, "format_err": 0.04, "mean_len": 71.01125}
+{"step": 4000, "eval_set": "E4", "depth": 2, "group": "H", "n": 47, "greedy_acc": 0.23404255319148937, "format_err": 0.0, "mean_len": 52.851063829787236}
+{"step": 4000, "eval_set": "E4", "depth": 2, "group": "L", "n": 60, "greedy_acc": 0.05, "format_err": 0.05, "mean_len": 55.93333333333333}
+{"step": 4000, "eval_set": "E4", "depth": 2, "group": "mixed", "n": 93, "greedy_acc": 0.12903225806451613, "format_err": 0.010752688172043012, "mean_len": 57.236559139784944}
+{"step": 4000, "eval_set": "E4", "depth": 3, "group": "H", "n": 33, "greedy_acc": 0.030303030303030304, "format_err": 0.0, "mean_len": 70.78787878787878}
+{"step": 4000, "eval_set": "E4", "depth": 3, "group": "L", "n": 26, "greedy_acc": 0.0, "format_err": 0.07692307692307693, "mean_len": 70.46153846153847}
+{"step": 4000, "eval_set": "E4", "depth": 3, "group": "mixed", "n": 141, "greedy_acc": 0.0, "format_err": 0.03546099290780142, "mean_len": 71.71631205673759}
+{"step": 4000, "eval_set": "E4", "depth": 4, "group": "H", "n": 10, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 77.8}
+{"step": 4000, "eval_set": "E4", "depth": 4, "group": "L", "n": 15, "greedy_acc": 0.0, "format_err": 0.06666666666666667, "mean_len": 77.73333333333333}
+{"step": 4000, "eval_set": "E4", "depth": 4, "group": "mixed", "n": 175, "greedy_acc": 0.0, "format_err": 0.022857142857142857, "mean_len": 82.22857142857143}
+{"step": 4000, "eval_set": "E4", "depth": 5, "group": "H", "n": 6, "greedy_acc": 0.0, "format_err": 0.16666666666666666, "mean_len": 70.5}
+{"step": 4000, "eval_set": "E4", "depth": 5, "group": "L", "n": 8, "greedy_acc": 0.0, "format_err": 0.25, "mean_len": 65.25}
+{"step": 4000, "eval_set": "E4", "depth": 5, "group": "mixed", "n": 186, "greedy_acc": 0.0, "format_err": 0.06989247311827956, "mean_len": 75.73655913978494}
+{"step": 4000, "eval_set": "probe", "depth": "all", "group": "all", "n": 575, "greedy_acc": 0.10782608695652174, "format_err": 0.03130434782608696, "mean_len": 66.27304347826087}
+{"step": 4000, "eval_set": "probe", "depth": 1, "group": "H", "n": 25, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "probe", "depth": 1, "group": "L", "n": 25, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 4000, "eval_set": "probe", "depth": 2, "group": "H", "n": 25, "greedy_acc": 0.24, "format_err": 0.0, "mean_len": 57.76}
+{"step": 4000, "eval_set": "probe", "depth": 2, "group": "L", "n": 25, "greedy_acc": 0.08, "format_err": 0.04, "mean_len": 54.84}
+{"step": 4000, "eval_set": "probe", "depth": 2, "group": "mixed", "n": 25, "greedy_acc": 0.08, "format_err": 0.0, "mean_len": 56.68}
+{"step": 4000, "eval_set": "probe", "depth": 3, "group": "H", "n": 25, "greedy_acc": 0.04, "format_err": 0.0, "mean_len": 70.24}
+{"step": 4000, "eval_set": "probe", "depth": 3, "group": "L", "n": 25, "greedy_acc": 0.04, "format_err": 0.04, "mean_len": 70.24}
+{"step": 4000, "eval_set": "probe", "depth": 3, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.04, "mean_len": 71.56}
+{"step": 4000, "eval_set": "probe", "depth": 4, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.08, "mean_len": 81.92}
+{"step": 4000, "eval_set": "probe", "depth": 4, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.08, "mean_len": 78.36}
+{"step": 4000, "eval_set": "probe", "depth": 4, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 82.16}
+{"step": 4000, "eval_set": "probe", "depth": 5, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.04, "mean_len": 78.72}
+{"step": 4000, "eval_set": "probe", "depth": 5, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 76.4}
+{"step": 4000, "eval_set": "probe", "depth": 5, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.12, "mean_len": 75.6}
+{"step": 4000, "eval_set": "probe", "depth": 6, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.08, "mean_len": 65.68}
+{"step": 4000, "eval_set": "probe", "depth": 6, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.04, "mean_len": 64.64}
+{"step": 4000, "eval_set": "probe", "depth": 6, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 69.0}
+{"step": 4000, "eval_set": "probe", "depth": 7, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.08, "mean_len": 62.04}
+{"step": 4000, "eval_set": "probe", "depth": 7, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 67.16}
+{"step": 4000, "eval_set": "probe", "depth": 7, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 68.16}
+{"step": 4000, "eval_set": "probe", "depth": 8, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.04, "mean_len": 75.8}
+{"step": 4000, "eval_set": "probe", "depth": 8, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 62.4}
+{"step": 4000, "eval_set": "probe", "depth": 8, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.04, "mean_len": 64.92}
+{"step": 6000, "eval_set": "E1", "depth": "all", "group": "all", "n": 1200, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "H", "n": 600, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "L", "n": 600, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F00", "label": "max_to_front", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F01", "label": "mirror_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F02", "label": "sort_desc", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F03", "label": "rotl2", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F04", "label": "odd_pos_m1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F05", "label": "rotl3", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F06", "label": "shift_p1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F07", "label": "sort_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F08", "label": "complement", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F09", "label": "rotr1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F10", "label": "riffle", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F11", "label": "swap_adjacent", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F12", "label": "shift_p5", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F13", "label": "reverse_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F14", "label": "rotl1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F15", "label": "shift_by_pos", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F16", "label": "swap_ends", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F17", "label": "min_to_back", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F18", "label": "shift_m1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F19", "label": "swap_halves", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F20", "label": "sort_asc", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F21", "label": "shift_p3", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F22", "label": "reverse", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F23", "label": "even_pos_p1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "E2", "depth": "all", "group": "all", "n": 1800, "greedy_acc": 0.20166666666666666, "format_err": 0.0077777777777777776, "mean_len": 85.54333333333334}
+{"step": 6000, "eval_set": "E2", "depth": 2, "group": "H", "n": 150, "greedy_acc": 0.6133333333333333, "format_err": 0.0, "mean_len": 58.833333333333336}
+{"step": 6000, "eval_set": "E2", "depth": 2, "group": "L", "n": 150, "greedy_acc": 0.5266666666666666, "format_err": 0.0, "mean_len": 57.88666666666666}
+{"step": 6000, "eval_set": "E2", "depth": 2, "group": "mixed", "n": 150, "greedy_acc": 0.66, "format_err": 0.0, "mean_len": 57.92666666666667}
+{"step": 6000, "eval_set": "E2", "depth": 3, "group": "H", "n": 150, "greedy_acc": 0.3, "format_err": 0.006666666666666667, "mean_len": 82.64666666666666}
+{"step": 6000, "eval_set": "E2", "depth": 3, "group": "L", "n": 150, "greedy_acc": 0.11333333333333333, "format_err": 0.0, "mean_len": 81.36}
+{"step": 6000, "eval_set": "E2", "depth": 3, "group": "mixed", "n": 150, "greedy_acc": 0.15333333333333332, "format_err": 0.0, "mean_len": 80.6}
+{"step": 6000, "eval_set": "E2", "depth": 4, "group": "H", "n": 150, "greedy_acc": 0.006666666666666667, "format_err": 0.02, "mean_len": 104.53333333333333}
+{"step": 6000, "eval_set": "E2", "depth": 4, "group": "L", "n": 150, "greedy_acc": 0.02666666666666667, "format_err": 0.006666666666666667, "mean_len": 102.44666666666667}
+{"step": 6000, "eval_set": "E2", "depth": 4, "group": "mixed", "n": 150, "greedy_acc": 0.013333333333333334, "format_err": 0.02, "mean_len": 103.52}
+{"step": 6000, "eval_set": "E2", "depth": 5, "group": "H", "n": 150, "greedy_acc": 0.0, "format_err": 0.013333333333333334, "mean_len": 100.12666666666667}
+{"step": 6000, "eval_set": "E2", "depth": 5, "group": "L", "n": 150, "greedy_acc": 0.006666666666666667, "format_err": 0.006666666666666667, "mean_len": 96.37333333333333}
+{"step": 6000, "eval_set": "E2", "depth": 5, "group": "mixed", "n": 150, "greedy_acc": 0.0, "format_err": 0.02, "mean_len": 100.26666666666667}
+{"step": 6000, "eval_set": "E3", "depth": "all", "group": "all", "n": 900, "greedy_acc": 0.0033333333333333335, "format_err": 0.005555555555555556, "mean_len": 86.13777777777777}
+{"step": 6000, "eval_set": "E3", "depth": 6, "group": "H", "n": 100, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 88.55}
+{"step": 6000, "eval_set": "E3", "depth": 6, "group": "L", "n": 100, "greedy_acc": 0.01, "format_err": 0.0, "mean_len": 87.39}
+{"step": 6000, "eval_set": "E3", "depth": 6, "group": "mixed", "n": 100, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 87.12}
+{"step": 6000, "eval_set": "E3", "depth": 7, "group": "H", "n": 100, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 86.73}
+{"step": 6000, "eval_set": "E3", "depth": 7, "group": "L", "n": 100, "greedy_acc": 0.02, "format_err": 0.01, "mean_len": 88.06}
+{"step": 6000, "eval_set": "E3", "depth": 7, "group": "mixed", "n": 100, "greedy_acc": 0.0, "format_err": 0.03, "mean_len": 85.7}
+{"step": 6000, "eval_set": "E3", "depth": 8, "group": "H", "n": 100, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 85.62}
+{"step": 6000, "eval_set": "E3", "depth": 8, "group": "L", "n": 100, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 81.54}
+{"step": 6000, "eval_set": "E3", "depth": 8, "group": "mixed", "n": 100, "greedy_acc": 0.0, "format_err": 0.01, "mean_len": 84.53}
+{"step": 6000, "eval_set": "E4", "depth": "all", "group": "all", "n": 800, "greedy_acc": 0.2, "format_err": 0.0175, "mean_len": 85.97375}
+{"step": 6000, "eval_set": "E4", "depth": 2, "group": "H", "n": 47, "greedy_acc": 0.40425531914893614, "format_err": 0.0, "mean_len": 59.02127659574468}
+{"step": 6000, "eval_set": "E4", "depth": 2, "group": "L", "n": 60, "greedy_acc": 0.65, "format_err": 0.0, "mean_len": 58.333333333333336}
+{"step": 6000, "eval_set": "E4", "depth": 2, "group": "mixed", "n": 93, "greedy_acc": 0.7634408602150538, "format_err": 0.010752688172043012, "mean_len": 58.806451612903224}
+{"step": 6000, "eval_set": "E4", "depth": 3, "group": "H", "n": 33, "greedy_acc": 0.09090909090909091, "format_err": 0.030303030303030304, "mean_len": 80.06060606060606}
+{"step": 6000, "eval_set": "E4", "depth": 3, "group": "L", "n": 26, "greedy_acc": 0.07692307692307693, "format_err": 0.0, "mean_len": 78.6923076923077}
+{"step": 6000, "eval_set": "E4", "depth": 3, "group": "mixed", "n": 141, "greedy_acc": 0.1773049645390071, "format_err": 0.0070921985815602835, "mean_len": 81.16312056737588}
+{"step": 6000, "eval_set": "E4", "depth": 4, "group": "H", "n": 10, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 101.5}
+{"step": 6000, "eval_set": "E4", "depth": 4, "group": "L", "n": 15, "greedy_acc": 0.0, "format_err": 0.13333333333333333, "mean_len": 109.13333333333334}
+{"step": 6000, "eval_set": "E4", "depth": 4, "group": "mixed", "n": 175, "greedy_acc": 0.005714285714285714, "format_err": 0.022857142857142857, "mean_len": 104.92571428571429}
+{"step": 6000, "eval_set": "E4", "depth": 5, "group": "H", "n": 6, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 102.5}
+{"step": 6000, "eval_set": "E4", "depth": 5, "group": "L", "n": 8, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 96.625}
+{"step": 6000, "eval_set": "E4", "depth": 5, "group": "mixed", "n": 186, "greedy_acc": 0.0, "format_err": 0.026881720430107527, "mean_len": 99.47311827956989}
+{"step": 6000, "eval_set": "probe", "depth": "all", "group": "all", "n": 575, "greedy_acc": 0.18956521739130436, "format_err": 0.01217391304347826, "mean_len": 80.62434782608696}
+{"step": 6000, "eval_set": "probe", "depth": 1, "group": "H", "n": 25, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "probe", "depth": 1, "group": "L", "n": 25, "greedy_acc": 0.96, "format_err": 0.0, "mean_len": 35.0}
+{"step": 6000, "eval_set": "probe", "depth": 2, "group": "H", "n": 25, "greedy_acc": 0.6, "format_err": 0.0, "mean_len": 57.6}
+{"step": 6000, "eval_set": "probe", "depth": 2, "group": "L", "n": 25, "greedy_acc": 0.48, "format_err": 0.0, "mean_len": 58.0}
+{"step": 6000, "eval_set": "probe", "depth": 2, "group": "mixed", "n": 25, "greedy_acc": 0.68, "format_err": 0.0, "mean_len": 57.8}
+{"step": 6000, "eval_set": "probe", "depth": 3, "group": "H", "n": 25, "greedy_acc": 0.2, "format_err": 0.0, "mean_len": 81.64}
+{"step": 6000, "eval_set": "probe", "depth": 3, "group": "L", "n": 25, "greedy_acc": 0.2, "format_err": 0.0, "mean_len": 81.56}
+{"step": 6000, "eval_set": "probe", "depth": 3, "group": "mixed", "n": 25, "greedy_acc": 0.24, "format_err": 0.0, "mean_len": 79.44}
+{"step": 6000, "eval_set": "probe", "depth": 4, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.08, "mean_len": 108.8}
+{"step": 6000, "eval_set": "probe", "depth": 4, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.04, "mean_len": 103.08}
+{"step": 6000, "eval_set": "probe", "depth": 4, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 101.48}
+{"step": 6000, "eval_set": "probe", "depth": 5, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 93.08}
+{"step": 6000, "eval_set": "probe", "depth": 5, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.12, "mean_len": 99.92}
+{"step": 6000, "eval_set": "probe", "depth": 5, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 97.84}
+{"step": 6000, "eval_set": "probe", "depth": 6, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.04, "mean_len": 87.16}
+{"step": 6000, "eval_set": "probe", "depth": 6, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 86.48}
+{"step": 6000, "eval_set": "probe", "depth": 6, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 85.24}
+{"step": 6000, "eval_set": "probe", "depth": 7, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 82.44}
+{"step": 6000, "eval_set": "probe", "depth": 7, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 82.56}
+{"step": 6000, "eval_set": "probe", "depth": 7, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 81.32}
+{"step": 6000, "eval_set": "probe", "depth": 8, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 89.16}
+{"step": 6000, "eval_set": "probe", "depth": 8, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 82.48}
+{"step": 6000, "eval_set": "probe", "depth": 8, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 87.28}
+{"step": 8000, "eval_set": "E1", "depth": "all", "group": "all", "n": 1200, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "H", "n": 600, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "L", "n": 600, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F00", "label": "max_to_front", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F01", "label": "mirror_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F02", "label": "sort_desc", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F03", "label": "rotl2", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F04", "label": "odd_pos_m1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F05", "label": "rotl3", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F06", "label": "shift_p1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F07", "label": "sort_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F08", "label": "complement", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F09", "label": "rotr1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F10", "label": "riffle", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F11", "label": "swap_adjacent", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F12", "label": "shift_p5", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F13", "label": "reverse_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F14", "label": "rotl1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F15", "label": "shift_by_pos", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F16", "label": "swap_ends", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F17", "label": "min_to_back", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F18", "label": "shift_m1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F19", "label": "swap_halves", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F20", "label": "sort_asc", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F21", "label": "shift_p3", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F22", "label": "reverse", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F23", "label": "even_pos_p1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "E2", "depth": "all", "group": "all", "n": 1800, "greedy_acc": 0.38055555555555554, "format_err": 0.0005555555555555556, "mean_len": 84.44166666666666}
+{"step": 8000, "eval_set": "E2", "depth": 2, "group": "H", "n": 150, "greedy_acc": 0.9, "format_err": 0.0, "mean_len": 57.99333333333333}
+{"step": 8000, "eval_set": "E2", "depth": 2, "group": "L", "n": 150, "greedy_acc": 0.76, "format_err": 0.0, "mean_len": 58.00666666666667}
+{"step": 8000, "eval_set": "E2", "depth": 2, "group": "mixed", "n": 150, "greedy_acc": 0.8866666666666667, "format_err": 0.0, "mean_len": 58.0}
+{"step": 8000, "eval_set": "E2", "depth": 3, "group": "H", "n": 150, "greedy_acc": 0.6866666666666666, "format_err": 0.0, "mean_len": 81.04}
+{"step": 8000, "eval_set": "E2", "depth": 3, "group": "L", "n": 150, "greedy_acc": 0.42, "format_err": 0.0, "mean_len": 81.13333333333334}
+{"step": 8000, "eval_set": "E2", "depth": 3, "group": "mixed", "n": 150, "greedy_acc": 0.5733333333333334, "format_err": 0.0, "mean_len": 80.96666666666667}
+{"step": 8000, "eval_set": "E2", "depth": 4, "group": "H", "n": 150, "greedy_acc": 0.16666666666666666, "format_err": 0.0, "mean_len": 101.88}
+{"step": 8000, "eval_set": "E2", "depth": 4, "group": "L", "n": 150, "greedy_acc": 0.08666666666666667, "format_err": 0.0, "mean_len": 103.12666666666667}
+{"step": 8000, "eval_set": "E2", "depth": 4, "group": "mixed", "n": 150, "greedy_acc": 0.08, "format_err": 0.0, "mean_len": 101.8}
+{"step": 8000, "eval_set": "E2", "depth": 5, "group": "H", "n": 150, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 97.46}
+{"step": 8000, "eval_set": "E2", "depth": 5, "group": "L", "n": 150, "greedy_acc": 0.006666666666666667, "format_err": 0.0, "mean_len": 95.50666666666666}
+{"step": 8000, "eval_set": "E2", "depth": 5, "group": "mixed", "n": 150, "greedy_acc": 0.0, "format_err": 0.006666666666666667, "mean_len": 96.38666666666667}
+{"step": 8000, "eval_set": "E3", "depth": "all", "group": "all", "n": 900, "greedy_acc": 0.0022222222222222222, "format_err": 0.0033333333333333335, "mean_len": 85.21444444444444}
+{"step": 8000, "eval_set": "E3", "depth": 6, "group": "H", "n": 100, "greedy_acc": 0.01, "format_err": 0.0, "mean_len": 87.34}
+{"step": 8000, "eval_set": "E3", "depth": 6, "group": "L", "n": 100, "greedy_acc": 0.0, "format_err": 0.01, "mean_len": 85.56}
+{"step": 8000, "eval_set": "E3", "depth": 6, "group": "mixed", "n": 100, "greedy_acc": 0.01, "format_err": 0.0, "mean_len": 86.99}
+{"step": 8000, "eval_set": "E3", "depth": 7, "group": "H", "n": 100, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 82.0}
+{"step": 8000, "eval_set": "E3", "depth": 7, "group": "L", "n": 100, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 82.01}
+{"step": 8000, "eval_set": "E3", "depth": 7, "group": "mixed", "n": 100, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 83.09}
+{"step": 8000, "eval_set": "E3", "depth": 8, "group": "H", "n": 100, "greedy_acc": 0.0, "format_err": 0.01, "mean_len": 86.82}
+{"step": 8000, "eval_set": "E3", "depth": 8, "group": "L", "n": 100, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 85.96}
+{"step": 8000, "eval_set": "E3", "depth": 8, "group": "mixed", "n": 100, "greedy_acc": 0.0, "format_err": 0.01, "mean_len": 87.16}
+{"step": 8000, "eval_set": "E4", "depth": "all", "group": "all", "n": 800, "greedy_acc": 0.37875, "format_err": 0.00125, "mean_len": 85.07875}
+{"step": 8000, "eval_set": "E4", "depth": 2, "group": "H", "n": 47, "greedy_acc": 0.8936170212765957, "format_err": 0.0, "mean_len": 57.255319148936174}
+{"step": 8000, "eval_set": "E4", "depth": 2, "group": "L", "n": 60, "greedy_acc": 0.8833333333333333, "format_err": 0.0, "mean_len": 58.166666666666664}
+{"step": 8000, "eval_set": "E4", "depth": 2, "group": "mixed", "n": 93, "greedy_acc": 0.967741935483871, "format_err": 0.0, "mean_len": 58.26881720430107}
+{"step": 8000, "eval_set": "E4", "depth": 3, "group": "H", "n": 33, "greedy_acc": 0.3939393939393939, "format_err": 0.0, "mean_len": 81.42424242424242}
+{"step": 8000, "eval_set": "E4", "depth": 3, "group": "L", "n": 26, "greedy_acc": 0.4230769230769231, "format_err": 0.0, "mean_len": 78.57692307692308}
+{"step": 8000, "eval_set": "E4", "depth": 3, "group": "mixed", "n": 141, "greedy_acc": 0.5460992907801419, "format_err": 0.0, "mean_len": 81.2127659574468}
+{"step": 8000, "eval_set": "E4", "depth": 4, "group": "H", "n": 10, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 100.4}
+{"step": 8000, "eval_set": "E4", "depth": 4, "group": "L", "n": 15, "greedy_acc": 0.06666666666666667, "format_err": 0.0, "mean_len": 100.46666666666667}
+{"step": 8000, "eval_set": "E4", "depth": 4, "group": "mixed", "n": 175, "greedy_acc": 0.09142857142857143, "format_err": 0.0, "mean_len": 104.28571428571429}
+{"step": 8000, "eval_set": "E4", "depth": 5, "group": "H", "n": 6, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 88.66666666666667}
+{"step": 8000, "eval_set": "E4", "depth": 5, "group": "L", "n": 8, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 91.5}
+{"step": 8000, "eval_set": "E4", "depth": 5, "group": "mixed", "n": 186, "greedy_acc": 0.0, "format_err": 0.005376344086021506, "mean_len": 98.15591397849462}
+{"step": 8000, "eval_set": "probe", "depth": "all", "group": "all", "n": 575, "greedy_acc": 0.27652173913043476, "format_err": 0.0, "mean_len": 80.84}
+{"step": 8000, "eval_set": "probe", "depth": 1, "group": "H", "n": 25, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "probe", "depth": 1, "group": "L", "n": 25, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 8000, "eval_set": "probe", "depth": 2, "group": "H", "n": 25, "greedy_acc": 0.92, "format_err": 0.0, "mean_len": 58.0}
+{"step": 8000, "eval_set": "probe", "depth": 2, "group": "L", "n": 25, "greedy_acc": 0.88, "format_err": 0.0, "mean_len": 58.0}
+{"step": 8000, "eval_set": "probe", "depth": 2, "group": "mixed", "n": 25, "greedy_acc": 0.76, "format_err": 0.0, "mean_len": 58.0}
+{"step": 8000, "eval_set": "probe", "depth": 3, "group": "H", "n": 25, "greedy_acc": 0.56, "format_err": 0.0, "mean_len": 81.0}
+{"step": 8000, "eval_set": "probe", "depth": 3, "group": "L", "n": 25, "greedy_acc": 0.4, "format_err": 0.0, "mean_len": 81.0}
+{"step": 8000, "eval_set": "probe", "depth": 3, "group": "mixed", "n": 25, "greedy_acc": 0.36, "format_err": 0.0, "mean_len": 81.0}
+{"step": 8000, "eval_set": "probe", "depth": 4, "group": "H", "n": 25, "greedy_acc": 0.32, "format_err": 0.0, "mean_len": 103.6}
+{"step": 8000, "eval_set": "probe", "depth": 4, "group": "L", "n": 25, "greedy_acc": 0.04, "format_err": 0.0, "mean_len": 99.96}
+{"step": 8000, "eval_set": "probe", "depth": 4, "group": "mixed", "n": 25, "greedy_acc": 0.04, "format_err": 0.0, "mean_len": 102.8}
+{"step": 8000, "eval_set": "probe", "depth": 5, "group": "H", "n": 25, "greedy_acc": 0.04, "format_err": 0.0, "mean_len": 95.88}
+{"step": 8000, "eval_set": "probe", "depth": 5, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 101.72}
+{"step": 8000, "eval_set": "probe", "depth": 5, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 97.92}
+{"step": 8000, "eval_set": "probe", "depth": 6, "group": "H", "n": 25, "greedy_acc": 0.04, "format_err": 0.0, "mean_len": 83.92}
+{"step": 8000, "eval_set": "probe", "depth": 6, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 85.36}
+{"step": 8000, "eval_set": "probe", "depth": 6, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 84.36}
+{"step": 8000, "eval_set": "probe", "depth": 7, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 82.16}
+{"step": 8000, "eval_set": "probe", "depth": 7, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 81.76}
+{"step": 8000, "eval_set": "probe", "depth": 7, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 84.12}
+{"step": 8000, "eval_set": "probe", "depth": 8, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 89.36}
+{"step": 8000, "eval_set": "probe", "depth": 8, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 95.24}
+{"step": 8000, "eval_set": "probe", "depth": 8, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 84.16}
+{"step": 9500, "eval_set": "E1", "depth": "all", "group": "all", "n": 1200, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "H", "n": 600, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "L", "n": 600, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "H", "func": "F00", "label": "max_to_front", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "L", "func": "F01", "label": "mirror_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "L", "func": "F02", "label": "sort_desc", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "L", "func": "F03", "label": "rotl2", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "L", "func": "F04", "label": "odd_pos_m1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "L", "func": "F05", "label": "rotl3", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "H", "func": "F06", "label": "shift_p1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "H", "func": "F07", "label": "sort_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "H", "func": "F08", "label": "complement", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "L", "func": "F09", "label": "rotr1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "H", "func": "F10", "label": "riffle", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "H", "func": "F11", "label": "swap_adjacent", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "L", "func": "F12", "label": "shift_p5", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "L", "func": "F13", "label": "reverse_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "H", "func": "F14", "label": "rotl1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "H", "func": "F15", "label": "shift_by_pos", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "L", "func": "F16", "label": "swap_ends", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "L", "func": "F17", "label": "min_to_back", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "L", "func": "F18", "label": "shift_m1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "H", "func": "F19", "label": "swap_halves", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "H", "func": "F20", "label": "sort_asc", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "L", "func": "F21", "label": "shift_p3", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "H", "func": "F22", "label": "reverse", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E1", "depth": 1, "group": "H", "func": "F23", "label": "even_pos_p1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "E2", "depth": "all", "group": "all", "n": 1800, "greedy_acc": 0.45611111111111113, "format_err": 0.0, "mean_len": 83.28}
+{"step": 9500, "eval_set": "E2", "depth": 2, "group": "H", "n": 150, "greedy_acc": 0.9666666666666667, "format_err": 0.0, "mean_len": 58.0}
+{"step": 9500, "eval_set": "E2", "depth": 2, "group": "L", "n": 150, "greedy_acc": 0.9266666666666666, "format_err": 0.0, "mean_len": 58.0}
+{"step": 9500, "eval_set": "E2", "depth": 2, "group": "mixed", "n": 150, "greedy_acc": 0.9533333333333334, "format_err": 0.0, "mean_len": 58.00666666666667}
+{"step": 9500, "eval_set": "E2", "depth": 3, "group": "H", "n": 150, "greedy_acc": 0.7533333333333333, "format_err": 0.0, "mean_len": 80.92666666666666}
+{"step": 9500, "eval_set": "E2", "depth": 3, "group": "L", "n": 150, "greedy_acc": 0.58, "format_err": 0.0, "mean_len": 81.0}
+{"step": 9500, "eval_set": "E2", "depth": 3, "group": "mixed", "n": 150, "greedy_acc": 0.6733333333333333, "format_err": 0.0, "mean_len": 81.0}
+{"step": 9500, "eval_set": "E2", "depth": 4, "group": "H", "n": 150, "greedy_acc": 0.2733333333333333, "format_err": 0.0, "mean_len": 101.93333333333334}
+{"step": 9500, "eval_set": "E2", "depth": 4, "group": "L", "n": 150, "greedy_acc": 0.16, "format_err": 0.0, "mean_len": 102.73333333333333}
+{"step": 9500, "eval_set": "E2", "depth": 4, "group": "mixed", "n": 150, "greedy_acc": 0.18, "format_err": 0.0, "mean_len": 103.03333333333333}
+{"step": 9500, "eval_set": "E2", "depth": 5, "group": "H", "n": 150, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 92.40666666666667}
+{"step": 9500, "eval_set": "E2", "depth": 5, "group": "L", "n": 150, "greedy_acc": 0.006666666666666667, "format_err": 0.0, "mean_len": 91.09333333333333}
+{"step": 9500, "eval_set": "E2", "depth": 5, "group": "mixed", "n": 150, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 91.22666666666667}
+{"step": 9500, "eval_set": "E3", "depth": "all", "group": "all", "n": 900, "greedy_acc": 0.0033333333333333335, "format_err": 0.0011111111111111111, "mean_len": 84.02888888888889}
+{"step": 9500, "eval_set": "E3", "depth": 6, "group": "H", "n": 100, "greedy_acc": 0.01, "format_err": 0.0, "mean_len": 82.91}
+{"step": 9500, "eval_set": "E3", "depth": 6, "group": "L", "n": 100, "greedy_acc": 0.01, "format_err": 0.0, "mean_len": 85.55}
+{"step": 9500, "eval_set": "E3", "depth": 6, "group": "mixed", "n": 100, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 84.24}
+{"step": 9500, "eval_set": "E3", "depth": 7, "group": "H", "n": 100, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 81.37}
+{"step": 9500, "eval_set": "E3", "depth": 7, "group": "L", "n": 100, "greedy_acc": 0.01, "format_err": 0.0, "mean_len": 82.23}
+{"step": 9500, "eval_set": "E3", "depth": 7, "group": "mixed", "n": 100, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 81.62}
+{"step": 9500, "eval_set": "E3", "depth": 8, "group": "H", "n": 100, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 86.7}
+{"step": 9500, "eval_set": "E3", "depth": 8, "group": "L", "n": 100, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 84.28}
+{"step": 9500, "eval_set": "E3", "depth": 8, "group": "mixed", "n": 100, "greedy_acc": 0.0, "format_err": 0.01, "mean_len": 87.36}
+{"step": 9500, "eval_set": "E4", "depth": "all", "group": "all", "n": 800, "greedy_acc": 0.44125, "format_err": 0.0, "mean_len": 83.20875}
+{"step": 9500, "eval_set": "E4", "depth": 2, "group": "H", "n": 47, "greedy_acc": 0.8936170212765957, "format_err": 0.0, "mean_len": 57.255319148936174}
+{"step": 9500, "eval_set": "E4", "depth": 2, "group": "L", "n": 60, "greedy_acc": 0.95, "format_err": 0.0, "mean_len": 58.166666666666664}
+{"step": 9500, "eval_set": "E4", "depth": 2, "group": "mixed", "n": 93, "greedy_acc": 0.989247311827957, "format_err": 0.0, "mean_len": 58.26881720430107}
+{"step": 9500, "eval_set": "E4", "depth": 3, "group": "H", "n": 33, "greedy_acc": 0.6060606060606061, "format_err": 0.0, "mean_len": 81.60606060606061}
+{"step": 9500, "eval_set": "E4", "depth": 3, "group": "L", "n": 26, "greedy_acc": 0.7692307692307693, "format_err": 0.0, "mean_len": 78.57692307692308}
+{"step": 9500, "eval_set": "E4", "depth": 3, "group": "mixed", "n": 141, "greedy_acc": 0.6453900709219859, "format_err": 0.0, "mean_len": 81.29787234042553}
+{"step": 9500, "eval_set": "E4", "depth": 4, "group": "H", "n": 10, "greedy_acc": 0.2, "format_err": 0.0, "mean_len": 100.4}
+{"step": 9500, "eval_set": "E4", "depth": 4, "group": "L", "n": 15, "greedy_acc": 0.13333333333333333, "format_err": 0.0, "mean_len": 103.06666666666666}
+{"step": 9500, "eval_set": "E4", "depth": 4, "group": "mixed", "n": 175, "greedy_acc": 0.14285714285714285, "format_err": 0.0, "mean_len": 103.34857142857143}
+{"step": 9500, "eval_set": "E4", "depth": 5, "group": "H", "n": 6, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 91.5}
+{"step": 9500, "eval_set": "E4", "depth": 5, "group": "L", "n": 8, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 82.75}
+{"step": 9500, "eval_set": "E4", "depth": 5, "group": "mixed", "n": 186, "greedy_acc": 0.010752688172043012, "format_err": 0.0, "mean_len": 90.97311827956989}
+{"step": 9500, "eval_set": "probe", "depth": "all", "group": "all", "n": 575, "greedy_acc": 0.32869565217391306, "format_err": 0.0034782608695652175, "mean_len": 79.64173913043479}
+{"step": 9500, "eval_set": "probe", "depth": 1, "group": "H", "n": 25, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "probe", "depth": 1, "group": "L", "n": 25, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 9500, "eval_set": "probe", "depth": 2, "group": "H", "n": 25, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 58.0}
+{"step": 9500, "eval_set": "probe", "depth": 2, "group": "L", "n": 25, "greedy_acc": 0.92, "format_err": 0.0, "mean_len": 58.0}
+{"step": 9500, "eval_set": "probe", "depth": 2, "group": "mixed", "n": 25, "greedy_acc": 0.8, "format_err": 0.0, "mean_len": 58.0}
+{"step": 9500, "eval_set": "probe", "depth": 3, "group": "H", "n": 25, "greedy_acc": 0.64, "format_err": 0.0, "mean_len": 81.0}
+{"step": 9500, "eval_set": "probe", "depth": 3, "group": "L", "n": 25, "greedy_acc": 0.68, "format_err": 0.0, "mean_len": 81.0}
+{"step": 9500, "eval_set": "probe", "depth": 3, "group": "mixed", "n": 25, "greedy_acc": 0.64, "format_err": 0.0, "mean_len": 81.0}
+{"step": 9500, "eval_set": "probe", "depth": 4, "group": "H", "n": 25, "greedy_acc": 0.52, "format_err": 0.0, "mean_len": 101.72}
+{"step": 9500, "eval_set": "probe", "depth": 4, "group": "L", "n": 25, "greedy_acc": 0.16, "format_err": 0.0, "mean_len": 104.36}
+{"step": 9500, "eval_set": "probe", "depth": 4, "group": "mixed", "n": 25, "greedy_acc": 0.12, "format_err": 0.04, "mean_len": 105.68}
+{"step": 9500, "eval_set": "probe", "depth": 5, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 91.36}
+{"step": 9500, "eval_set": "probe", "depth": 5, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 91.72}
+{"step": 9500, "eval_set": "probe", "depth": 5, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 93.44}
+{"step": 9500, "eval_set": "probe", "depth": 6, "group": "H", "n": 25, "greedy_acc": 0.04, "format_err": 0.0, "mean_len": 83.48}
+{"step": 9500, "eval_set": "probe", "depth": 6, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 86.6}
+{"step": 9500, "eval_set": "probe", "depth": 6, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 83.08}
+{"step": 9500, "eval_set": "probe", "depth": 7, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 82.84}
+{"step": 9500, "eval_set": "probe", "depth": 7, "group": "L", "n": 25, "greedy_acc": 0.04, "format_err": 0.0, "mean_len": 81.16}
+{"step": 9500, "eval_set": "probe", "depth": 7, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 79.28}
+{"step": 9500, "eval_set": "probe", "depth": 8, "group": "H", "n": 25, "greedy_acc": 0.0, "format_err": 0.04, "mean_len": 93.44}
+{"step": 9500, "eval_set": "probe", "depth": 8, "group": "L", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 80.96}
+{"step": 9500, "eval_set": "probe", "depth": 8, "group": "mixed", "n": 25, "greedy_acc": 0.0, "format_err": 0.0, "mean_len": 85.64}

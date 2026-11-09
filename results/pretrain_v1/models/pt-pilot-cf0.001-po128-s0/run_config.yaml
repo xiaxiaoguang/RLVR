@@ -1,0 +1,310 @@
+seed: 0
+git_commit: e1f0e5a03935ee36acd69b59a7789e2a1444d137-dirty
+world_size: 1
+imports: []
+paths:
+  data: data
+  runs: runs
+  checkpoints: checkpoints
+task:
+  alphabet: abcdefghijklmnopqrstuvwxyz
+  str_len:
+  - 6
+  - 7
+  - 8
+  - 9
+  - 10
+  name_seed: 12345
+  cot: true
+  max_depth: 8
+  functions:
+    reverse: reverse
+    rotl1:
+      name: rotate
+      k: 1
+    rotr1:
+      name: rotate
+      k: -1
+    rotl2:
+      name: rotate
+      k: 2
+    swap_adjacent: swap_adjacent
+    swap_ends: swap_ends
+    swap_halves: swap_halves
+    shift_p1:
+      name: shift
+      k: 1
+    shift_m1:
+      name: shift
+      k: -1
+    shift_p3:
+      name: shift
+      k: 3
+    complement: complement
+    sort_asc: sort
+    sort_desc:
+      name: sort
+      descending: true
+    even_pos_p1:
+      name: shift_at
+      k: 1
+      parity: 0
+    max_to_front: max_to_front
+    mirror_first_half: mirror_first_half
+    rotl3:
+      name: rotate
+      k: 3
+    reverse_first_half:
+      name: reverse_half
+      first: true
+    riffle: riffle
+    shift_p5:
+      name: shift
+      k: 5
+    shift_by_pos:
+      name: shift_by_pos
+      k: 1
+    sort_first_half:
+      name: sort_half
+      first: true
+    odd_pos_m1:
+      name: shift_at
+      k: -1
+      parity: 1
+    min_to_back: min_to_back
+  h_group:
+  - reverse
+  - rotl1
+  - swap_adjacent
+  - swap_halves
+  - riffle
+  - shift_p1
+  - complement
+  - shift_by_pos
+  - sort_asc
+  - sort_first_half
+  - even_pos_p1
+  - max_to_front
+splits:
+  salt: rlvr-split-v1
+  pools:
+    pretrain:
+    - 0
+    - 900
+    rl:
+    - 900
+    - 950
+    eval:
+    - 950
+    - 1000
+  heldout_seed: 777
+  heldout_pairs_per_group_pair: 6
+eval:
+  version: v2
+  seed: 1001
+  sets:
+    E1:
+      depths:
+      - 1
+      groups:
+      - H
+      - L
+      per_cell: 50
+      by_function: true
+    E2:
+      depths:
+      - 2
+      - 3
+      - 4
+      - 5
+      groups:
+      - H
+      - L
+      - mixed
+      per_cell: 150
+    E3:
+      depths:
+      - 6
+      - 7
+      - 8
+      groups:
+      - H
+      - L
+      - mixed
+      per_cell: 100
+    E4:
+      depths:
+      - 2
+      - 3
+      - 4
+      - 5
+      groups:
+      - null
+      per_cell: 200
+      novel: true
+    probe:
+      depths:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      groups:
+      - H
+      - L
+      - mixed
+      per_cell: 25
+    calib:
+      depths:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      groups:
+      - H
+      - L
+      - mixed
+      per_cell: 200
+  max_new_tokens: 256
+  batch_size: 256
+rl_pool:
+  seed: 2002
+  depths:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  groups:
+  - H
+  - L
+  - mixed
+  per_cell: 1000
+  extra_cells:
+  - depth: 2
+    group: L
+    n: 4000
+  - depth: 4
+    group: H
+    n: 4000
+  - depth: 5
+    group: H
+    n: 4000
+model:
+  n_layer: 12
+  d_model: 768
+  n_head: 12
+  d_ff: 2048
+  max_len: 512
+  attn_impl: sdpa
+  pos: rope
+pretrain:
+  level: pilot-cf0.001-po128
+  comp_frac: 0.001
+  comp_depth_mix:
+    2: 0.6
+    3: 0.35
+    4: 0.05
+  h_only_depths:
+  - 4
+  h_ratio: 0.9
+  noise_frac: 0.0
+  pos_offset_max: 128
+  steps: 400
+  target_tokens_per_step: 192000
+  micro_target_tokens: 6000
+  bucket_examples: 20000
+  num_workers: 4
+  lr: 0.0006
+  min_lr_frac: 0.1
+  warmup_frac: 0.02
+  weight_decay: 0.1
+  grad_clip: 1.0
+  compile: true
+  target_minutes: 60
+  save_at: []
+  eval_every: 200
+  log_every: 50
+  eval_sets:
+  - E1
+  - E2
+  - E3
+gate:
+  depth1_greedy: 0.98
+  depth1_func_z: 1.96
+  p_range:
+  - 0.4
+  - 0.6
+  min_matched: 300
+  min_matched_per_len: 120
+  matched_cells:
+  - depth: 2
+    group: L
+  - depth: 4
+    group: H
+  spread_depths:
+  - 2
+  - 3
+  - 4
+  - 5
+  min_spread_frac: 0.2
+  loss_depths:
+  - 3
+  min_final_loss: 0.001
+  target:
+    depth: 3
+    p_range:
+    - 0.35
+    - 0.55
+  hard_checks:
+  - depth1_greedy
+  - spread
+  - matched_cells
+label:
+  k: 32
+  temperature: 1.0
+  batch_size: 16
+  relabel_k: 64
+  relabel_range:
+  - 0.3
+  - 0.7
+  relabel_cells:
+  - depth: 2
+    group: L
+  - depth: 4
+    group: H
+  - depth: 5
+    group: H
+data:
+  dataset: null
+  sampler: static
+  order: shuffle
+  p_ema: 0.9
+rl:
+  group_size: 8
+  prompts_per_step: 64
+  lr: 1.0e-05
+  warmup_steps: 10
+  steps: 500
+  temperature: 1.0
+  max_new_tokens: 256
+  adv_std_norm: true
+  loss_agg: token
+  kl_coef: 0.0
+  clip_eps: 0.2
+  ppo_epochs: 1
+  entropy_coef: 0.0
+  grad_clip: 1.0
+  eval_every: 50
+  probe_every: 25
+  reward: binary

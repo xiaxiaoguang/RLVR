@@ -1,0 +1,22 @@
+{
+ "ckpt": "/global/u2/y/yupengsu/projects/RLVR/checkpoints/pt-strong-cf0.0007-s0",
+ "model_id": "pt-strong-cf0.0007-s0",
+ "cells": [
+  [
+   3,
+   "H"
+  ],
+  [
+   4,
+   "H"
+  ],
+  [
+   4,
+   "mixed"
+  ]
+ ],
+ "n_problems": 4000,
+ "k": 8,
+ "temperature": 1.0,
+ "seconds": 167
+}

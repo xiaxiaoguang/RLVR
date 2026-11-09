@@ -3,3 +3,6 @@
 pretrain:
   level: mid
   comp_frac: 0.01
+# mid feeds the matched-p datasets (D/E), so the default hard checks apply; the target is a warning.
+gate:
+  target: {depth: 3, p_range: [0.35, 0.55]}   # doc: mid d3 mean p ~ 0.4-0.5

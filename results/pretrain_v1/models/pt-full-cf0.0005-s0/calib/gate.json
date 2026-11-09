@@ -1,0 +1,98 @@
+{
+ "model_id": "pt-full-cf0.0005-s0",
+ "hard_checks": [
+  "depth1_greedy",
+  "spread",
+  "matched_cells"
+ ],
+ "checks": {
+  "depth1_greedy": {
+   "value": 1.0,
+   "min": 0.98,
+   "func_z": 1.96,
+   "funcs_below_min": {},
+   "worst_funcs": {
+    "F00": 1.0,
+    "F01": 1.0,
+    "F02": 1.0
+   },
+   "pass": true,
+   "hard": true
+  },
+  "final_loss": {
+   "step": 9500,
+   "value": 4.3657028072630055e-06,
+   "by_depth": {
+    "d3": 0.0017361714271828532
+   },
+   "min": 0.001,
+   "pass": true,
+   "hard": false
+  },
+  "spread": {
+   "by_depth": {
+    "2": {
+     "mean_p": 0.91265625,
+     "signal_frac": 0.2966666666666667
+    },
+    "3": {
+     "mean_p": 0.7038020833333334,
+     "signal_frac": 0.655
+    },
+    "4": {
+     "mean_p": 0.28729166666666667,
+     "signal_frac": 0.5866666666666667
+    },
+    "5": {
+     "mean_p": 0.013072916666666667,
+     "signal_frac": 0.065
+    }
+   },
+   "min_signal_frac": 0.2,
+   "pass": false,
+   "hard": true
+  },
+  "target": {
+   "depth": 3,
+   "p_range": [
+    0.35,
+    0.55
+   ],
+   "value": 0.7038020833333334,
+   "pass": false,
+   "hard": false
+  }
+ },
+ "calib_mean_p": {
+  "d1-H": 1.0,
+  "d1-L": 1.0,
+  "d2-H": 0.98,
+  "d2-L": 0.881,
+  "d2-mixed": 0.877,
+  "d3-H": 0.897,
+  "d3-L": 0.529,
+  "d3-mixed": 0.686,
+  "d4-H": 0.524,
+  "d4-L": 0.108,
+  "d4-mixed": 0.23,
+  "d5-H": 0.024,
+  "d5-L": 0.005,
+  "d5-mixed": 0.01,
+  "d6-H": 0.003,
+  "d6-L": 0.0,
+  "d6-mixed": 0.002,
+  "d7-H": 0.0,
+  "d7-L": 0.0,
+  "d7-mixed": 0.0,
+  "d8-H": 0.0,
+  "d8-L": 0.0,
+  "d8-mixed": 0.0
+ },
+ "pass": false,
+ "warnings": [
+  "target"
+ ],
+ "not_run": [
+  "matched_cells"
+ ]
+}
