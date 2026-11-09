@@ -1,45 +1,50 @@
-# v1 预训练结果记录
+# v1 pretraining results
 
-按轮记录 v1 基座模型的训练结果和 comp_frac 的决定过程。
+Training results of the v1 base models, round by round, and how comp_frac was chosen.
 
-- 完整的作业日志：`/pscratch/sd/y/yupengsu/rlvr/runs/NERSC_LOG.md`（在 scratch 上）。
-  每次提交时把它复制一份到 `results/pretrain_v1/NERSC_LOG.md`。
-- 各运行的小文件（gate.json、relabel_report.json、stats.json、eval.jsonl、热力图）和诊断输出：
-  在 `results/pretrain_v1/` 下，用 `scripts/collect_results.sh` 从 scratch 收集。
-- 模型 checkpoint 和 RL 池标签（`data/labels/*.parquet`）比较大，不进 git，仍然只在 scratch 上。
-  定稿之后会复制到 `/global/cfs/cdirs/m4788/yupengsu/rlvr/`。
+- Full job log: `/pscratch/sd/y/yupengsu/rlvr/runs/NERSC_LOG.md` (scratch). A snapshot is copied to
+  `results/pretrain_v1/NERSC_LOG.md` with every results commit.
+- Small per-run files (gate.json, relabel_report.json, stats.json, eval.jsonl, run_config.yaml, calib heatmap) and the
+  diagnosis outputs: `results/pretrain_v1/`, collected from scratch by `scripts/collect_results.sh`.
+- Model checkpoints and RL-pool labels (`data/labels/*.parquet`) are too large for git and are still only on scratch.
+  They will be copied to `/global/cfs/cdirs/m4788/yupengsu/rlvr/` once the models are final.
 
-## 当前进度（2026-11-08）
+## Status (2026-11-08)
 
-| 模型 | 候选运行 | comp_frac | 设计目标 | 实际 | gate（硬检查） | 状态 |
+| model | candidate run | comp_frac | design target | measured | gate (hard checks) | status |
 |---|---|---|---|---|---|---|
-| weak | pt-weak-cf0.000125-s0 | 1.25e-4 | d3 0.05–0.2 | d3 .114 | PASS | 达标，可以定稿 |
-| mid | pt-mid-cf0.00032-s0 | 3.2e-4 | d3 0.35–0.55 | d3 .381 | **FAIL**（spread、matched_cells） | 目标达到，gate 规则待定 |
-| strong | pt-strong-cf0.00083-s0 | 8.3e-4 | d4 0.4–0.6 | d4 .353（d4-H .594） | PASS | 待定：接受，或再试 9e-4 / 9.5e-4 |
-| midbal | pt-midbal-cf0.00032-s0 | 3.2e-4，h_ratio 0.5 | d3 0.35–0.55 | d3 .549 | **FAIL**（spread、matched_cells） | gate 规则待定 |
+| weak | pt-weak-cf0.000125-s0 | 1.25e-4 | d3 0.05–0.2 | d3 .114 | PASS | on target, ready to finalise |
+| mid | pt-mid-cf0.00032-s0 | 3.2e-4 | d3 0.35–0.55 | d3 .381 | **FAIL** (spread, matched_cells) | on target; gate rules pending |
+| strong | pt-strong-cf0.00083-s0 | 8.3e-4 | d4 0.4–0.6 | d4 .353 (d4-H .594) | PASS | pending: accept, or try 9e-4 / 9.5e-4 |
+| midbal | pt-midbal-cf0.00032-s0 | 3.2e-4, h_ratio 0.5 | d3 0.35–0.55 | d3 .549 | **FAIL** (spread, matched_cells) | gate rules pending |
 
-四个候选模型都已经训练完成，并做了完整校准（calib 热力图、35,000 题 RL 池标注、匹配格复标）。
+All four candidates are trained and fully calibrated: calib heatmap, 35,000-problem RL-pool labelling, and relabelling
+of the matched cells.
 
-待团队决定的问题（详见文末「待决定的问题」）：
+Open questions for the team (details under "Open questions" below):
 
-1. spread 是否只检查 d2–d4。按设计，d5 不进预训练，所以包含 d5 的 spread 在任何 comp_frac 下都过不了。
-2. 是否扩充共享 RL 池。matched_cells 要求每个长度至少 120 题；按目前每格 5,000 题的池子，mid 达不到。
-3. midbal 的 matched_cells 是否改成警告。
-4. strong：接受 8.3e-4，还是再试一轮。
+1. Should spread check only d2–d4? By design depth 5 is not in pretraining, so a spread check that includes d5
+   cannot pass at any comp_frac.
+2. Should the shared RL pool be expanded? matched_cells needs at least 120 problems per length; with the current
+   5,000 candidates per cell, mid cannot reach that.
+3. Should midbal's matched_cells become a warning?
+4. strong: accept 8.3e-4, or one more round?
 
-还没做：把候选运行改名为 pt-{weak,mid,strong,midbal}-s0，以及构建 matched_p 数据集。这两步都要等上面几个问题定下来。
+Not done yet: renaming the candidates to pt-{weak,mid,strong,midbal}-s0 and building the matched_p datasets. Both wait
+for the questions above.
 
-机时：已用 21.09 / 50 NERSC GPU 节点小时，见文末「机时」。
+Compute: 21.09 of 50 NERSC GPU node-hours used (see "Compute" below).
 
-## 设置
+## Setup
 
-- 模型 85.0M 参数；9500 步，每步约 192k 监督 token（共 1.84B），4×A100 约 70 分钟（含启动和评估）。
-- seed 0，pos_offset_max 128，h_ratio 0.9（midbal 为 0.5）。其余参数取 `rlvr/params.py` 的默认值。
-- 校准：calib 集每格 200 题，T=1.0，k=32。表中数字是各深度的 mean p̂。
+- 85.0M-parameter model; 9500 steps, ~192k supervised tokens per step (1.84B in total); ~70 min on 4×A100 including
+  start-up and evaluation.
+- seed 0, pos_offset_max 128, h_ratio 0.9 (midbal 0.5). Everything else uses the defaults in `rlvr/params.py`.
+- Calibration: 200 calib problems per cell, T=1.0, k=32. Tables show the mean p̂ per depth.
 
-## 试点扫描（2026-11-04）
+## Pilot sweep (2026-11-04)
 
-`scripts/sweep.py`：400 步，约为完整训练 token 量的 4%。calib 每格 50 题，k=16，pos_offset_max=128。
+`scripts/sweep.py`: 400 steps, ~4% of the full training tokens. 50 calib problems per cell, k=16, pos_offset_max=128.
 
 | comp_frac | d2 | d3 | d4 | d5 |
 |---|---|---|---|---|
@@ -50,20 +55,20 @@
 | 0.03 | .461 | .096 | .002 | .001 |
 | 0.1 | .813 | .516 | .103 | .010 |
 
-当时按「试点值 ÷ 25（token 量相差 25 倍）」外推，定了 weak = 0.001、strong = 0.01。
+Extrapolating as "pilot value / 25" (the full run has 25× the tokens) gave weak = 0.001 and strong = 0.01.
 
-## 第 1 轮完整训练（2026-11-05，commit 456e41d）
+## Round 1: first full runs (2026-11-05, commit 456e41d)
 
-| 运行 | comp_frac | 组合样本数 | d2 | d3 | d4 | d5 | d2-L | d4-H | E1 | gate |
+| run | comp_frac | comp. examples | d2 | d3 | d4 | d5 | d2-L | d4-H | E1 | gate |
 |---|---|---|---|---|---|---|---|---|---|---|
-| pt-weak-s0 | 0.001 | 26,723 | .951 | **.871** | .681 | .017 | .914 | .846 | 1.000 | PASS，警告 target、spread |
-| pt-strong-s0 | 0.01 | 269,092 | .999 | .987 | **.973** | .021 | .998 | .991 | 1.000 | PASS，警告 target、spread、final_loss |
+| pt-weak-s0 | 0.001 | 26,723 | .951 | **.871** | .681 | .017 | .914 | .846 | 1.000 | PASS, warnings target, spread |
+| pt-strong-s0 | 0.01 | 269,092 | .999 | .987 | **.973** | .021 | .998 | .991 | 1.000 | PASS, warnings target, spread, final_loss |
 
-两个模型都远超设计目标：weak 目标 d3 为 0.05–0.2，strong 目标 d4 为 0.4–0.6。
-gate 判为 PASS，是因为 weak/strong 的硬检查只有 depth1_greedy。
-两个模型都只做了 calib 热力图，RL 池标注中途停掉了，所以没有 `data/labels/` 文件。
+Both models overshoot their design targets by far (weak: d3 0.05–0.2; strong: d4 0.4–0.6). The gate passes because
+the only hard check for weak/strong is depth1_greedy. Both runs only got the calib heatmap; RL-pool labelling was
+stopped part-way, so they have no `data/labels/` file.
 
-训练中的 greedy 准确率（weak，E2 集）显示，组合能力是在训练后半段才涨起来的：
+Greedy accuracy during training (weak, E2 set) shows that composition is learned in the second half of training:
 
 | step | 2000 | 4000 | 6000 | 8000 | 9500 |
 |---|---|---|---|---|---|
@@ -72,210 +77,238 @@ gate 判为 PASS，是因为 weak/strong 的硬检查只有 depth1_greedy。
 | d4-H | .00 | .01 | .37 | .83 | .92 |
 | d4-L | .00 | .01 | .14 | .39 | .69 |
 
-### 结论
+### Conclusions
 
-- 试点的外推把需要的 comp_frac 高估了约 10 倍。完整训练里，原子函数学透之后，组合只需要很少的样本：
-  weak 只见过 149 个 d3-L 样本，d3-L 就到了 .81；只见过 1,349 个 d4-H 样本，d4-H 就到了 .85。
-  而 d4-L 一个样本都没见过，也到了 .59。
-- 训练过的深度（d2–d4）和没训练过的深度（d5 及以上）之间是断崖：两个模型的 d5 都只有约 0.02。
-- 对 comp_frac 的粗略估计，一是对 0.001 和 0.01 两点做 logit 线性拟合，二是读 weak 的训练轨迹。两种方法给出一个范围：
-  strong 约 5e-4–7e-4，mid 约 1.3e-4–5e-4，weak 约 2e-5–4e-4。
-- 下一步决定先做一轮完整训练长度的扫描，见第 2 轮。
+- The pilot extrapolation overestimated the needed comp_frac by ~10×. In full training, once the atomic functions are
+  learned, composition needs very few examples: weak saw only 149 d3-L examples and reached d3-L .81, and 1,349 d4-H
+  examples for d4-H .85. d4-L reached .59 without a single training example.
+- There is a cliff between trained depths (d2–d4) and untrained ones (d5 and up): d5 is ~0.02 for both models.
+- Rough comp_frac estimates, from a logit-linear fit through 0.001 and 0.01 and from weak's training trajectory, give
+  ranges: strong ~5e-4–7e-4, mid ~1.3e-4–5e-4, weak ~2e-5–4e-4.
+- Next step chosen: a comp_frac sweep at the full training length (round 2).
 
-### 产出位置（scratch）
+### Outputs (scratch)
 
-- `runs/pt-{weak,strong}-s0/`：metrics.jsonl、eval.jsonl、stats.json、calib/（calib_labels.parquet、heatmap.png、中间版 gate.json）。
-- `checkpoints/pt-{weak,strong}-s0/`：最终模型。`runs/pt-*/ckpt/step-{2375,4750}/`：训练中途的 checkpoint。
+- `runs/pt-{weak,strong}-s0/`: metrics.jsonl, eval.jsonl, stats.json, calib/ (calib_labels.parquet, heatmap.png,
+  interim gate.json).
+- `checkpoints/pt-{weak,strong}-s0/`: final models. `runs/pt-*/ckpt/step-{2375,4750}/`: intermediate checkpoints.
 
-## 第 2 轮：完整训练长度的 comp_frac 扫描（2026-11-05，job 60880260）
+## Round 2: comp_frac sweep at the full training length (2026-11-05, job 60880260)
 
-4 个节点并行，每个节点训练一个模型，都是完整的 9500 步，配置为 `configs/pretrain/mid.yaml` 加上 comp_frac 覆盖。
-只做 calib 热力图（`calibrate.py --skip-pool`），不标注 RL 池。运行名为 pt-full-cf<cf>-s0。
+Four nodes in parallel, one model per node, all with the full 9500 steps, from `configs/pretrain/mid.yaml` with a
+comp_frac override. Calib heatmap only (`calibrate.py --skip-pool`), no RL-pool labelling. Runs are named
+pt-full-cf<cf>-s0.
 
-| comp_frac | 运行 | 组合样本数 | d2 | d3 | d4 | d5 | d2-L | d4-H |
+| comp_frac | run | comp. examples | d2 | d3 | d4 | d5 | d2-L | d4-H |
 |---|---|---|---|---|---|---|---|---|
 | 3e-5 | pt-full-cf0.00003-s0 | 871 | .023 | .001 | .000 | .000 | .008 | .000 |
 | 1e-4 | pt-full-cf0.0001-s0 | 2,734 | .352 | .064 | .005 | .000 | .113 | .015 |
 | 2.5e-4 | pt-full-cf0.00025-s0 | 6,867 | .683 | .308 | .036 | .005 | .496 | .093 |
 | 5e-4 | pt-full-cf0.0005-s0 | 13,490 | .913 | .704 | .287 | .013 | .881 | .524 |
-| 1e-3 | pt-weak-s0（第 1 轮） | 26,723 | .951 | .871 | .681 | .017 | .914 | .846 |
-| 1e-2 | pt-strong-s0（第 1 轮） | 269,092 | .999 | .987 | .973 | .021 | .998 | .991 |
+| 1e-3 | pt-weak-s0 (round 1) | 26,723 | .951 | .871 | .681 | .017 | .914 | .846 |
+| 1e-2 | pt-strong-s0 (round 1) | 269,092 | .999 | .987 | .973 | .021 | .998 | .991 |
 
-所有运行的 E1 都是 1.000。
+E1 = 1.000 for every run.
 
-- d2-L 在约 2.5e-4 时到 0.5，d4-H 要到约 5e-4 才到 0.5。没有一个 comp_frac 能让两个匹配格同时处在 0.5 附近。
-- 每道题的 p 是双峰分布：即使某格的平均 p 接近 0.5，p 落在 [0.4, 0.6] 的题也不超过 12.5%。
-- d5 的 signal_frac（0 < p̂ < 1 的比例）在所有 comp_frac 下都不超过 0.065。所以 mid 的 spread 硬检查（d2–d5 每个深度都 ≥ 0.2）不可能通过。
-- 按 logit 插值选了第 3 轮的 comp_frac：weak 1.25e-4（d3 约 0.1），mid 3.2e-4（d3 约 0.45），strong 7e-4（d4 约 0.5）。
+- d2-L reaches 0.5 at ~2.5e-4, but d4-H only at ~5e-4. No single comp_frac puts both matched cells near 0.5.
+- Per-problem p is bimodal: even when a cell's mean p is near 0.5, at most 12.5% of its problems have p in [0.4, 0.6].
+- d5's signal_frac (fraction with 0 < p̂ < 1) is at most 0.065 at every comp_frac, so mid's hard spread check
+  (≥ 0.2 at every depth in d2–d5) cannot pass.
+- Round-3 comp_frac by logit interpolation: weak 1.25e-4 (d3 ~0.1), mid 3.2e-4 (d3 ~0.45), strong 7e-4 (d4 ~0.5).
 
-## 第 3 轮：四个候选模型，训练 + 完整校准（2026-11-06，job 60894875）
+## Round 3: four candidates, training + full calibration (2026-11-06, job 60894875)
 
-4 个节点并行，每个节点跑 `scripts/slurm/model_pipeline.sh`：训练，calib 热力图，35,000 题 RL 池 k=32 标注，
-再对 p̂ 落在 [0.4, 0.6] 的题做 k=64 复标。四个模型都写出了 `data/labels/<运行名>.parquet`。
+Four nodes in parallel, each running `scripts/slurm/model_pipeline.sh`: training, calib heatmap, RL-pool labelling
+(35,000 problems, k=32), then relabelling with k=64 of the problems whose p̂ falls in [0.4, 0.6]. All four wrote
+`data/labels/<run>.parquet`.
 
-calib 平均 p（每格 200 题，k=32）：
+Calib mean p (200 problems per cell, k=32):
 
-| 模型 | comp_frac | 组合样本数 | d2 | d3 | d4 | d5 | d2-H | d2-L | d3-H | d3-L | d4-H | d4-L | gate（硬检查） | 警告 |
+| model | comp_frac | comp. examples | d2 | d3 | d4 | d5 | d2-H | d2-L | d3-H | d3-L | d4-H | d4-L | gate (hard) | warnings |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| weak | 1.25e-4 | 3,384 | .440 | **.114** | .011 | .001 | .721 | .186 | .251 | .011 | .028 | .002 | PASS | spread、matched_cells |
+| weak | 1.25e-4 | 3,384 | .440 | **.114** | .011 | .001 | .721 | .186 | .251 | .011 | .028 | .002 | PASS | spread, matched_cells |
 | mid | 3.2e-4 | 8,800 | .724 | **.381** | .072 | .003 | .914 | .497 | .684 | .131 | .167 | .013 | **FAIL** | |
-| strong | 7e-4 | 18,729 | .921 | .739 | **.336** | .004 | .981 | .863 | .897 | .559 | .568 | .167 | PASS | spread、target、matched_cells |
+| strong | 7e-4 | 18,729 | .921 | .739 | **.336** | .004 | .981 | .863 | .897 | .559 | .568 | .167 | PASS | spread, target, matched_cells |
 | midbal | 3.2e-4 | 8,790 | .906 | **.549** | .119 | .001 | .938 | .870 | .656 | .438 | .180 | .081 | **FAIL** | |
 
-mid 和 midbal 的 spread、matched_cells 都是硬检查，两项都没过。target 一项除 strong（d4 .336 < 0.4）之外都在范围内，midbal 的 d3 落在上沿附近。
+For mid and midbal, spread and matched_cells are hard checks, and both fail. The target check is within range for
+every model except strong (d4 .336 < 0.4); midbal's d3 sits at the top of its range.
 
-spread 的 signal_frac（每个深度 0 < p̂ < 1 的比例，门槛 0.2）：
+spread signal_frac (fraction with 0 < p̂ < 1 per depth; threshold 0.2):
 
-| 模型 | d2 | d3 | d4 | d5 |
+| model | d2 | d3 | d4 | d5 |
 |---|---|---|---|---|
 | mid | .583 | .697 | .353 | **.037** |
 | midbal | .402 | .802 | .498 | **.015** |
 
-mid 和 midbal 只在 d5 上不达标。
+mid and midbal fail only at d5.
 
-匹配格：复标 p 在 [0.4, 0.6] 的题数，括号里是长度 6 / 7 / 8 / 9 / 10 各自的题数。gate 要求总数 ≥ 300，且每个长度 ≥ 120。
+Matched cells: problems with relabelled p in [0.4, 0.6]; in brackets, the count per length 6 / 7 / 8 / 9 / 10.
+The gate needs ≥ 300 in total and ≥ 120 per length.
 
-| 模型 | d2-L | d4-H |
+| model | d2-L | d4-H |
 |---|---|---|
-| mid | 369（73 / 75 / 81 / 84 / 56） | 326（103 / **31** / 103 / **18** / 71） |
-| midbal | 159（12 / 29 / 37 / 37 / 44） | 391（101 / 63 / 84 / 63 / 80） |
-| strong 7e-4 | 168 | 509（79 / 135 / 101 / 84 / 110） |
+| mid | 369 (73 / 75 / 81 / 84 / 56) | 326 (103 / **31** / 103 / **18** / 71) |
+| midbal | 159 (12 / 29 / 37 / 37 / 44) | 391 (101 / 63 / 84 / 63 / 80) |
+| strong 7e-4 | 168 | 509 (79 / 135 / 101 / 84 / 110) |
 | weak | 210 | 36 |
 
-首次筛选落在 [0.4, 0.6] 的题，复标后的平均 p（括号里是复标后仍在区间内的比例）：
+Problems first selected with p̂ in [0.4, 0.6]: mean p after relabelling (in brackets, the fraction still in range):
 
-| 模型 | d2-L | d4-H |
+| model | d2-L | d4-H |
 |---|---|---|
-| mid | .506（.56） | .472（.57） |
-| midbal | .524（.55） | .483（.57） |
-| weak | .505（.62） | .422（.53） |
-| strong 7e-4 | .520（.59） | .507（.58） |
+| mid | .506 (.56) | .472 (.57) |
+| midbal | .524 (.55) | .483 (.57) |
+| weak | .505 (.62) | .422 (.53) |
+| strong 7e-4 | .520 (.59) | .507 (.58) |
 
-各模型首次筛选进 d5-H 区间的题都不超过 32 道。
+No model had more than 32 problems first selected in d5-H.
 
-### 结论
+### Conclusions
 
-- **weak 达标。** d3 .114，在 0.05–0.2 内。
-- **mid 达到了设计目标，但 gate 两项硬检查都不过：**
-  - spread 只差在 d5，按设计无解。
-  - matched_cells 差在每个长度的题数：d4-H 在长度 7 和长度 9 只有 31 和 18 道。光放宽门槛不够，要么扩充 RL 池（d4-H 约扩到 34,000 道，d2-L 约扩到 11,000 道），要么改匹配方式。
-- **midbal：** 按设计，comp_frac 和 mid 相同，只有 h_ratio 不同（单因素 P6）。它的 d2-L 太容易（.870），落在 [0.4, 0.6] 的只有 159 道。
-- **strong 7e-4：** d4 只有 .336。在 7e-4 和 1e-3 之间按 logit 插值，估出 d4 = 0.5 约在 8.3e-4，于是重训，结果见下文。
+- **weak is on target:** d3 .114, within 0.05–0.2.
+- **mid meets its design target but fails both hard gate checks:**
+  - spread fails only at d5, which cannot pass by design.
+  - matched_cells fails on the per-length counts: d4-H has only 31 and 18 problems at lengths 7 and 9. Relaxing the
+    thresholds alone is not enough; either expand the RL pool (d4-H to ~34,000 problems, d2-L to ~11,000) or change
+    how the cells are matched.
+- **midbal:** by design it keeps mid's comp_frac and changes only h_ratio (single-factor P6). Its d2-L is too easy
+  (.870), so only 159 problems fall in [0.4, 0.6].
+- **strong 7e-4:** d4 only .336. Logit interpolation between 7e-4 and 1e-3 put d4 = 0.5 at ~8.3e-4, so strong was
+  retrained there (see below).
 
-## d4 的长度效应诊断（2026-11-06，job 60914166）
+## d4 length effect diagnosis (2026-11-06, job 60914166)
 
-现象：mid、midbal、strong 和 5e-4 的 d4 准确率都在长度 7 上明显偏低，只有 mid 在长度 9 上也偏低。RL 池和 calib 集上都能看到，d2 和 d3 则没有这个现象。
+Observation: d4 accuracy of mid, midbal, strong and 5e-4 is clearly lower at length 7; mid is also low at length 9. It
+shows on both the RL pool and the calib set. d2 and d3 do not show it.
 
-脚本是 `scripts/diag_steps.py`，输出在 `results/pretrain_v1/diag-d4len/`（`analyze.log`、各模型的 `analysis.json`、`replay.json`）。
+Script `scripts/diag_steps.py`; outputs in `results/pretrain_v1/diag-d4len/` (`analyze.txt`, per-model
+`analysis.json`, `replay.json`).
 
-- `gen`：对 RL 池中每个长度的 400 道 d4-H 题，以及 d3-H、d4-mixed，各采样 k=8（T=1）并做一次 greedy。
-- `analyze`：逐步检查推理链，记录第一个错误出在哪一步、属于哪种错误。
-- `replay`：精确重放预训练数据流，按深度、组和长度统计组合样本数。
+- `gen`: for 400 RL-pool d4-H problems per length, plus d3-H and d4-mixed, sample k=8 at T=1 plus one greedy decode.
+- `analyze`: check the reasoning chain step by step and record the first wrong step and its error type.
+- `replay`: replay the pretraining data stream exactly and count composition examples per depth, group and length.
 
-### 错在哪一步：d4 的第 3 步
+### Where it fails: step 3 of depth 4
 
-前两步都对的情况下，第 3 步做对的概率：
+Probability that step 3 is correct given that steps 1–2 are correct:
 
-| 模型 | L6 | **L7** | L8 | L9 | L10 |
+| model | L6 | **L7** | L8 | L9 | L10 |
 |---|---|---|---|---|---|
 | mid | .54 | **.19** | .59 | **.15** | .68 |
 | midbal | .63 | **.38** | .64 | .29 | .71 |
 | 5e-4 | .69 | **.28** | .80 | .82 | .87 |
 | strong 7e-4 | .73 | **.46** | .77 | .77 | .89 |
 
-d4-H 采样准确率：
+d4-H sampled accuracy:
 
-| 模型 | L6 | L7 | L8 | L9 | L10 |
+| model | L6 | L7 | L8 | L9 | L10 |
 |---|---|---|---|---|---|
 | mid | .204 | .083 | .188 | .046 | .152 |
 | midbal | .217 | .122 | .152 | .114 | .181 |
 | 5e-4 | .546 | .198 | .550 | .591 | .498 |
 | strong 7e-4 | .542 | .338 | .565 | .561 | .560 |
 
-- 错误类型几乎都是 wrong_func：模型在第 3 步直接写出最外层的函数，跳过了第 3 个函数，等于把 4 步的题当成 3 步来做。
-- d4-mixed 在预训练里从没出现过，也有同样的长度 7 低谷。所以问题在 d4 第 3 步这项能力本身，和用到哪些函数无关。
-- 函数本身算错（apply 错误）的比例随长度平滑上升，长度 7 没有特殊的低谷。d3 在各长度上都很平。
+- Almost all errors are wrong_func: at step 3 the model writes the outermost function, skipping function 3, i.e. it
+  solves a depth-4 problem as if it had depth 3.
+- d4-mixed never appears in pretraining and shows the same length-7 dip, so the problem is the step-3-of-depth-4 skill
+  itself, not particular functions.
+- The rate of wrong function applications (apply errors) grows smoothly with length, with no dip at length 7. d3 is
+  flat across lengths.
 
-### 原因：长度 7 的 d4 训练样本最少（seed 0 的抽样巧合）
+### Cause: fewest d4 training examples at length 7 (a seed-0 sampling accident)
 
-重放结果与 `stats.json` 完全一致，包括总样本数和每个组合格的样本数。d4-H 训练样本按长度的分布：
+The replay matches `stats.json` exactly, both the total number of examples and the count in every composition cell.
+d4-H training examples per length:
 
-| 模型 | L6 | **L7** | L8 | L9 | L10 |
+| model | L6 | **L7** | L8 | L9 | L10 |
 |---|---|---|---|---|---|
 | mid | 87 | **68** | 101 | 96 | 95 |
 | midbal | 87 | **68** | 102 | 96 | 95 |
 | 5e-4 | 139 | **102** | 156 | 140 | 131 |
 | strong 7e-4 | 199 | **157** | 213 | 188 | 188 |
 
-- 每个模型都是长度 7 最少。长度本来是均匀抽样的，mid 的期望约为 89 条，实际只有 68 条，大约低 2.5 个标准差。
-- 所有运行都用 seed 0。comp_frac 不同时，各 worker 的 Python 随机数流会暂时错开，之后又会重新同步，所以各个强度的模型其实共用了大部分组合样本：mid 和 midbal 的 d4 样本数几乎一模一样。长度 7 偏少是 seed 0 的一次抽样巧合，被所有模型继承了。
-- d4 只占组合样本的 5%，每个长度只有约 70–200 条。d4 的第 3 步要靠这几十条样本按长度分别学会，所以很脆弱。
-- 数量解释不了全部：mid 长度 9 的样本数正常，成绩却很差（midbal 和它共用这批 d4 样本）。所以抽到的是哪些题也有影响。
-- 这不是代码 bug：d1 = 1.0，d2 和 d3 在各长度上都很平。
+- Length 7 has the fewest examples in every model. Lengths are sampled uniformly: mid expects ~89 and got 68, about
+  2.5 standard deviations low.
+- All runs use seed 0. When comp_frac differs, the per-worker Python rng streams diverge briefly and then
+  re-synchronise, so models at different levels share most of their composition examples (mid and midbal have almost
+  identical d4 counts). The length-7 shortfall is one sampling accident of seed 0, inherited by every model.
+- d4 is only 5% of composition examples, about 70–200 per length. Step 3 of depth 4 has to be learned from these few
+  dozen examples, separately for each length, so it is fragile.
+- Counts do not explain everything: mid has a normal number of length-9 examples but does badly there (midbal shares
+  the same d4 examples). Which problems were drawn matters too.
+- Not a code bug: d1 = 1.0, and d2 and d3 are flat across lengths.
 
-### 影响和可能的改法
+### Implications and possible fixes
 
-- 换 seed，低谷的位置应该会变。设计里 mid 的 seed 1/2 重复实验可以验证这一点（P11）。
-- 各强度的模型共用同一份数据运气，适合做配对比较，但它们不是彼此独立的重复。
-- 要从根上减轻这个问题：提高 comp_depth_mix 里 d4 的占比（设计的风险表里提过），或者让组合样本按长度均衡抽样。这两种都要重训 mid 和 midbal。
+- With another seed the dip should move. The design's mid seed 1/2 replicates (P11) can confirm this.
+- The levels share the same data luck, which is good for paired comparisons, but they are not independent replicates.
+- To reduce the problem at the root: raise d4's share in comp_depth_mix (listed in the design's risk table), or sample
+  composition examples balanced across lengths. Both require retraining mid and midbal.
 
-### 顺带发现：reward 只看最终答案
+### Side finding: the reward checks only the final answer
 
-1.4–2.6% 的采样中间链是错的，最终答案却碰巧对了（比如后面的一次排序抹掉了前面的错误），照样拿到 reward 1。
-p̂ 标签和 RL 的 reward 都只看最终答案。
+1.4–2.6% of sampled completions have a wrong chain but a correct final answer (e.g. a later sort erases an earlier
+error) and still get reward 1. Both the p̂ labels and the RL reward check only the final answer.
 
-## strong 重训（2026-11-06，job 60914163）
+## strong retrain (2026-11-06, job 60914163)
 
-pt-strong-cf0.00083-s0：配置是 `configs/pretrain/strong.yaml`，comp_frac 8.3e-4，组合样本 22,120 条（其中 d4 1,126 条），做了训练和完整校准。
+pt-strong-cf0.00083-s0: `configs/pretrain/strong.yaml`, comp_frac 8.3e-4, 22,120 composition examples (1,126 at d4);
+training and full calibration.
 
-- gate：PASS（depth1 = 1.0），警告 spread、target、matched_cells。
-- calib 平均 p：d2 .919，d3 .759，**d4 .353**，d5 .010。
-- d4 分组：d4-H .594，d4-L .161，d4-mixed .304。整体 d4 仍低于 0.4。
-- d4-H 在长度 6–10 上是 .59 / .54 / .65 / .58 / .61，长度 7 的低谷基本消失了。
-- 匹配格：d2-L 153 道（13 / 12 / 53 / 27 / 48），d4-H 428 道（75 / 100 / 92 / 75 / 86）。
-- 首次筛选的题复标后：d2-L 平均 .511，仍在区间内的占 .53；d4-H .515（.58）；d5-H .469（.43）。
+- gate: PASS (depth1 = 1.0), warnings spread, target, matched_cells.
+- calib mean p: d2 .919, d3 .759, **d4 .353**, d5 .010.
+- d4 by group: d4-H .594, d4-L .161, d4-mixed .304. Overall d4 is still below 0.4.
+- d4-H at lengths 6–10: .59 / .54 / .65 / .58 / .61. The length-7 dip is mostly gone.
+- Matched cells: d2-L 153 (13 / 12 / 53 / 27 / 48), d4-H 428 (75 / 100 / 92 / 75 / 86).
+- First-selected problems after relabelling: d2-L mean .511, still in range .53; d4-H .515 (.58); d5-H .469 (.43).
 
-同一配置、seed 0 下，d4 随 comp_frac 的变化：
+d4 against comp_frac (same config, seed 0):
 
 | comp_frac | 5e-4 | 7e-4 | 8.3e-4 | 1e-3 |
 |---|---|---|---|---|
-| d4 训练样本数 | 668 | 945 | 1,126 | 1,349 |
+| d4 training examples | 668 | 945 | 1,126 | 1,349 |
 | d4 | .287 | .336 | .353 | **.681** |
 | d4-H | .524 | .568 | .594 | .846 |
 | d4-L | .108 | .167 | .161 | .586 |
 
-d4 先在一个平台上几乎不动，到 1e-3 突然跳上去，d4 样本只多了 20%。所以之前「8.3e-4 → 0.5」的插值是错的。
-d4-H 在 5e-4 到 8.3e-4 之间已经在目标范围内，整体 d4 是被 d4-L 拉低的。
+d4 stays on a plateau and then jumps at 1e-3, with only 20% more d4 examples, so the earlier interpolation
+("8.3e-4 → 0.5") was wrong. d4-H is already in the target range from 5e-4 to 8.3e-4; overall d4 is held down by d4-L.
 
-## 待决定的问题
+## Open questions
 
-1. **spread 检查哪些深度。** 设计规定「深度 5 不进预训练」，各 comp_frac 下 d5 的 signal_frac 最多 0.065。
-   建议改为只检查 d2–d4，并放弃可选的 E′（d5-H）。
-2. **matched_cells 和 RL 池大小。** 每个匹配格 5,000 道候选题，p 又是双峰分布，所以每个长度很难达到 120 道。
-   - 方案一：扩充共享池（`data/rl_pool/candidates.jsonl`）。新题追加在末尾，原有的行保持不变。重新标注约需 2–2.5 节点小时。
-   - 方案二：改匹配方式或门槛。
-3. **midbal 的 matched_cells。** midbal 的 d2-L 太容易，是否改成警告，还是 midbal 需要自己的 D/E 数据集。
-4. **strong。**
-   - 方案一：接受 8.3e-4。设计规定 strong 的 target 只是警告，d4-H 已经在目标上，weak / mid / strong 的 d3 依次是 .114 / .381 / .759。
-   - 方案二：再并行试 9e-4 和 9.5e-4，约 4 节点小时。
+1. **Which depths spread checks.** The design keeps depth 5 out of pretraining, and d5's signal_frac is at most 0.065
+   at every comp_frac. Proposal: check only d2–d4 and drop the optional E′ (d5-H).
+2. **matched_cells and the RL pool size.** With 5,000 candidates per matched cell and a bimodal p, reaching 120
+   problems per length is hard.
+   - Option 1: expand the shared pool (`data/rl_pool/candidates.jsonl`). New problems are appended at the end, so
+     existing rows stay unchanged. Relabelling takes about 2–2.5 node-hours.
+   - Option 2: change the matching or the thresholds.
+3. **midbal's matched_cells.** midbal's d2-L is too easy. Make the check a warning, or give midbal its own D/E
+   datasets?
+4. **strong.**
+   - Option 1: accept 8.3e-4. By design strong's target check is only a warning; d4-H is already on target, and d3 for
+     weak / mid / strong is .114 / .381 / .759.
+   - Option 2: try 9e-4 and 9.5e-4 in parallel, about 4 node-hours.
 
-## 机时（NERSC GPU 节点小时，上限 50）
+## Compute (NERSC GPU node-hours, cap 50)
 
-| job | 内容 | 节点 × 小时 | 累计 |
+| job | what | nodes × hours | total |
 |---|---|---|---|
-| 60836696 | interactive：基准测试 + 试点扫描 + 标注基准 | 1 × 1.16 | 1.16 |
-| 60839035 | pt-weak，DVS 卡住后 NODE_FAIL（没有产出） | 1 × 0.49 | 1.65 |
-| 60839036 | pt-strong，DVS 卡住后 NODE_FAIL（没有产出） | 1 × 0.50 | 2.15 |
-| 60876535 | interactive：pt-strong-s0 训练 + calib 热力图 | 1 × 1.43 | 3.58 |
-| 60876536 | interactive：smoke test + pt-weak-s0 训练 + calib 热力图 | 1 × 1.43 | 5.01 |
-| 60880260 | 4 节点：第 2 轮扫描，comp_frac 3e-5 / 1e-4 / 2.5e-4 / 5e-4 | 4 × 1.37 | 10.51 |
-| 60894875 | 4 节点：第 3 轮，weak / mid / strong / midbal，训练 + 完整校准 | 4 × 2.11 | 18.95 |
-| 60914166 | 1 节点：d4 长度诊断 | 1 × 0.16 | 19.11 |
-| 60914163 | 1 节点：strong 8.3e-4，训练 + 完整校准 | 1 × 1.98 | 21.09 |
+| 60836696 | interactive: benchmark + pilot sweep + labelling benchmark | 1 × 1.16 | 1.16 |
+| 60839035 | pt-weak, NODE_FAIL after a DVS hang (no output) | 1 × 0.49 | 1.65 |
+| 60839036 | pt-strong, NODE_FAIL after a DVS hang (no output) | 1 × 0.50 | 2.15 |
+| 60876535 | interactive: pt-strong-s0 training + calib heatmap | 1 × 1.43 | 3.58 |
+| 60876536 | interactive: smoke test + pt-weak-s0 training + calib heatmap | 1 × 1.43 | 5.01 |
+| 60880260 | 4 nodes: round-2 sweep, comp_frac 3e-5 / 1e-4 / 2.5e-4 / 5e-4 | 4 × 1.37 | 10.51 |
+| 60894875 | 4 nodes: round 3, weak / mid / strong / midbal, training + full calibration | 4 × 2.11 | 18.95 |
+| 60914166 | 1 node: d4 length diagnosis | 1 × 0.16 | 19.11 |
+| 60914163 | 1 node: strong 8.3e-4, training + full calibration | 1 × 1.98 | 21.09 |
 
-## 基础设施
+## Infrastructure
 
-- Perlmutter 的计算节点经 DVS 访问 CFS 和 HOME。2026-11-05，放在 CFS 上的 conda 环境卡在 DVS 上，
-  两个作业因此被判 NODE_FAIL。现在环境改为在 scratch 上从锁文件重建（见 `scripts/slurm/env.sh`）。
-- interactive 节点：用 `scripts/slurm/model_pipeline.sh` 在一个节点上依次做 4 卡训练和 4 卡校准。
-  4 卡标注速度约 730 seq/s；完整校准（calib、RL 池和第二次标注）预计每个模型约 35–40 分钟。
+- Perlmutter compute nodes reach CFS and HOME through DVS. On 2026-11-05 the conda env on CFS hung in DVS and two jobs
+  ended in NODE_FAIL. The env is now rebuilt on scratch from the lock file (see `scripts/slurm/env.sh`).
+- Interactive nodes: `scripts/slurm/model_pipeline.sh` runs 4-GPU training and then 4-GPU calibration on one node.
+  Labelling runs at ~730 seq/s on 4 GPUs; full calibration (calib, RL pool and relabelling) takes ~35–50 min per
+  model.

@@ -174,7 +174,7 @@ only edits / submits / checks (offline tests are the exception). Commit scripts 
   per-problem p is bimodal (in-range frac <= 12.5% even at cell mean 0.5); d5 signal_frac <= 0.065 at every cf, so
   mid's hard spread check (depths 2-5, >= 0.2) cannot pass. Logit interpolation: weak d3=0.1 at ~1.25e-4 (1e-4 already
   in target at .064), mid d3=0.45 at ~3.2e-4, strong d4=0.5 at ~7.3e-4. Waiting for the user's choice.
-- 2026-11-06 00:48: user: "你先submit上去" -> submitted the recommended plan before the gate questions are settled.
+- 2026-11-06 00:48: user: "submit it first" -> submitted the recommended plan before the gate questions are settled.
   salloc 60894875 (interactive, 4 nodes, 3:00): model_pipeline.sh, train + full calibration (calib, RL pool, relabel):
     nid002072 pt-weak-cf0.000125-s0   (configs/pretrain/weak.yaml,   comp_frac 1.25e-4)
     nid002073 pt-mid-cf0.00032-s0     (configs/pretrain/mid.yaml,    comp_frac 3.2e-4)
@@ -234,3 +234,9 @@ only edits / submits / checks (offline tests are the exception). Commit scripts 
   (calib d4-H by len 6..10: .59/.54/.65/.58/.61).
   matched cells (p_relabel in [.4,.6]): d2-L 153 (13/12/53/27/48), d4-H 428 (75/100/92/75/86).
   Relabel of first-pass [.4,.6] picks: d2-L .511 (.53 still in range), d4-H .515 (.58), d5-H .469 (.43).
+- 2026-11-08: user wants results/progress visible on GitHub. Commit 4ef1675: docs/pretrain_v1_results.md (status,
+  rounds 2-3, d4 diagnosis, strong retrain, open questions, ledger) + results/pretrain_v1/ (per-run small files under
+  models/, diag-d4len/, log snapshot) collected by scripts/collect_results.sh (re-run before each results commit).
+  Push needed from the user (session git auth is dead).
+- 2026-11-08: user: everything in the repo must be English (no Chinese). Rewrote docs/pretrain_v1_results.md in
+  English; quotes of the user in this log are now English translations.
