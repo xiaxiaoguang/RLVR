@@ -2,6 +2,7 @@
 # Pretrain the four base models, two at a time on NPROC GPUs each, then calibrate.
 #   SEED=0 GPUS="0 1 2 3 4 5 6 7" bash scripts/pretrain_all.sh [key=value ...]   (overrides go to pretrain.py)
 # CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --standalone --nproc_per_node=4 scripts/pretrain.py --config configs/pretrain/mid.yaml --bench 100
+# bash scripts/pretrain_all.sh pretrain.micro_target_tokens=12000      # applies to all 4 models
 
 # Round 1: weak + strong (the extremes; check their quick heatmaps before round 2 and adjust
 # configs/pretrain/mid.yaml if they do not separate). Round 2: mid + midbal. Then full

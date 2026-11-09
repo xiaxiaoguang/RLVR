@@ -1,0 +1,6 @@
+# Half-budget experiment; separate name preserves the full-budget run.
+base: ../weak.yaml
+pretrain:
+  level: weak-half
+  steps: 4750
+  target_minutes: 30
