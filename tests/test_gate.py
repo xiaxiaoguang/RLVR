@@ -102,9 +102,11 @@ def test_level_configs():
     for lv in ("weak", "strong"):
         g = load_config(f"configs/pretrain/{lv}.yaml")["gate"]
         assert g["hard_checks"] == ["depth1_greedy"] and g["target"]["depth"] in (3, 4)
-    for lv in ("mid", "midbal"):
+    for lv, hard in (("mid", ["depth1_greedy", "spread", "matched_cells"]),
+                     ("midbal", ["depth1_greedy", "spread"])):
         cfg = load_config(f"configs/pretrain/{lv}.yaml")
-        assert "matched_cells" in cfg["gate"]["hard_checks"]
+        assert cfg["gate"]["hard_checks"] == hard
+        assert cfg["gate"]["spread_depths"] == [2, 3, 4]
         G.check_config(cfg["gate"], cfg["label"])
     assert "unknown" in raises(ValueError, G.check_config, {**GC, "hard_checks": ["spred"]}, LC)
     cells = GC["matched_cells"] + [{"depth": 3, "group": "L"}]

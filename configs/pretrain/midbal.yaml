@@ -3,3 +3,7 @@ base: mid.yaml
 pretrain:
   level: midbal
   h_ratio: 0.5
+# D vs E runs on mid; midbal's d2-L is easy by design (P6), so matched_cells is a warning
+# (design.md decision 3).
+gate:
+  hard_checks: [depth1_greedy, spread]

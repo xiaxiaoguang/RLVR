@@ -94,11 +94,11 @@ python scripts/build_dataset.py configs/datasets/*.yaml
 - **Compiler.** Whole-model `torch.compile` lowers RoPE setup to a CPU kernel that needs a C++20
   host compiler (RHEL 8's g++ 8.5 is too old), so only the decoder layers are compiled.
 - `gate.json` checks (`rlvr/gate.py`): E1 greedy >= 0.98 overall and per function (Wilson upper
-  bound, 50 problems each), >= 20% of calib problems at depths 2-5 with 0 < p_hat < 1, >= 300
+  bound, 50 problems each), >= 20% of calib problems at depths 2-4 with 0 < p_hat < 1, >= 300
   RL-pool problems with p in [0.4, 0.6] in both depth-2 L and depth-4 H and >= 120 at every
   str_len (p from the second labelling), depth-3 composition loss >= 1e-3, and the level's
   design target. Only `gate.hard_checks` fail the gate (exit 1; the rest are warnings): the first
-  three for mid/midbal, only the E1 check for weak/strong (`configs/pretrain/{weak,strong}.yaml`).
+  three for mid, the first two for midbal, only the E1 check for weak/strong (`configs/pretrain/*.yaml`).
 - Second labelling: RL-pool problems in d2-L / d4-H / d5-H with a first-pass p_hat in [0.3, 0.7]
   get 64 more independent samples (`label.relabel_*`, `*_relabel` columns); the matched-p specs
   select on it (`p_label: relabel`) to shrink the winner's curse of selecting on a 32-sample p_hat.

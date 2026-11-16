@@ -220,7 +220,8 @@ param("gate.min_matched_per_len", 120,
       "stratify on str_len, so n=500 over 5 lengths needs 100 each (+ margin)")
 param("gate.matched_cells", [{"depth": 2, "group": "L"}, {"depth": 4, "group": "H"}],
       "RL-pool cells that need enough p~0.5 problems (shallow L, deep H)")
-param("gate.spread_depths", [2, 3, 4, 5], "depths whose calib p must not be all 0 or all 1")
+param("gate.spread_depths", [2, 3, 4], "depths whose calib p must not be all 0 or all 1 (depth 5 is not in "
+      "pretraining, so it is excluded: design.md decision 2)")
 param("gate.min_spread_frac", 0.2, "min fraction of calib problems with 0 < p_hat < 1 at each spread depth")
 param("gate.loss_depths", [3], "composition depths whose final pretraining loss (loss_d*) is checked")
 param("gate.min_final_loss", 1e-3,
