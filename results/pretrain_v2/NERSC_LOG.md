@@ -275,3 +275,16 @@ only edits / submits / checks (offline tests are the exception). Commit scripts 
   scancel 61417711 (elapsed 0:36:10 x 3 nodes = 1.81 node-h; total 23.29 of 50). Training was mid-way; no final
   checkpoints (partial runs under runs/pt-v2mid-cf*-s0, not usable).
   (Each run has an intermediate checkpoint runs/pt-v2mid-cf*-s0/ckpt/step-2375 from save_at; training reached step ~4300 of 9500.)
+- 2026-11-16 (afternoon): user: follow Hanzhong's tree-v1 (design.md decision 10). Merged origin/master (be60eb6) into
+  pretrain (9828c68): tree-v1 task + GRPO code from master; pretrain-branch v2 binary implementation dropped from the
+  shared files; design.md kept in English with decision 10; tree-task-proposal.md translated. 70 tests pass.
+  eaa0a3a: calibrate.py --e1-only, configs/pretrain/tree/stage_a.yaml, model_pipeline.sh paths from the config.
+  Driver runs/tree-v1-stage-a/run.sh (tree-v1 eval sets + stage A); waiting for the user to approve the salloc
+  (1 node, interactive, 1 h). Total so far 23.29 of 50.
+- 2026-11-16 11:50:40: tree-v1 stage A: salloc 61422984 (1 node, interactive, 1 h); run.sh launched (eval sets, then stage A); release.sh cancels after "all done".
+- 2026-11-16 12:07: **tree-v1 stage A FAIL on one operator** (pt-tree-a-atoms-s0, configs/pretrain/tree/stage_a.yaml,
+  atoms only, 2000 steps, 15 min training). E1 greedy .960 overall; 23 of 24 operators pass. rotate_by_sum (F10,
+  binary, H) .16 at step 1000 and .12 at step 2000 (no progress). Learned late but passing: scatter_add .02 -> .96,
+  prefix_add .36 -> .98, odd_pos_m1 .98. Eval sets (data/tree-v1/eval/v1) generated in 33 s on the node.
+  Composition target tokens (Mixture estimate on the node): chain-v1 mid 68.7, tree-v1 mid 137.2 (2.0x); tree n_ops
+  per depth 2/3/4 = 2.94/4.40/6.00. release.sh scancelled 61422984 at 12:07:36 (0:17:18 = 0.29 node-h; total 23.58).

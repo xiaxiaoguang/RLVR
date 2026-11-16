@@ -1,7 +1,8 @@
 #!/bin/bash
 # Copy the small, shareable pretraining results from runs/ and checkpoints/ (symlinks into scratch,
-# not in git) into results/pretrain_v1/ (chain runs) and results/pretrain_v2/ (pt-v2* runs; the
-# pt-v2-smoke pipeline check is skipped) so they can be committed. Run from the login node; it only
+# not in git) into results/pretrain_v1/ (chain runs) and results/pretrain_v2/ (pt-v2* runs of the
+# superseded variant, and the tree-v1 runs under runs/tree-v1/; the pt-v2-smoke pipeline check is
+# skipped) so they can be committed. Run from the login node; it only
 # copies files (no compute). Checkpoints and data/labels/*.parquet stay out of git.
 #   bash scripts/collect_results.sh
 # Per run with a calib/gate.json: run_config.yaml, stats.json, eval.jsonl, calib/{gate.json,
@@ -19,12 +20,13 @@ copy() {  # copy SRC DST if SRC exists
   cp -p "$1" "$2"
 }
 n=0
-for run in runs/pt-*-s0; do
+for run in runs/pt-*-s0 runs/tree-v1/pt-*-s0; do
   [ -f "$run/calib/gate.json" ] || continue
   name=$(basename "$run")
   case $name in
     pt-v2-smoke-*) continue ;;
     pt-v2*) dst=$OUT2/models/$name ;;
+    pt-tree-*) dst=$OUT2/models/tree-v1/$name ;;
     *) dst=$OUT/models/$name ;;
   esac
   if [ -f "$run/run_config.yaml" ]; then

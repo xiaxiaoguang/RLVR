@@ -13,9 +13,35 @@ v2 base models. Since 2026-11-16 the v2 task is Hanzhong's **tree-v1** ([`tree_v
 
 | step | run | result | status |
 |---|---|---|---|
-| tree-v1 stage A: atomic skills of the 24 operators | — | — | next (1 node) |
-| tree-v1 stage B: p ≈ 0.5 supply | — | — | after stage A (3 nodes) |
+| tree-v1 stage A: atomic skills of the 24 operators | pt-tree-a-atoms-s0 | 23 of 24 pass; rotate_by_sum E1 .12 | **FAIL** on one operator: replace it (team decision) |
+| tree-v1 stage B: p ≈ 0.5 supply | — | — | after stage A passes (3 nodes) |
 | go/no-go | — | — | Sun Nov 22 |
+
+## Tree-v1 stage A: can each operator be learned? (2026-11-16)
+
+`configs/pretrain/tree/stage_a.yaml`: atoms only (the 24 tree-v1 operators, uniform; `comp_frac` 0), 2000 steps, then
+`calibrate.py --e1-only`. Pass rule: every operator ≥ 98% greedy on its 50 E1 problems (Wilson rule). Results in
+`results/pretrain_v2/models/tree-v1/pt-tree-a-atoms-s0/`.
+
+| operator | arity | group | E1 at step 1000 | E1 at step 2000 |
+|---|---|---|---|---|
+| rotate_by_sum (F10) | 2 | H | .16 | **.12** (fails) |
+| scatter_add (F13) | 2 | L | .02 | .96 (passes: Wilson upper bound ≥ .98) |
+| prefix_add (F12) | 2 | L | .36 | .98 |
+| odd_pos_m1 (F03) | 1 | L | 1.00 | .98 |
+| the other 20 operators | | | ≥ .98 | 1.00 |
+
+E1 overall .960 (H .927, L .993). rotate_by_sum (rotate x left by sum(y) mod n) shows no progress between steps 1000
+and 2000; its output depends on a sum over the whole second operand mod n (6–10), a parity-like reduction that
+transformers learn poorly from examples. scatter_add and prefix_add, which also aggregate over positions, were learned
+late. By the design rule the failing operator is replaced (or dropped) before stage B.
+
+Training: 15 min on one node (0.82M tokens/s, final loss .0047). Eval sets for tree-v1 (`data/tree-v1/eval/v1/`:
+E1 1200, E2 1800, E3 900, E4 800, probe 575, calib 4600) were generated on the node in 33 s.
+
+**Composition length** (for the stage-B comp_frac levels; `Mixture` estimate): a tree-v1 composition example has 137
+target tokens on average, a chain-v1 one 69, so at equal `comp_frac` tree-v1 sees half as many composition examples.
+Mean `n_ops` per depth 2 / 3 / 4: 2.94 / 4.40 / 6.00.
 
 ## Superseded variant: 24 unary + 4 binary operators (2026-11-15 to 16)
 
@@ -60,3 +86,4 @@ minutes; final training loss 1.8e-5.
 | ≤ 2026-11-08 | — | v1 (see [`pretrain_v1_results.md`](pretrain_v1_results.md)) | 21.09 | 21.09 |
 | 2026-11-15 | 61385591 | smoke run + stage A (1 node, 0:23:31) | 0.39 | 21.48 |
 | 2026-11-16 | 61417711 | stage B, cancelled (3 nodes, 0:36:10) | 1.81 | 23.29 |
+| 2026-11-16 | 61422984 | tree-v1 eval sets + stage A (1 node, 0:17:18) | 0.29 | 23.58 |

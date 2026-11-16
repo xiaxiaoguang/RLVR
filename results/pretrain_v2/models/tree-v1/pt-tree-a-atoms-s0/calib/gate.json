@@ -1,0 +1,38 @@
+{
+ "model_id": "pt-tree-a-atoms-s0",
+ "hard_checks": [
+  "depth1_greedy"
+ ],
+ "checks": {
+  "depth1_greedy": {
+   "value": 0.96,
+   "min": 0.98,
+   "func_z": 1.96,
+   "funcs_below_min": {
+    "F10": {
+     "acc": 0.12,
+     "n": 50,
+     "upper": 0.238
+    }
+   },
+   "worst_funcs": {
+    "F10": 0.12,
+    "F13": 0.96,
+    "F03": 0.98
+   },
+   "pass": false,
+   "hard": true
+  },
+  "final_loss": {
+   "step": 2000,
+   "value": 0.0026947830338031054,
+   "by_depth": {},
+   "min": 0.001,
+   "pass": true,
+   "hard": false
+  }
+ },
+ "pass": false,
+ "warnings": [],
+ "not_run": []
+}

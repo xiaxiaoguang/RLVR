@@ -25,7 +25,9 @@ Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Les
   stage B); go/no-go on Sun Nov 22.
 - **RL:** GRPO (`scripts/grpo.py`) and the sweep runner (`scripts/rl_sweep.py`) are implemented and smoke-tested on
   the v1 round-1 checkpoints ([GRPO](#grpo-hanzhong)); no RL experiment of the design has been run yet.
-- **Compute:** 23.29 of 50 NERSC GPU node-hours used as of 2026-11-16.
+- **Tree-v1 stage A (2026-11-16):** 23 of 24 operators pass; rotate_by_sum is not learned (E1 .12), so it has to be
+  replaced or dropped before stage B ([`pretrain_v2_results.md`](pretrain_v2_results.md)).
+- **Compute:** 23.58 of 50 NERSC GPU node-hours used as of 2026-11-16.
 
 ## Decision log
 
