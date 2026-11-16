@@ -13,7 +13,10 @@ Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Les
 
 - **v1 base models:** all four candidates are trained and fully calibrated
   ([v1 results summary](#v1-results-summary)). They stay available as chain-only reference models and for building
-  the RL code. Checkpoints go to Hugging Face with `scripts/push_hf.py` (repo name to be filled in after the upload).
+  the RL code. The four checkpoints, with their `calib/` files and RL-pool labels, are on Hugging Face in the private
+  org repo [`rlvr-cs291k/rlvr-pretrain-v1`](https://huggingface.co/rlvr-cs291k/rlvr-pretrain-v1) (one folder per run;
+  uploaded 2026-11-15 with `scripts/push_hf.py`; ask Yupeng for an org invite). Backup copy on CFS:
+  `/global/cfs/cdirs/m4788/yupengsu/rlvr/{checkpoints,data/labels}/`.
 - **v2:** on 2026-11-15 we decided to add binary operators, so problems become trees instead of chains
   ([v2 revision](#v2-revision-tree-problems)). This week the task change gets implemented and piloted; the go/no-go
   decision is on Sun Nov 22 ([v2 pilot](#v2-pilot)).
@@ -815,7 +818,7 @@ The main risk is still that simple and complex problems do not both have enough 
 - [x] v1 comp_frac levels, pos_offset_max 128, 24 unary functions
 - [x] Fourth base model: midbal (h_ratio 0.5)
 - [x] Spread depths, midbal matched cells, strong comp_frac (decisions 2–4)
-- [ ] Upload the v1 checkpoints to Hugging Face and put the repo name in [Status](#status-2026-11-16)
+- [x] Upload the v1 checkpoints to Hugging Face and put the repo name in [Status](#status-2026-11-16)
 - [ ] v2: final binary operators (stage A)
 - [ ] v2: `tree_frac`, shape mix and comp_frac levels (stage B)
 - [ ] v2 go/no-go (Sun Nov 22) and the D/E cell pair

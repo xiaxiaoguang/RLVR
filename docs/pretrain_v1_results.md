@@ -6,8 +6,9 @@ Training results of the v1 base models, round by round, and how comp_frac was ch
   `results/pretrain_v1/NERSC_LOG.md` with every results commit.
 - Small per-run files (gate.json, relabel_report.json, stats.json, eval.jsonl, run_config.yaml, calib heatmap) and the
   diagnosis outputs: `results/pretrain_v1/`, collected from scratch by `scripts/collect_results.sh`.
-- Model checkpoints and RL-pool labels (`data/labels/*.parquet`) are too large for git and are still only on scratch.
-  They will be copied to `/global/cfs/cdirs/m4788/yupengsu/rlvr/` once the models are final.
+- Model checkpoints and RL-pool labels (`data/labels/*.parquet`) are too large for git. The four final v1 runs are on
+  Hugging Face (private org repo `rlvr-cs291k/rlvr-pretrain-v1`, one folder per run with `labels.parquet`) and on CFS
+  (`/global/cfs/cdirs/m4788/yupengsu/rlvr/{checkpoints,data/labels}/`); the other runs are only on scratch.
 
 ## Status (2026-11-08)
 
