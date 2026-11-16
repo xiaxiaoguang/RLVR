@@ -1,0 +1,13 @@
+# Correctness check (design.md "Correctness checks", overfitting test): few problems, many visits -> training reward should approach 1.
+#   head -8 data/datasets/depth_4.jsonl > /tmp/overfit8.jsonl
+#   python scripts/grpo.py --config configs/rl/overfit.yaml --base checkpoints/pt-weak-s0 --dataset /tmp/overfit8.jsonl
+rl:
+  prompts_per_step: 8
+  group_size: 16
+  steps: 150
+  lr: 3.0e-5
+  eval_every: 0
+  probe_every: 0
+  eval_sets: [E2]
+  save_final: false
+  tag: overfit

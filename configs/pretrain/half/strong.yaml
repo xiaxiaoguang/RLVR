@@ -1,0 +1,5 @@
+base: ../strong.yaml
+pretrain:
+  level: strong-half
+  steps: 4750
+  target_minutes: 30

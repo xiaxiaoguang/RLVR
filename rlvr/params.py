@@ -83,6 +83,9 @@ param("paths.checkpoints", "checkpoints", "root of final base-model checkpoints"
 # =============================================================================
 # Task (frozen after week 1: changing these changes pids, pools and names)
 # =============================================================================
+param("task.kind", "chain", "versioned task implementation", choices=("chain", "tree"))
+param("task.tree_max_ops", 10, "maximum operator nodes in a tree problem (up to 12)")
+param("task.sample_max_tries", 1000, "bounded retries for tree sampling constraints")
 param("task.alphabet", "abcdefghijklmnopqrstuvwxyz", "input alphabet", code="P8", priority=FROZEN)
 param("task.str_len", [6, 7, 8, 9, 10], "input length, or list of lengths sampled uniformly", code="P8",
       priority=FROZEN, types=(int, list))
@@ -122,10 +125,6 @@ param("task.h_group", ["reverse", "rotl1", "swap_adjacent", "swap_halves", "riff
                        "sort_asc", "sort_first_half",
                        "even_pos_p1", "max_to_front"],
       "labels of the high-exposure group H; the rest form L", code="P6", priority=FROZEN)
-param("task.binary_functions", {},
-      "v2 binary operators: label -> spec (rlvr.atoms.BINARY), display ids F24.. in this order, not "
-      "shuffled; empty = v1 (chains only). v2 configs: add, alternate, splice, max (backups sub, min)",
-      code="P12", priority=FROZEN)
 
 # =============================================================================
 # Splits
@@ -140,7 +139,6 @@ param("splits.heldout_pairs_per_group_pair", 6, "held-out ordered pairs per HH/H
 # Evaluation sets and RL candidate pool
 # =============================================================================
 param("eval.version", "v2", "bump when eval sets change")
-param("eval.meta_dir", "meta", "task metadata dir (functions, held-out pairs, tokenizer), relative to paths.data")
 param("eval.seed", 1001, "eval-set sampling seed")
 param("eval.sets", {
     "E1": {"depths": [1], "groups": ["H", "L"], "per_cell": 50, "by_function": True},
@@ -149,8 +147,7 @@ param("eval.sets", {
     "E4": {"depths": [2, 3, 4, 5], "groups": [None], "per_cell": 200, "novel": True},
     "probe": {"depths": [1, 2, 3, 4, 5, 6, 7, 8], "groups": ["H", "L", "mixed"], "per_cell": 25},
     "calib": {"depths": [1, 2, 3, 4, 5, 6, 7, 8], "groups": ["H", "L", "mixed"], "per_cell": 200},
-}, "eval set name -> stratification (E1 atomic, E2 in-dist, E3 deeper, E4 novel pairs); optional "
-   "n_bins (default [0] = chains) adds tree cells (depth = n_ops)")
+}, "eval set name -> stratification (E1 atomic, E2 in-dist, E3 deeper, E4 novel pairs)")
 param("rl_pool.seed", 2002, "candidate sampling seed")
 param("rl_pool.depths", [1, 2, 3, 4, 5, 6, 7, 8], "candidate depths")
 param("rl_pool.groups", ["H", "L", "mixed"], "candidate groups")
@@ -158,17 +155,6 @@ param("rl_pool.per_cell", 1000, "candidates per (depth, group) cell")
 param("rl_pool.extra_cells", [{"depth": 2, "group": "L", "n": 4000}, {"depth": 4, "group": "H", "n": 4000},
                               {"depth": 5, "group": "H", "n": 4000}],
       "oversampled cells (origin=extra) for the matched-p datasets")
-param("rl_pool.mode", "file", "calibrate.py RL-pool step: 'file' labels rl_pool.path; 'pilot' (v2 stage B) "
-      "picks cells from the calib labels and labels per-cell candidates", choices=("file", "pilot"))
-param("rl_pool.path", "rl_pool/candidates.jsonl", "candidate file (mode file), relative to paths.data")
-param("rl_pool.pilot_n_ops", [1, 2, 3, 4, 5], "pilot: n_ops of the candidate cells (the RL range)")
-param("rl_pool.pilot_min_gap", 2, "pilot: E (complex) needs at least this many more operations than D (simple)")
-param("rl_pool.pilot_max_cells", 4, "pilot: cells that get candidates (best D/E pairs by calib p ~ 0.5 share)")
-param("rl_pool.pilot_per_cell", 10_000, "pilot: candidates per chosen cell (go criterion: from <= 10,000)")
-param("rl_pool.pilot_min_matched", 500, "pilot: go criterion, problems per cell with relabelled p in "
-      "gate.p_range after removing skippable ones, with a shared length mix")
-param("rl_pool.pilot_seed", 3003, "pilot: candidate seed; each cell has its own stream, so the first N "
-      "candidates of a cell do not depend on the other cells")
 
 # =============================================================================
 # Model (P)
@@ -190,12 +176,7 @@ param("pretrain.comp_frac", 0.01, "share of supervised tokens from composition e
       code="P4", priority=CORE, levels=(0.001, 0.01, 0.1))
 param("pretrain.comp_depth_mix", {2: 0.6, 3: 0.35, 4: 0.05},
       "composition depth -> share of composition examples", code="P5", priority=OPTIONAL)
-param("pretrain.h_only_depths", [4], "composition depths (chains and trees: n_ops) that use only H functions",
-      code="P5b", priority=FROZEN)
-param("pretrain.tree_frac", 0.0, "v2: share of composition tokens from trees (the rest are chains); 0 = v1",
-      code="P13", priority=CORE)
-param("pretrain.tree_shape_mix", {"n_ops": {2: 0.6, 3: 0.35, 4: 0.05}, "p_bin2": 0.3},
-      "v2 tree shapes: n_ops -> share of trees, and P(n_bin = 2) (else 1)", code="P14", priority=OPTIONAL)
+param("pretrain.h_only_depths", [4], "composition depths that use only H functions", code="P5b", priority=FROZEN)
 param("pretrain.h_ratio", 0.9, "fraction of the other compositions using only H functions", code="P6",
       priority=CORE, levels=(0.5, 0.9))
 param("pretrain.noise_frac", 0.0, "fraction of compositions with one corrupted step", code="P10",
@@ -272,11 +253,19 @@ param("label.relabel_cells", [{"depth": 2, "group": "L"}, {"depth": 4, "group": 
 # RL data (D) - dataset composition itself lives in configs/datasets/*.yaml
 # =============================================================================
 param("data.dataset", None, "dataset name under data/datasets (D1-D4 are set in its spec)", types=(str,))
-param("data.sampler", "static", "per-step problem sampler (B: online_filter, C: learnability)",
-      code="D9", priority=OPTIONAL, choices=("static", "online_filter", "learnability"))
-param("data.order", "shuffle", "problem order", code="D7", priority=OPTIONAL,
-      choices=("shuffle", "shallow_to_deep"))
+param("data.sampler", "auto", "per-step problem sampler (B: online_filter, C: learnability); "
+      "auto = the `sampler` of the dataset spec, else static",
+      code="D9", priority=OPTIONAL, choices=("auto", "static", "online_filter", "learnability"))
+param("data.order", "shuffle", "static sampler: shuffled epochs, or the same draws sorted by depth over the run",
+      code="D7", priority=OPTIONAL, choices=("shuffle", "shallow_to_deep"))
 param("data.p_ema", 0.9, "EMA factor of the online per-problem p(t)")
+param("data.p_init_labels", True,
+      "start the online p(t) from the base model's pass-rate labels (dataset p_hat column, else "
+      "<data>/labels/{model_id}.parquet) when they exist; otherwise p is unknown until first sampled")
+param("data.p_edge", 1 / 32,
+      "online_filter keeps problems with p_edge <= p(t) <= 1 - p_edge or unknown p (edge p bins carry no signal)")
+param("data.explore_frac", 0.0,
+      "dynamic samplers: share of each batch drawn uniformly from the whole dataset (lets filtered problems return)")
 
 # =============================================================================
 # GRPO (R)
@@ -297,8 +286,25 @@ param("rl.clip_eps", 0.2, "PPO clip (unused when ppo_epochs=1)", code="R10", pri
 param("rl.ppo_epochs", 1, "updates per rollout batch", code="R10", priority=FROZEN)
 param("rl.entropy_coef", 0.0, "entropy bonus", code="R11", priority=FROZEN)
 param("rl.grad_clip", 1.0, "gradient-norm clip")
-param("rl.eval_every", 50, "E1-E4 eval interval (steps)")
+param("rl.weight_decay", 0.0, "AdamW weight decay during RL")
+param("rl.eval_every", 50, "eval interval for rl.eval_sets (steps; step 0 and the last step always)")
 param("rl.probe_every", 25, "probe-set eval interval (steps)")
+param("rl.eval_sets", ["E1", "E2", "E3", "E4"], "eval sets scored every rl.eval_every steps")
+param("rl.probe_set", "probe", "eval set scored every rl.probe_every steps (null = none)", types=(str,))
+# Run plumbing (scripts/grpo.py). Task, model, splits and paths always come from the base checkpoint.
+param("rl.base", None, "base checkpoint dir, e.g. checkpoints/pt-mid-s0 or runs/pt-mid-s0/ckpt/step-2375",
+      types=(str,))
+param("rl.tag", "", "suffix of the run name rl-{model}-{dataset}-G{G}-s{seed}[-{tag}] for hyperparameter variants")
+param("rl.gen_batch_size", 64, "prompts per rollout generate() batch (x group_size sequences; memory knob)")
+param("rl.micro_batch_tokens", 16_000,
+      "padded tokens per backward micro-batch; gradients are accumulated over the whole rollout batch, "
+      "so this is a memory knob that does not change the update")
+param("rl.kl_every", 10, "log kl_to_base on the rollout tokens every N steps (0 = never; every step if kl_coef > 0)")
+param("rl.log_every", 10, "print interval (steps); metrics.jsonl gets every step")
+param("rl.log_completions", True, "store the sampled completions in rollouts.jsonl (rewards are always stored)")
+param("rl.save_at", [], "fractions of training with a checkpoint in runs/{run}/ckpt/step-{N}")
+param("rl.save_final", True, "save the final model to runs/{run}/ckpt/step-{steps} (~340 MB)")
+param("rl.compile", False, "torch.compile the decoder layers for the policy-gradient forward/backward")
 
 
 def _reward_choices():

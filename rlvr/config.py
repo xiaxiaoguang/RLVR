@@ -14,7 +14,7 @@ from pathlib import Path
 
 import yaml
 
-from .params import PARAMS_DEFAULTS, merge, validate
+from .params import PARAMS, PARAMS_DEFAULTS, merge, validate
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -38,12 +38,26 @@ def apply_overrides(cfg: dict, overrides: list[str] | None) -> dict:
         *parents, last = key.split(".")
         for p in parents:
             d = d.setdefault(p, {})
-        d[last] = yaml.safe_load(val)
+        d[last] = _number(key, yaml.safe_load(val))
     return cfg
 
 
-def load_config(path: str | Path | None = None, overrides: list[str] | None = None) -> dict:
-    cfg = merge(PARAMS_DEFAULTS, load_yaml(resolve(path))) if path else merge(PARAMS_DEFAULTS, {})
+def _number(key: str, value):
+    """YAML 1.1 reads 3e-6 as a string; accept it for float parameters (rl.lr=3e-6)."""
+    if isinstance(value, str) and key in PARAMS and isinstance(PARAMS.get(key).default, float):
+        try:
+            return float(value)
+        except ValueError:
+            pass
+    return value
+
+
+def load_config(path: str | Path | None = None, overrides: list[str] | None = None,
+                base: dict | None = None) -> dict:
+    """base: values merged between the defaults and the YAML (e.g. sections inherited from a checkpoint)."""
+    cfg = merge(PARAMS_DEFAULTS, base or {})
+    if path:
+        cfg = merge(cfg, load_yaml(resolve(path)))
     cfg = apply_overrides(cfg, overrides)
     for mod in cfg.get("imports") or []:
         importlib.import_module(mod)
@@ -53,9 +67,25 @@ def load_config(path: str | Path | None = None, overrides: list[str] | None = No
 
 def task_and_splits(cfg: dict):
     from .splits import Splits
-    from .task import Task
-    task = Task(cfg["task"])
+    from .task import make_task
+    task = make_task(cfg["task"])
+    if cfg["task"]["kind"] == "tree":
+        from .tree_splits import TreeSplits
+        task.validate_lengths(cfg)
+        return task, TreeSplits(task, cfg["splits"])
     return task, Splits(task, cfg["splits"])
+
+
+def git_commit() -> str:
+    """HEAD sha (+ '-dirty' with uncommitted tracked changes), for run_config.yaml."""
+    import subprocess
+    try:
+        sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+        dirty = subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=no"],
+                                        cwd=ROOT, text=True).strip()
+        return sha + ("-dirty" if dirty else "")
+    except Exception:
+        return "unknown"
 
 
 def resolve(p: str | Path) -> Path:

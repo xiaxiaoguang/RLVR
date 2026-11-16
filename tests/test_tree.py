@@ -1,227 +1,312 @@
-"""v2 tests: binary operators, tree problems, skippable check, splits, eval v3, pilot logic.
-Run: python tests/test_tree.py (or pytest)."""
+"""Semantic, structural and integration checks for multi-input string problems."""
+
+import copy
+import json
 import random
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import pytest
 
-import pandas as pd  # noqa: E402
-
-from rlvr import pilot as PL  # noqa: E402
-from rlvr.atoms import BINARY  # noqa: E402
-from rlvr.config import load_config, task_and_splits  # noqa: E402
-from rlvr.gate import _in_cells, cell_name  # noqa: E402
-from rlvr.io import read_jsonl  # noqa: E402
-from rlvr.sets import cell_candidates, stratified_set  # noqa: E402
-from rlvr.task import Task  # noqa: E402
-from rlvr.tokenizer import CharTokenizer  # noqa: E402
-
-ROOT = Path(__file__).resolve().parents[1]
-CFG = load_config(ROOT / "configs" / "v2" / "base.yaml")
-TASK, SPLITS = task_and_splits(CFG)
-V1 = task_and_splits(load_config())[0]
-F = {n: TASK.name2id[n] for n in TASK.id2name}
+from rlvr.config import load_config, task_and_splits
+from rlvr.task import Task
+from rlvr.tokenizer import CharTokenizer, IGNORE_INDEX
+from rlvr.tree_sampling import count, sample_shape
 
 
-def raises(exc, fn, *a, **kw):
-    try:
-        fn(*a, **kw)
-    except exc as e:
-        return str(e)
-    raise AssertionError(f"expected {exc.__name__}")
+@pytest.fixture(scope="module")
+def setup():
+    cfg = load_config("configs/tasks/tree_v1.yaml")
+    task, splits = task_and_splits(cfg)
+    return cfg, task, splits
 
 
-def test_binary_operators():
-    a, b = "abcdefg", "zyxwvut"
-    want = {"add": "zzzzzzz", "alternate": "aycweug", "splice": "abcwvut", "max": "zyxwvut"}
-    for name, out in want.items():
-        assert TASK.apply(F[name], a, b) == out, name
-    assert TASK.apply(F["max"], "azbycx", "zazbzc") == "zzzyzx"
-    A = 26
-    assert BINARY.build("sub")([0, 5], [1, 2], A) == [25, 3]
-    assert BINARY.build("minimum")([0, 5], [1, 2], A) == [0, 2]
-    # ids: unary keep v1 ids, binary F24.. in config order
-    assert TASK.id2name[:24] == V1.id2name and TASK.B == (24, 25, 26, 27)
-    assert [TASK.id2name[i] for i in TASK.B] == ["add", "alternate", "splice", "max"]
-    # an operator that ignores an input is rejected when the task is built
-    BINARY.add("first_only", lambda: (lambda a, b, A: list(a)), override=True)
-    cfg = {**CFG["task"], "binary_functions": {"first": "first_only"}}
-    assert "both inputs" in raises(AssertionError, Task, cfg)
+def call(task, name, *args):
+    return {"op": task.fname(task.name2id[name]), "args": [a if isinstance(a, dict) else {"value": a} for a in args]}
 
 
-def test_tree_format_and_structure():
-    # design.md example shape: F25(F11(F03(x)),F07(y)) with illustrative ids
-    u1, u2, u3 = F["rotl1"], F["shift_p1"], F["reverse"]
-    funcs, args = (u1, u2, u3, F["add"]), ((-1,), (0,), (-2,), (1, 2))
-    p = TASK.make_tree(funcs, args, ("abcdefgh", "ijklmnop"))
-    assert (p.n_ops, p.tree_depth, p.n_bin, p.dep_dist) == (4, 3, 1, 2)
-    n = TASK.fname
-    assert TASK.format_prompt(p) == f"Q:{n(F['add'])}({n(u2)}({n(u1)}(abcdefgh)),{n(u3)}(ijklmnop))=\n"
-    s = p.steps
-    assert s[0] == "bcdefgha" and s[1] == "cdefghib" and s[2] == "ponmlkji"
-    target = (f"{n(u1)}(abcdefgh)={s[0]};{n(u2)}({s[0]})={s[1]};{n(u3)}(ijklmnop)={s[2]};"
-              f"{n(F['add'])}({s[1]},{s[2]})={s[3]};\nA:{s[3]}<eos>")
-    assert TASK.format_target(p) == target
-    assert TASK.parse_steps(target) == list(s) and TASK.parse_answer(target) == p.answer
-    assert TASK.reward(target, p) == 1.0 and TASK.reward(target, p, "partial") == 1.0
-    bad = target.replace(f"={s[2]};", "=aaaaaaaa;", 1)
-    assert abs(TASK.reward(bad, p, "partial") - 3 / 4) < 1e-9
-    # round trip, pid stable, group from unary functions only
-    q = TASK.from_dict(p.to_dict())
-    assert q == p and q.pid == p.pid and q.steps == p.steps
-    assert p.group == TASK.group_of((u1, u2, u3))
-    assert TASK.make_tree((F["add"],), ((-1, -2),), ("abc", "def")).group == "bin"
-    # a tree without binary operators is a v1 chain (same pid and representation)
-    c = TASK.make_tree((u1, u2), ((-1,), (0,)), ("abcdefgh",))
-    assert not c.is_tree and c.pid == V1.make_problem((u1, u2), "abcdefgh").pid
-    assert (c.tree_depth, c.n_bin, c.dep_dist) == (2, 0, 1)
-    assert TASK.format_prompt(c) == V1.format_prompt(V1.make_problem((u1, u2), "abcdefgh"))
-    # malformed trees
-    raises(AssertionError, TASK.make_tree, (F["add"],), ((-1,),), ("abc",))
-    raises(AssertionError, TASK.make_tree, (u1, F["add"]), ((-1,), (-2, -1)), ("abc", "def"))
-    raises(AssertionError, TASK.make_tree, (F["add"],), ((-1, -2),), ("abc", "defg"))
+@pytest.mark.parametrize(
+    "name,args,want",
+    [
+        ("zip_add", ("abcdef", "bcdefg"), "bdfhjl"),
+        ("zip_sub", ("abcdef", "bcdefg"), "zzzzzz"),
+        ("zip_mul", ("abcdef", "bbbbbb"), "abcdef"),
+        ("gather", ("abcdef", "fedcba"), "fedcba"),
+        ("gather_add", ("abcdef", "fedcba"), "kigeca"),
+        ("scatter_add", ("abcdef", "aaaaaa"), "paaaaa"),
+        ("rotate_by_sum", ("abcdef", "baaaaa"), "bcdefa"),
+        ("prefix_add", ("aaaaaa", "bbbbbb"), "bcdefg"),
+        ("zip_add3", ("zzzzzz", "bbbbbb", "bbbbbb"), "bbbbbb"),
+        ("zip_mul_add", ("bbbbbb", "cccccc", "dddddd"), "ffffff"),
+        ("gather_mix", ("abcdef", "fedcba", "bbbbbb"), "gfedcb"),
+        ("select_parity", ("aaaaaa", "zzzzzz", "abcdef"), "azazaz"),
+    ],
+)
+def test_known_multi_operator_results(setup, name, args, want):
+    _, task, _ = setup
+    assert task.apply(task.name2id[name], *args) == want
 
 
-def test_sample_tree_cells():
-    rng = random.Random(0)
-    for n_ops in range(1, 9):
-        for n_bin in range(4):
-            for g in ("H", "L", "mixed", "bin", None):
-                if not TASK.valid_cell(n_ops, n_bin, g):
-                    continue
-                for _ in range(20):
-                    p = TASK.sample_tree(n_ops, n_bin, rng, g)
-                    assert p.n_ops == n_ops and p.n_bin == n_bin and len(p.inputs) == n_bin + 1
-                    assert g is None or p.group == g
-                    assert len({len(x) for x in p.inputs}) == 1 and len(p.x) in TASK.str_lens
-                    assert TASK.from_dict(p.to_dict()).pid == p.pid
-                    assert 1 <= p.tree_depth <= n_ops
-    assert not TASK.valid_cell(2, 2, "H") and TASK.valid_cell(2, 2, "bin") and not TASK.valid_cell(2, 0, "bin")
-    assert not TASK.valid_cell(3, 2, "mixed") and TASK.valid_cell(4, 2, "mixed")
-    assert not V1.valid_cell(2, 1, "H"), "v1 task has no binary operators"
+def test_operator_replacement_and_groups(setup):
+    _, t, _ = setup
+    old = Task()
+    removed = set(old.id2name) - set(t.id2name)
+    assert removed == {
+        "reverse",
+        "rotl1",
+        "rotr1",
+        "rotl2",
+        "rotl3",
+        "swap_ends",
+        "shift_p1",
+        "shift_m1",
+        "shift_p3",
+        "shift_p5",
+        "complement",
+        "sort_desc",
+    }
+    assert t.n_funcs == 24
+    for group in (t.H, t.L):
+        assert [sum(t.arities[f] == a for f in group) for a in (1, 2, 3)] == [6, 4, 2]
+    rng = random.Random(4)
+    for fid, arity in enumerate(t.arities):
+        for n in range(1, 13):
+            args = [t.sample_x(rng, n) for _ in range(arity)]
+            result = t.apply(fid, *args)
+            assert len(result) == n and set(result) <= set(t.alphabet)
+        with pytest.raises(ValueError, match="arguments"):
+            t.apply(fid, *(["abcdef"] * (arity + 1)))
+        if arity > 1:
+            with pytest.raises(ValueError, match="equal-length"):
+                t.apply(fid, "abc", *(["abcdef"] * (arity - 1)))
 
 
-def test_skippable():
-    srt = F["sort_asc"]
-    assert TASK.is_skippable(TASK.make_problem((srt,), "abcdef"))        # already sorted
-    assert not TASK.is_skippable(TASK.make_problem((srt,), "fedcba"))
-    # max(x, y) with y >= x everywhere: replacing the node by y gives the same answer
-    p = TASK.make_tree((F["max"],), ((-1, -2),), ("aaaaaa", "bbbbbb"))
-    assert TASK.is_skippable(p)
-    p = TASK.make_tree((F["add"],), ((-1, -2),), ("bcdefg", "bbbbbb"))
-    assert not TASK.is_skippable(p)
-    # a later sort erases an earlier reverse
-    assert TASK.is_skippable(TASK.make_problem((F["reverse"], srt), "dbecaf"))
+def test_branching_postorder_roundtrip_and_reward(setup):
+    _, t, _ = setup
+    expr = call(t, "zip_add", call(t, "swap_adjacent", "abcdef"), call(t, "zip_sub", "bcdefg", "aaaaaa"))
+    p = t.make_problem(expr)
+    assert (p.depth, p.n_ops, p.n_binary, p.n_ternary, p.n_leaves) == (2, 3, 2, 0, 3)
+    assert p.n_leaves == 1 + p.n_binary + 2 * p.n_ternary
+    assert p.max_live_values == 3
+    assert p.steps == ("badcfe", "bcdefg", "ccggkk")
+    prompt, target = t.format_prompt(p), t.format_target(p)
+    assert "," in prompt and t.parse_steps(target) == list(p.steps)
+    assert t.reward(target, p) == t.reward(target, p, "partial") == 1
+    assert t.reward(target.replace("<eos>", ""), p) == 0
+    assert t.reward(target.replace("=badcfe;", "=aaaaaa;"), p, "partial") == pytest.approx(2 / 3)
+    assert t.from_dict(json.loads(json.dumps(p.to_dict()))) == p
+    # Parameter order is part of identity even for a commutative operator.
+    swapped = copy.deepcopy(expr)
+    swapped["args"].reverse()
+    assert t.make_problem(swapped).pid != p.pid
 
 
-def test_heldout_edges_in_trees():
-    a, b = min(SPLITS.heldout_pairs)
-    x, y = "abcdefgh", "ijklmnop"
-    p = TASK.make_tree((a, b, F["add"]), ((-1,), (0,), (1, -2)), (x, y))
-    assert SPLITS.has_heldout(p)
-    q = TASK.make_tree((a, F["add"], b), ((-1,), (0, -2), (1,)), (x, y))   # binary node in between
-    assert not SPLITS.has_heldout(q)
-    assert SPLITS.has_heldout(TASK.make_problem((a, b), x)) == SPLITS.has_heldout_pair((a, b))
+def test_invalid_and_stale_data_rejected(setup):
+    cfg, t, _ = setup
+    p = t.make_problem(call(t, "zip_add", "abcdef", "bcdefg"))
+    for key, value in [
+        ("answer", "aaaaaa"),
+        ("depth", 9),
+        ("funcs", [0]),
+        ("task_fingerprint", "stale"),
+        ("n_ops", 10),
+        ("prompt", "Q:bad=\n"),
+    ]:
+        row = p.to_dict()
+        row[key] = value
+        with pytest.raises(ValueError):
+            t.from_dict(row)
+    with pytest.raises(ValueError):
+        Task().from_dict(p.to_dict())
+    with pytest.raises(ValueError):
+        t.from_dict(Task().sample_problem(2, random.Random(0)).to_dict())
+    with pytest.raises(ValueError, match="arity"):
+        t.make_problem(call(t, "zip_add", "abcdef"))
+    with pytest.raises(ValueError, match="equal-length"):
+        t.make_problem(call(t, "zip_add", "abcdef", "abcdefg"))
+    cfg2 = copy.deepcopy(cfg)
+    cfg2["task"]["h_group"] = list(reversed(cfg2["task"]["h_group"]))
+    # Mapping/semantics changes must invalidate old rows.
+    cfg2["task"]["name_seed"] += 1
+    t2, _ = task_and_splits(cfg2)
+    with pytest.raises(ValueError, match="fingerprint"):
+        t2.from_dict(p.to_dict())
 
 
-def test_tokenizer_versions():
-    v1 = CharTokenizer.load(ROOT / "data" / "meta" / "tokenizer.json")
-    v3 = CharTokenizer.load(ROOT / "data" / "eval" / "v3" / "meta" / "tokenizer.json")
-    assert v1.vocab_size == 48 and v3.vocab_size == 49 and v3.vocab[:48] == v1.vocab and v3.vocab[48] == ","
-    assert CharTokenizer.for_task(V1).vocab == v1.vocab and CharTokenizer.for_task(TASK).vocab == v3.vocab
+def test_sampling_sizes_groups_and_independent_interpreter(setup):
+    _, t, _ = setup
+    rng = random.Random(15)
+
+    def interpret(node):
+        if "value" in node:
+            return node["value"]
+        return t.apply(int(node["op"][1:]), *(interpret(a) for a in node["args"]))
+
+    for depth in range(1, 9):
+        for group in ("H", "L", None, "anyL", *(["mixed"] if depth > 1 else [])):
+            p = t.sample_problem(depth, rng, group=group)
+            assert p.depth == depth and depth <= p.n_ops <= min(10, 2 * depth)
+            assert p.answer == interpret(p.expr.to_dict())
+            assert p.n_leaves == 1 + p.n_binary + 2 * p.n_ternary
+            if group in ("H", "L", "mixed"):
+                assert p.group == group
+            elif group == "anyL":
+                assert p.group != "H"
+    p = t.sample_problem(2, rng, n_ops=4)
+    assert p.n_ops == 4
+    for kw in ({"depth": 2, "n_ops": 1}, {"depth": 1, "group": "mixed"}, {"depth": 9}, {"depth": 2, "func_pool": []}):
+        with pytest.raises(ValueError):
+            t.sample_problem(rng=rng, **kw)
+    assert count(1, 1, (1, 2, 3)) == 3
+    assert count(2, 2, (1, 2, 3)) == 18
+    with pytest.raises(ValueError, match="no tree"):
+        sample_shape(4, 2, (1,), rng)
 
 
-def test_v1_eval_sets_regenerate():
-    """New code + v1 config reproduces the tracked v2 eval sets (first two sets, same rng)."""
-    cfg = load_config()
-    splits = task_and_splits(cfg)[1]
-    ec = cfg["eval"]
-    rng, seen = random.Random(ec["seed"]), set()
-    for name in ("E1", "E2"):
-        s = ec["sets"][name]
-        probs = stratified_set(splits, "eval", s["depths"], s["groups"], s["per_cell"], rng, seen,
-                               novel=s.get("novel", False), by_function=s.get("by_function", False))
-        assert [p.pid for p in probs] == [r["pid"] for r in read_jsonl(ROOT / "data/eval/v2" / f"{name}.jsonl")]
+def test_actual_edges_not_siblings_and_pool_isolation(setup):
+    _, t, splits = setup
+    assert len(splits.heldout_edges) == 36
+    p = t.make_problem(call(t, "zip_add", call(t, "swap_adjacent", "abcdef"), call(t, "swap_halves", "bcdefg")))
+    root, left, right = [t.name2id[n] for n in ("zip_add", "swap_adjacent", "swap_halves")]
+    assert set(t.edges(p)) == {(root, 0, left), (root, 1, right)}
+    rng = random.Random(1)
+    for pool in ("pretrain", "rl", "eval"):
+        for depth in (1, 2, 4, 8):
+            q = splits.sample(pool, depth, rng)
+            assert splits.pool_of(q.pid) == pool and not splits.has_heldout(q)
+    for group in (None, "H", "L", "mixed"):
+        q = splits.sample("eval", 3, rng, group=group, novel=True)
+        assert splits.admissible(q, "eval", novel=True)
+    with pytest.raises(ValueError, match="expression"):
+        splits.has_heldout_pair(p.funcs)
 
 
-def test_eval_v3_sets():
-    rows = read_jsonl(ROOT / "data/eval/v3/E1.jsonl")
-    binary = [r for r in rows if r.get("n_bin")]
-    assert len(binary) == 50 * len(TASK.B) and {r["funcs"][0] for r in binary} == set(TASK.B)
-    calib = read_jsonl(ROOT / "data/eval/v3/calib.jsonl")
-    cells = {(r["depth"], r.get("n_bin", 0), r["group"]) for r in calib}
-    assert len(cells) == 77 and len(calib) == 77 * 200
-    for r in calib[::500]:
-        p = TASK.from_dict(r)
-        assert p.pid == r["pid"] and SPLITS.pool_of(p.pid) == "eval" and not SPLITS.has_heldout(p)
+def test_tokenizer_and_global_length_bounds(setup, tmp_path):
+    cfg, t, _ = setup
+    tok = t.tokenizer()
+    assert tok.vocab_size == 49 and tok.vocab[:48] == CharTokenizer().vocab
+    for tokenizer in (tok, CharTokenizer()):
+        tokenizer.save(tmp_path / "tokenizer.json")
+        assert CharTokenizer.load(tmp_path / "tokenizer.json").vocab == tokenizer.vocab
+    total, target = t.length_bounds()
+    rng = random.Random(3)
+    for depth in range(1, 9):
+        for _ in range(20):
+            p = t.sample_problem(depth, rng, str_len=10)
+            prompt, response = t.format_prompt(p), t.format_target(p)
+            ids, labels = tok.encode_example(prompt, response)
+            assert len(ids) <= total and len(tok.encode(response)) <= target
+            n = len(tok.encode(prompt, add_bos=True))
+            assert labels[:n] == [IGNORE_INDEX] * n and labels[n:] == ids[n:]
+    bad = copy.deepcopy(cfg)
+    bad["model"]["max_len"] = 512
+    with pytest.raises(ValueError, match="length bounds"):
+        task_and_splits(bad)
 
 
-def test_cell_candidates_prefix():
-    c = (3, 1, "H")
-    a = cell_candidates(SPLITS, "rl", c, 30, 7)
-    b = cell_candidates(SPLITS, "rl", c, 10, 7)
-    assert [p.pid for p in a[:10]] == [p.pid for p in b] and len({p.pid for p in a}) == 30
-    assert all(SPLITS.pool_of(p.pid) == "rl" and p.n_bin == 1 and p.depth == 3 and p.group == "H" for p in a)
-    assert [len(p.x) for p in a[:5]] == TASK.str_lens
+def test_noise_recomputes_only_ancestors(setup):
+    _, t, _ = setup
+    p = t.make_problem(call(t, "zip_add", call(t, "swap_adjacent", "abcdef"), call(t, "swap_halves", "bcdefg")))
+
+    class FirstNode(random.Random):
+        def randrange(self, *args):
+            return 0
+
+    steps = t.corrupt_steps(p, FirstNode(0))
+    assert steps[0] != p.steps[0] and steps[1] == p.steps[1]
+    assert steps[2] == t.apply(t.name2id["zip_add"], steps[0], steps[1])
+    assert f"({steps[0]},{steps[1]})={steps[2]};" in t.format_target(p, steps)
 
 
-def test_gate_cells_with_n_bin():
-    df = pd.DataFrame({"depth": [4, 4, 4], "n_bin": [0, 1, 1], "group": ["H", "H", "L"]})
-    assert _in_cells(df, [{"depth": 4, "group": "H"}]).tolist() == [True, False, False]
-    assert _in_cells(df, [{"depth": 4, "n_bin": 1, "group": "H"}]).tolist() == [False, True, False]
-    assert _in_cells(df.drop(columns="n_bin"), [{"depth": 4, "group": "H"}]).tolist() == [True, True, False]
-    assert cell_name(4, "H") == "d4-H" and cell_name(4, "H", 1) == "d4b1-H"
+def test_stream_supervised_share_and_structure_metadata(setup):
+    from rlvr.stream import Mixture, PretrainStream
+
+    cfg, task, splits = setup
+    cfg = copy.deepcopy(cfg)
+    cfg["pretrain"].update(comp_frac=0.35, noise_frac=0.2, bucket_examples=60, micro_target_tokens=400, num_workers=0)
+    mix = Mixture(task, splits, cfg["pretrain"], 0, n_estimate=200)
+    rng, tokens = random.Random(15), {"atom": 0, "comp": 0}
+    seen_arities = set()
+    for _ in range(3000):
+        kind, p, steps = mix.sample(rng)
+        tokens[kind] += len(task.tokenizer().encode(mix.target(p, steps)))
+        seen_arities.update(task.arities[f] for f in p.funcs)
+        assert not splits.has_heldout(p) and splits.pool_of(p.pid) == "pretrain"
+    assert seen_arities == {1, 2, 3}
+    assert tokens["comp"] / sum(tokens.values()) == pytest.approx(0.35, abs=0.055)
+    ds = PretrainStream(cfg)
+    ds._setup(0)
+    b = next(ds.batches())
+    assert (b["n_ops"] >= b["depth"]).all()
+    assert (b["position_ids"] < cfg["model"]["max_len"]).all()
+    for ids, labels in zip(b["input_ids"], b["labels"]):
+        mask = labels != IGNORE_INDEX
+        assert (ids[mask] == labels[mask]).all()
+    from scripts.pretrain import Stats
+
+    stats = Stats(task.n_funcs)
+    stats.add(b)
+    summary = stats.merge([stats])
+    assert sum(summary["by_structure_depth_ops_binary_ternary"].values()) == len(b["input_ids"])
 
 
-def test_pilot_logic():
-    rows = []
-    for (d, nb, g, ps) in [(2, 0, "L", [0.5] * 10 + [1.0] * 10), (4, 1, "H", [0.45] * 5 + [0.0] * 15),
-                           (3, 0, "H", [0.5] * 20), (5, 2, "mixed", [0.0] * 20)]:
-        rows += [{"depth": d, "n_bin": nb, "group": g, "p_hat": p, "skippable": False} for p in ps]
-    rates = PL.cell_rates(pd.DataFrame(rows), [1, 2, 3, 4, 5], [0.4, 0.6])
-    r = {(x.depth, x.n_bin, x.group): x.rate for x in rates.itertuples()}
-    assert r[(2, 0, "L")] == 0.5 and r[(4, 1, "H")] == 0.25 and r[(5, 2, "mixed")] == 0.0
-    cells, pairs = PL.choose_cells(rates, 2, 4)
-    assert cells == [(2, 0, "L"), (4, 1, "H")] and pairs[0]["score"] == 0.25
-    assert PL.shared_mix_supply({6: 10, 7: 10}, {6: 100, 7: 5}) == 10   # mix 50/50: limited by 5 -> 10
-    assert PL.shared_mix_supply({6: 600, 7: 0}, {6: 700, 7: 900}) == 600
-    pool = pd.DataFrame({"depth": [2] * 4 + [4] * 4, "n_bin": [0] * 4 + [1] * 4, "group": ["L"] * 4 + ["H"] * 4,
-                         "str_len": [6, 7, 6, 7] * 2, "skippable": [False, False, True, False] * 2,
-                         "p_hat": [0.5] * 8, "p_hat_relabel": [0.5, 0.5, 0.5, 0.9, 0.5, 0.5, 0.5, 0.5],
-                         "tree_depth": [2] * 4 + [3] * 4, "dep_dist": [1] * 8})
-    rep = PL.report(pool, cells, pairs, [0.4, 0.6], 2)
-    assert rep["cells"]["d2-L"]["n_in_range"] == 2 and rep["cells"]["d4b1-H"]["n_in_range"] == 3
-    assert rep["pairs"][0]["shared_mix_supply"] == 2 and rep["go"]
+def test_tree_model_loss_and_checkpoint_compatibility(setup, tmp_path):
+    import torch
+    from rlvr.model import build_model, save_model, load_model, generate
+    from scripts.pretrain import token_losses
+    from rlvr.stream import PretrainStream
+
+    cfg, task, _ = setup
+    cfg = copy.deepcopy(cfg)
+    cfg["model"].update(n_layer=1, d_model=32, d_ff=64, n_head=2)
+    cfg["pretrain"].update(comp_frac=1.0, bucket_examples=12, micro_target_tokens=100, num_workers=0)
+    ds = PretrainStream(cfg)
+    ds._setup(0)
+    batch = next(ds.batches())
+    model = build_model(cfg["model"], task.tokenizer())
+    ce, mask = token_losses(model, batch)
+    loss = ce.sum() / mask.sum()
+    loss.backward()
+    assert torch.isfinite(loss) and torch.isfinite(model.lm_head.weight.grad).all()
+    save_model(model, task.tokenizer(), cfg, tmp_path)
+    loaded, tok = load_model(tmp_path, "cpu")
+    assert tok.vocab_size == 49 and loaded.config.task_fingerprint == task.fingerprint
+    p = task.sample_problem(2, random.Random(6))
+    prompt = [task.format_prompt(p)]
+    assert generate(model, tok, prompt, max_new_tokens=4) == generate(loaded, tok, prompt, max_new_tokens=4)
+    config_path = tmp_path / "run_config.yaml"
+    import yaml
+
+    cfg["task"]["name_seed"] += 1
+    config_path.write_text(yaml.safe_dump(cfg))
+    with pytest.raises(ValueError, match="fingerprint"):
+        load_model(tmp_path, "cpu")
 
 
-def test_diag_first_error_on_trees():
-    sys.path.insert(0, str(ROOT / "scripts"))
-    from diag_steps import first_error, parse_cell
-    assert parse_cell("4-H") == (4, 0, "H") and parse_cell("4b1-mixed") == (4, 1, "mixed")
-    u1, u2, u3 = F["rotl1"], F["shift_p1"], F["reverse"]
-    p = TASK.make_tree((u1, u2, u3, F["add"]), ((-1,), (0,), (-2,), (1, 2)), ("abcdefgh", "ijklmnop"))
-    t, s, n = TASK.format_target(p), p.steps, TASK.fname
-    assert first_error(TASK, p, t) == ("ok", None, {})
-    # second operand of the binary step copied wrong (step 3 reads step 2's output)
-    bad = t.replace(f"{n(F['add'])}({s[1]},{s[2]})", f"{n(F['add'])}({s[1]},{s[2][::-1]})")
-    err = first_error(TASK, p, bad)
-    assert err[:2] == ("copy", 3) and err[2]["operand"] == 1 and not err[2]["from_leaf"]
-    # leaf operand copied wrong in step 2
-    err = first_error(TASK, p, t.replace(f"{n(u3)}(ijklmnop)", f"{n(u3)}(ijklmnoo)"))
-    assert err[:2] == ("copy", 2) and err[2]["from_leaf"]
-    assert first_error(TASK, p, t.replace(f"={s[2]};", "=aaaaaaaa;", 1))[:2] == ("apply", 2)
-    assert first_error(TASK, p, t.replace(f"{n(F['add'])}({s[1]},", f"{n(F['add'])}("))[:2] == ("copy", 3)
-    assert first_error(TASK, p, t.replace(f"A:{p.answer}", "A:aaaaaaaa"))[:2] == ("answer_copy", 4)
-    # chains as in v1
-    c = TASK.make_problem((u1, u2), "abcdefgh")
-    assert first_error(TASK, c, TASK.format_target(c)) == ("ok", None, {})
-    assert first_error(TASK, c, TASK.format_target(c).replace(f"{n(u2)}({c.steps[0]})", f"{n(u2)}(abcdefgh)"))[:2] \
-        == ("copy", 1)
+def test_dataset_structure_selection(setup):
+    import pandas as pd
+    from scripts.build_dataset import build, summarize
+
+    _, task, splits = setup
+    rng = random.Random(8)
+    rows = [splits.sample("rl", 2, rng, n_ops=n).to_dict() | {"origin": "base"} for n in (2, 3, 4) for _ in range(30)]
+    spec = {"name": "matched_ops", "n": 12, "seed": 0, "cells": [{"n_ops": 3, "frac": 1.0}]}
+    result = build(spec, pd.DataFrame(rows), None)
+    assert len(result) == 12 and (result.n_ops == 3).all()
+    assert summarize(result)["n"] == 12
 
 
-if __name__ == "__main__":
-    fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]
-    for fn in fns:
-        fn()
-        print("ok", fn.__name__)
+def test_fingerprint_tracks_display_order_and_data_namespace(setup, tmp_path):
+    import yaml
+    from rlvr.io import check_task_directory
+
+    cfg, task, _ = setup
+    changed = copy.deepcopy(cfg)
+    changed["task"]["functions"] = dict(reversed(list(changed["task"]["functions"].items())))
+    other, _ = task_and_splits(changed)
+    assert task.id2name != other.id2name and task.fingerprint != other.fingerprint
+    meta = tmp_path / "meta"
+    meta.mkdir()
+    (meta / "task_config.yaml").write_text(yaml.safe_dump({"task": cfg["task"]}, sort_keys=False))
+    (meta / "task_fingerprint.json").write_text(json.dumps({"task_fingerprint": task.fingerprint}))
+    check_task_directory(task, tmp_path)
+    with pytest.raises(ValueError, match="fingerprint"):
+        check_task_directory(other, tmp_path)

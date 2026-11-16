@@ -121,8 +121,10 @@ E1 = 1.000 for every run.
 ## Round 3: four candidates, training + full calibration (2026-11-06, job 60894875)
 
 Four nodes in parallel, each running `scripts/slurm/model_pipeline.sh`: training, calib heatmap, RL-pool labelling
-(35,000 problems, k=32), then relabelling with k=64 of the problems whose p̂ falls in [0.4, 0.6]. All four wrote
-`data/labels/<run>.parquet`.
+(35,000 problems, k=32), then relabelling with k=64 of the d2-L / d4-H / d5-H problems whose first p̂ falls in
+[0.3, 0.7] (`label.relabel_range` in every run_config.yaml; e.g. mid d4-H: 775 relabelled). The winner's-curse check
+below compares the problems first selected with p̂ in [0.4, 0.6] (mid d4-H: 385) with their second estimate. All four
+wrote `data/labels/<run>.parquet`.
 
 Calib mean p (200 problems per cell, k=32):
 

@@ -1,10 +1,23 @@
 # RLVR data-difficulty experiments
 
-**Status (see `docs/design.md` "Status"): the four v1 base models are trained, calibrated and on
-Hugging Face (`rlvr-cs291k/rlvr-pretrain-v1`; results in `docs/pretrain_v1_results.md`). v2 (binary
-operators, tree problems, eval v3) is implemented; pilot stage A passed (all four binary operators
-learned); stage B is on hold until the operator set is agreed with the tree-v1 task on master
-(`docs/pretrain_v2_results.md`).** GRPO and RL-side analysis are not implemented yet.
+**Status (see `docs/design.md` "Status"): the four chain-v1 base models are trained, calibrated and on
+Hugging Face (`rlvr-cs291k/rlvr-pretrain-v1`; results in `docs/pretrain_v1_results.md`). The next task
+is tree-v1 (below; adopted on 2026-11-16, design.md decision 10); its pilot (stage A: atomic skills,
+stage B: p ~ 0.5 supply) runs before new base models are trained. An earlier binary-operator variant
+(v2, 24 unary + 4 binary) was piloted and is superseded (`docs/pretrain_v2_results.md`).** GRPO
+(`scripts/grpo.py`) and a checkpoint x dataset sweep runner (`scripts/rl_sweep.py`) are implemented
+and smoke-tested on the local round-1 checkpoints; see [Reinforcement learning](#reinforcement-learning-grpo).
+The RL experiments of the design doc (phases 0-3) have not been run, and the curve-fit analysis
+is not implemented yet.
+
+## Multi-input task (tree-v1)
+
+The new versioned recipe replaces 12 simple/redundant unary operators with 8 binary
+and 4 ternary operators, generating genuine expression trees. Use
+`bash scripts/make_tree_data.sh` in the `rlvr` environment; outputs are isolated under
+`data/tree-v1/`. See [operator definitions, sampling and training setup](docs/tree_v1.md).
+The original chain-v1 defaults and saved results remain available. No tree model has
+been trained yet.
 
 ## Environment
 
@@ -17,24 +30,26 @@ Dependencies live in `pyproject.toml`; `requirements.lock.txt` pins the full res
 
 ```
 rlvr/                 library (frozen interface after review)
-  task.py             24 atomic functions (+ v2 binary operators), Problem (chain or tree), sampling,
-                      format_prompt/target, parse_answer, reward, structure variables, is_skippable
-  tokenizer.py        char-level tokenizer, 48 tokens (v2: 49 with `,`); encode_example() masks the prompt with -100
+  task.py             24 atomic functions, Problem, sampling, format_prompt/target, parse_answer, reward
+  tokenizer.py        char-level tokenizer, 48 tokens; encode_example() masks the prompt with -100
   registry.py         generic name -> factory Registry (build from 'name' or {name: ..., **params})
   params.py           parameter registry: every config key, default, levels, priority, doc id (P1..R13)
-  atoms.py            ATOMS registry: parameterized atomic functions (rotate(k), shift(k), sort(descending), ...);
-                      BINARY registry (v2): add, sub, alternate, splice, maximum, minimum
+  atoms.py            ATOMS registry: parameterized atomic functions (rotate(k), shift(k), sort(descending), ...)
   rewards.py          REWARDS registry: binary, partial
   splits.py           pid-hash pools (pretrain 90% / rl 5% / eval 5%) + 24 held-out function pairs
-  sets.py             stratified (depth [x n_bin] x group, balanced over input length) set generation;
-                      cell_candidates (per-cell seeded candidates for the v2 pilot)
-  pilot.py            v2 stage B: cells with the most p ~ 0.5 problems, shared-length-mix supply, go criterion
+  sets.py             stratified (depth x group, balanced over input length) set generation
   stream.py           streamed pretraining corpus: Mixture (comp_frac by tokens, depth mix, H/L,
                       leak-free rejection) and PretrainStream (length-bucketed micro-batches)
   difficulty.py       p bins, Wilson CI, P_sig(p, G); WEIGHTS registry (uniform, learnability, signal)
   config.py, io.py    defaults <- YAML (`base:` inheritance) <- key=value overrides, validated; jsonl helpers
   model.py            LlamaForCausalLM (RoPE, 12 x 768, ~85M) build/save/load; generate() (left pad, cut after <eos>)
   evaluate.py         greedy_eval (eval.jsonl rows, E1 per function); label_pass_rates (p_hat, Wilson CI)
+  grpo.py             GRPO core: group advantages, teacher-forced completion log-probs, micro-batched update
+  sampler.py          per-step problem samplers (static / online_filter / learnability) + online p(t)
+  tree_task.py        tree-v1: TreeTask (Leaf / Call trees, post-order trace, structure features, fingerprint)
+  tree_ops.py         tree-v1 operators with declared arity (unary, binary, ternary)
+  tree_sampling.py    tree-v1 shape counting and uniform shape sampling for (n_ops, depth)
+  tree_splits.py      tree-v1 pools and held-out (parent, slot, child) edges
 scripts/
   make_eval_sets.py   data/eval/v2/{E1,E2,E3,E4,probe,calib}.jsonl + data/meta/
   make_rl_pool.py     data/rl_pool/candidates.jsonl (to be labelled with p per model)
@@ -49,10 +64,13 @@ scripts/
   slurm/              Perlmutter: pt-{level}.sbatch (1 node, 4-GPU training + quick calibration),
                       calib.sbatch (1 shared GPU, full calibration, chained with --dependency=afterok)
   relabel_report.py   winner's-curse check: first-pass p in [0.4, 0.6] vs the second labelling
+  grpo.py             GRPO on one base checkpoint + one RL dataset (1 GPU) -> runs/rl-*/
+  rl_sweep.py         series of GRPO runs: checkpoints x datasets x seeds x grid, one per GPU, resumable
+  make_tree_data.sh   tree-v1 eval sets, RL pool, stream preview, datasets and report under data/tree-v1/
   push_hf.py          upload final checkpoints (+ calib files, optional RL-pool labels) to a Hugging Face repo
-configs/              overrides only: pretrain/{weak,mid,strong,midbal,pilot}.yaml (v1), v2/{base,stage_a,mid,smoke}.yaml,
-                      datasets/*.yaml
-tests/                python -m pytest tests/ (test_task, test_registry, test_model, test_gate, test_tree)
+configs/              overrides only: pretrain/{weak,mid,strong,midbal,pilot}.yaml, pretrain/tree/*.yaml,
+                      tasks/tree_v1.yaml, datasets/*.yaml, rl/*.yaml
+tests/                pytest tests/ (CPU, tiny models): task, registry, model, gate, tree, grpo
 ```
 
 Regenerate: `bash scripts/make_all_data.sh` (deterministic; `SEED=1` for other preview seeds).
@@ -109,35 +127,52 @@ python scripts/build_dataset.py configs/datasets/*.yaml
   get 64 more independent samples (`label.relabel_*`, `*_relabel` columns); the matched-p specs
   select on it (`p_label: relabel`) to shrink the winner's curse of selecting on a 32-sample p_hat.
 
-## v2: tree problems (design.md "v2 revision", "v2 pilot")
-
-`configs/v2/base.yaml` adds four binary operators (F24-F27: add, alternate, splice, max), trees in
-the corpus (`pretrain.tree_frac` 0.5, `pretrain.tree_shape_mix`), eval v3 (`data/eval/v3/`, metadata
-in `data/eval/v3/meta/`) and the pilot pool (`rl_pool.mode: pilot`). With the v1 configs every chain,
-pid, eval set, RL-pool row and pretraining example is exactly as before (`tests/test_tree.py`).
+## Reinforcement learning (GRPO)
 
 ```bash
-python scripts/make_eval_sets.py --config configs/v2/base.yaml          # eval v3 (already in git)
-# pipeline check, stage A (operators learnable?), stage B (one run per comp_frac), one node each:
-CONFIG=configs/v2/smoke.yaml CALIB_ARGS="--calib-per-cell 4" bash scripts/slurm/model_pipeline.sh v2-smoke
-CONFIG=configs/v2/stage_a.yaml CALIB_ARGS=--e1-only bash scripts/slurm/model_pipeline.sh v2a-atoms
-CONFIG=configs/v2/mid.yaml TRAIN_ARGS=pretrain.comp_frac=0.00032 bash scripts/slurm/model_pipeline.sh v2mid-cf0.00032
-# -> runs/pt-v2mid-cf0.00032-s0/calib/pilot.json: supply per chosen cell and per D/E pair, "go"
+# one run: base checkpoint + dataset -> runs/rl-{model}-{dataset}-G{G}-s{seed}[-{tag}]/
+python scripts/grpo.py --base checkpoints/pt-weak-s0 --dataset mixed_500 [key=value ...]
+python scripts/grpo.py --config configs/rl/smoke.yaml --base checkpoints/pt-weak-s0 --dataset mixed_500   # ~3 min
+# a series: checkpoints x datasets x seeds (x grid), one run per GPU at a time, finished runs skipped
+python scripts/rl_sweep.py --name repro --gpus 4 5 6 7 \
+    --models checkpoints/pt-weak-s0 checkpoints/pt-mid-s0 runs/pt-mid-s0/ckpt/step-2375 \
+    --datasets easy_500 mixed_500 depth_3 --seeds 0 1 2
+python scripts/rl_sweep.py --name G --gpus 0 1 --models checkpoints/pt-mid-s0 --datasets mixed_500 \
+    --grid rl.group_size=4,8,32 --grid rl.lr=3e-6,1e-5        # -> runs/rl_sweep/G/summary.{md,csv}, curves.png
+# p-based datasets are per model: build them once the labels exist
+python scripts/build_dataset.py configs/datasets/learnability.yaml --model-id pt-weak-s0
 ```
-
-- **Problems.** A tree stores its operations in post-order with operand refs (`args`: >= 0 = an
-  earlier step, < 0 = a leaf); `depth` is the number of operations (n_ops) for every problem. A
-  problem without binary operators is a v1 chain (same representation and pid). Leaves are
-  independent random strings of one length.
-- **Shapes.** `Task.sample_tree(n_ops, n_bin)`: a random binary skeleton with n_bin binary nodes
-  (left subtree size uniform), then each unary function on a uniformly random edge (above the root,
-  a binary node or a leaf).
-- **Groups.** H / L / mixed from the unary functions only; a tree without unary functions is `bin`.
-- **Cells.** Eval and calib cells are (n_ops, n_bin, group); calib covers n_ops 1-8 x n_bin 0-3 (77
-  cells x 200). Gate spread pools chains and trees per n_ops.
-- **Pilot pool.** From the calib labels, the D/E pairs (E >= D + 2 operations) with the largest
-  share of non-skippable p_hat in [0.4, 0.6]; their cells (<= 4) get 10,000 candidates each, drawn
-  from a per-cell random stream so every model sees the same first N candidates of a cell.
+- **What a run inherits.** Task, model, splits, paths, eval version and length budgets come from
+  the base checkpoint's `run_config.yaml`, so the same commands work for chain-v1 and tree-v1
+  checkpoints and for intermediate (`ckpt/step-N`) or RL-trained checkpoints; overriding `task.*`,
+  `model.*` or `splits.*` is an error. Everything else is `rl.*` / `data.*` (`python -m rlvr.params`).
+- **Step.** B problems x G samples at `rl.temperature`, exact-match reward (`rl.reward`), advantage
+  = reward - group mean, divided by the group std (`rl.adv_std_norm`, unbiased std + 1e-6); groups
+  with identical rewards get exactly 0. One AdamW update (constant lr after `rl.warmup_steps`,
+  betas 0.9/0.999, no weight decay) on `-(adv x logp)` over completion tokens only, token- or
+  sequence-averaged. `rl.ppo_epochs > 1` switches to the clipped ratio; `rl.kl_coef`,
+  `rl.entropy_coef` add the usual terms. The update is split into micro-batches of
+  `rl.micro_batch_tokens` with gradient accumulation (a memory knob; the gradient is unchanged).
+- **Samplers** (`data.sampler`; `auto` takes the dataset spec's `sampler`): `static` = shuffled
+  epochs (`data.order=shallow_to_deep`: the same draws sorted by depth over the run);
+  `online_filter` = uniform over problems with unknown p or `p_edge <= p(t) <= 1 - p_edge`;
+  `learnability` = proportional to p(t)(1 - p(t)). p(t) starts from the base model's labels
+  (`data/labels/{model_id}.parquet`, when present) and follows the rollouts as an EMA
+  (`data.p_ema`). `data.explore_frac` (default 0) draws that share of each batch from the whole
+  dataset; without it a problem filtered out at p = 0 only returns when too few problems qualify.
+- **Logs** (`runs/rl-*/`): `metrics.jsonl` per step (mean_reward, signal_frac, entropy, mean_len,
+  trunc_frac, grad_norm, kl_to_base every `rl.kl_every`, reward/signal per depth, sampler state),
+  `rollouts.jsonl` one row per (step, problem) with the G rewards, lengths and completions,
+  `eval.jsonl` (greedy E1-E4 every `rl.eval_every`, probe every `rl.probe_every`, step 0 and last
+  step always; `rollouts` = cumulative count), `summary.json` (written last; marks the run
+  finished), `ckpt/step-N` (`rl.save_at`, `rl.save_final`; loadable by `calibrate.py` / as `--base`).
+- **Cost (measured, A100, weak round-1 checkpoint, B 64 x G 8).** ~3.3 s/step (2.6 s rollout,
+  0.7 s update) at ~100-token completions, ~13 GB; a full E1-E4 greedy eval ~55 s. 500 steps with
+  the default eval schedule is ~35-40 min. Deeper datasets are slower in proportion to length.
+- **Tests.** `tests/test_grpo.py`: advantages, teacher-forced log-probs equal to generation
+  scores, update equal to the hand-written policy gradient, micro-batch invariance, samplers,
+  and an end-to-end tiny run. Not done yet: the TRL `GRPOTrainer` cross-check, pass@k, the
+  A/B/C_mid curve fits.
 
 ## Parameters and registries
 

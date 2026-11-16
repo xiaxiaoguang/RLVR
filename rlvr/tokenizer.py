@@ -1,8 +1,7 @@
 """Character-level tokenizer (frozen after week 1).
 
 Vocab: <pad> <bos> <eos>, then the alphabet (default a-z), F, 0-9, ( ) = ; :, Q, A, newline
-(48 tokens for a-z). v2 (binary operators) appends `,` as the last token (49), so every
-v1 token keeps its id; `load` rebuilds whichever vocabulary a checkpoint was saved with.
+(48 tokens for a-z).
 """
 from __future__ import annotations
 
@@ -15,22 +14,16 @@ IGNORE_INDEX = -100
 
 
 class CharTokenizer:
-    def __init__(self, alphabet: str = "abcdefghijklmnopqrstuvwxyz", comma: bool = False):
-        """comma: append `,` (operand separator of binary operators, v2)."""
+    def __init__(self, alphabet: str = "abcdefghijklmnopqrstuvwxyz", extra_chars: str = ""):
         chars = list(alphabet) + ["F"] + list("0123456789") + list("()=;:") + ["Q", "A", "\n"]
-        if comma:
-            chars.append(",")
+        chars += list(extra_chars)
         assert len(set(chars)) == len(chars), "alphabet clashes with syntax chars"
         self.alphabet = alphabet
+        self.extra_chars = extra_chars
         self.vocab: list[str] = SPECIALS + chars
         self.tok2id = {t: i for i, t in enumerate(self.vocab)}
         self.pad_id, self.bos_id, self.eos_id = 0, 1, 2
         self._split = re.compile("(" + "|".join(re.escape(s) for s in SPECIALS) + ")")
-
-    @classmethod
-    def for_task(cls, task) -> "CharTokenizer":
-        """The vocabulary a task needs: `,` only when it has binary operators."""
-        return cls(task.alphabet, comma=task.n_binary > 0)
 
     @property
     def vocab_size(self) -> int:
@@ -55,11 +48,11 @@ class CharTokenizer:
         return p + t, [IGNORE_INDEX] * len(p) + t
 
     def save(self, path: str | Path) -> None:
-        Path(path).write_text(json.dumps({"alphabet": self.alphabet, "vocab": self.vocab}, indent=1))
+        Path(path).write_text(json.dumps({"alphabet": self.alphabet, "vocab": self.vocab, "extra_chars": self.extra_chars}, indent=1))
 
     @classmethod
     def load(cls, path: str | Path) -> "CharTokenizer":
         d = json.loads(Path(path).read_text())
-        tok = cls(d["alphabet"], comma="," in d["vocab"])
+        tok = cls(d["alphabet"], d.get("extra_chars", ""))
         assert tok.vocab == d["vocab"], "saved vocab does not match current tokenizer"
         return tok

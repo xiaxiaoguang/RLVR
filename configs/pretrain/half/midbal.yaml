@@ -1,0 +1,5 @@
+base: ../midbal.yaml
+pretrain:
+  level: midbal-half
+  steps: 4750
+  target_minutes: 30

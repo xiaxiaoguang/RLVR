@@ -1,33 +1,35 @@
 # v2 pretraining results (tree problems)
 
 Results of the v2 pilot ([`design.md` "v2 pilot"](design.md#v2-pilot)) and, after the go/no-go on Sun Nov 22, of the
-v2 base models. The task change itself is described in [`design.md` "v2 revision"](design.md#v2-revision-tree-problems);
-the implementation choices the design left open are in
-[`design.md` "Implementation (2026-11-15)"](design.md#implementation-2026-11-15).
+v2 base models. Since 2026-11-16 the v2 task is Hanzhong's **tree-v1** ([`tree_v1.md`](tree_v1.md), design.md decision
+10). An earlier variant (24 unary + 4 binary operators) was piloted first; its results are kept below as a record.
 
 - Full job log: `/pscratch/sd/y/yupengsu/rlvr/runs/NERSC_LOG.md` (scratch). A snapshot is copied to
   `results/pretrain_v2/NERSC_LOG.md` with every results commit.
-- Small per-run files (gate.json, pilot.json, relabel_report.json, stats.json, eval.jsonl, run_config.yaml, calib
-  heatmap): `results/pretrain_v2/models/<run>/`, collected from scratch by `scripts/collect_results.sh`.
+- Small per-run files (gate.json, relabel_report.json, stats.json, eval.jsonl, run_config.yaml, calib heatmap):
+  `results/pretrain_v2/models/<run>/`, collected from scratch by `scripts/collect_results.sh`.
 
 ## Status (2026-11-16)
 
 | step | run | result | status |
 |---|---|---|---|
-| smoke run (pipeline check) | pt-v2-smoke-s0 | every stage runs on GPU, incl. the pilot pool | done |
-| stage A: binary operators | pt-v2a-atoms-s0 | E1 1.000 for all 24 unary + 4 binary operators | **PASS**, operator set fixed |
-| stage B: p ≈ 0.5 supply | pt-v2mid-cf{0.0002,0.00032,0.0005}-s0 | — | **on hold**: started 2026-11-16, cancelled after 36 min (see below) |
+| tree-v1 stage A: atomic skills of the 24 operators | — | — | next (1 node) |
+| tree-v1 stage B: p ≈ 0.5 supply | — | — | after stage A (3 nodes) |
 | go/no-go | — | — | Sun Nov 22 |
 
-Operator set (fixed by stage A): **add, alternate, splice, max** (F24–F27). The backups (sub, min) are not needed.
+## Superseded variant: 24 unary + 4 binary operators (2026-11-15 to 16)
 
-**Stage B on hold (2026-11-16).** Master now also has a separate tree task, tree-v1 (`docs/tree_v1.md`, commit
-be60eb6): 12 unary operators (12 of the 24 dropped) + 8 binary + 4 ternary, reshuffled to F00–F23. It differs from
-the v2 design here (24 unary + 4 binary as F24–F27) in the operator set, the depth definition, the held-out edges and
-the length limits. Stage B was cancelled so that the team can first agree on one operator set; it is re-run once
-that is decided. The three cancelled runs reached step ~4300 of 9500 and are not used.
+The pretrain branch first implemented v2 as the 24 v1 unary functions plus four binary operators (add, alternate,
+splice, max as F24–F27), with `depth` = `n_ops` and eval v3. It was dropped on 2026-11-16 for tree-v1 (decision 10).
+Code and data are in git history (commits cb99f24 to c137d10).
 
-## Smoke run (2026-11-15)
+| step | run | result |
+|---|---|---|
+| smoke run (pipeline check) | pt-v2-smoke-s0 | every stage runs on GPU, incl. the pilot pool |
+| stage A: binary operators | pt-v2a-atoms-s0 | **PASS**: E1 1.000 for all 24 unary + 4 binary operators |
+| stage B: p ≈ 0.5 supply | pt-v2mid-cf{0.0002,0.00032,0.0005}-s0 | cancelled after 36 min (step ~4300 of 9500), not used |
+
+### Smoke run (2026-11-15)
 
 `configs/v2/smoke.yaml`: the mid v2 recipe at comp_frac 0.01 for 300 steps, then `calibrate.py --calib-per-cell 4`
 and a pilot pool of 40 candidates per cell. It only checks that the code runs end to end on the GPUs; its p ranges
@@ -38,7 +40,7 @@ are widened to [0, 1] so that the pilot branch runs on an undertrained model. No
   `relabel_report.json` all ran. `calibrate.py` exited 1 because the gate fails after 300 steps, as expected.
 - 8 minutes on one node.
 
-## Stage A: can each binary operator be learned? (2026-11-15)
+### Stage A: can each binary operator be learned? (2026-11-15)
 
 `configs/v2/stage_a.yaml`: atoms only (24 unary + 4 binary, uniform), 2000 steps, then `calibrate.py --e1-only`.
 Pass rule: every operator ≥ 98% greedy on its 50 E1 problems (Wilson rule, as the depth-1 gate).

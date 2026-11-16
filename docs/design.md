@@ -1,6 +1,6 @@
 # RLVR data-difficulty experiment design
 
-Oct 22, 2026 · Hanzhong Cao · v1 revision Nov 2, 2026 · v2 revision Nov 16, 2026 (draft)
+Oct 22, 2026 · Hanzhong Cao · v1 revision Nov 2, 2026 · v2 revision Nov 16, 2026 (draft; tree-v1 task by Hanzhong Cao)
 
 This file is the team's shared record of settings, results and decisions, kept up to date so it can be turned into
 the paper. When a setting changes, a result comes in or a decision is made, update this file in the same commit and
@@ -17,14 +17,14 @@ Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Les
   org repo [`rlvr-cs291k/rlvr-pretrain-v1`](https://huggingface.co/rlvr-cs291k/rlvr-pretrain-v1) (one folder per run;
   uploaded 2026-11-15 with `scripts/push_hf.py`; ask Yupeng for an org invite). Backup copy on CFS:
   `/global/cfs/cdirs/m4788/yupengsu/rlvr/{checkpoints,data/labels}/`.
-- **v2:** on 2026-11-15 we decided to add binary operators, so problems become trees instead of chains
-  ([v2 revision](#v2-revision-tree-problems)). This week the task change gets implemented and piloted; the go/no-go
-  decision is on Sun Nov 22 ([v2 pilot](#v2-pilot)). The v2 code and eval v3 are implemented (2026-11-15;
-  configs in `configs/v2/`, choices the design left open in [Implementation](#implementation-2026-11-15)). **Stage A
-  passed** on 2026-11-15: add, alternate, splice and max are each at 50/50 on E1, so the operator set is fixed;
-  stage B is on hold until the team agrees on one operator set (master also has a separate tree task, tree-v1 in
-  `docs/tree_v1.md`, with 12 unary + 8 binary + 4 ternary operators). Results:
-  [`pretrain_v2_results.md`](pretrain_v2_results.md).
+- **v2 task: tree-v1** (decision 10). On 2026-11-15 we decided to add multi-input operators, so problems become trees
+  instead of chains ([v2 revision](#v2-revision-tree-problems)). On 2026-11-16 we adopted Hanzhong's tree-v1 recipe
+  ([`tree_v1.md`](tree_v1.md): 12 unary + 8 binary + 4 ternary operators). An earlier variant on the pretrain branch
+  (24 unary + 4 binary operators) passed its stage A and was dropped during stage B; its results stay in
+  [`pretrain_v2_results.md`](pretrain_v2_results.md). Next: the [v2 pilot](#v2-pilot) on tree-v1 (stage A, then
+  stage B); go/no-go on Sun Nov 22.
+- **RL:** GRPO (`scripts/grpo.py`) and the sweep runner (`scripts/rl_sweep.py`) are implemented and smoke-tested on
+  the v1 round-1 checkpoints ([GRPO](#grpo-hanzhong)); no RL experiment of the design has been run yet.
 - **Compute:** 23.29 of 50 NERSC GPU node-hours used as of 2026-11-16.
 
 ## Decision log
@@ -33,6 +33,7 @@ Newest first. "Proposed by" is who raised it in the team discussion.
 
 | # | date | question | decision | proposed by |
 | --- | --- | --- | --- | --- |
+| 10 | 2026-11-16 | Which operator set and code for the tree task? | Hanzhong's **tree-v1** ([`tree_v1.md`](tree_v1.md)): 12 unary + 8 binary + 4 ternary operators reshuffled to F00–F23, depth = dependency depth, held-out (parent, slot, child) edges, data under `data/tree-v1/`. It replaces the pretrain-branch variant (24 unary + add / alternate / splice / max), whose stage A passed and whose stage B was cancelled after 36 min (1.81 node-hours). The pilot plan (stages A and B, go criterion) is unchanged. | Hanzhong (chosen by Yupeng) |
 | 9 | 2026-11-15 | Where do checkpoints go? | Hugging Face model repo, one folder per run in `save_model` format (`scripts/push_hf.py`); too large for git. | Yupeng |
 | 8 | 2026-11-15 | Where do we record settings, results and decisions? | This file, in English, as the shared record for the paper. | Hanzhong |
 | 7 | 2026-11-15 | Deeper test set is too hard (E3 greedy ≤ .003 for every v1 model, including comp_frac 1e-2) | Report depth-5 accuracy separately and add a step score on E3 (correct steps before the first mistake), so H2 does not "fail" only because the test is at 0. | Jay |
@@ -56,25 +57,32 @@ datasets D and E are hard to build from chains:
 3. Chains give one structural knob (length of the chain). The same chain structure sampled more often keeps the same
    bimodal p.
 
-Binary operators (`merge(f(x), g(y))`) turn problems into trees, which separates the number of operations from tree
-depth and from the dependency pattern. That gives more cells in which shallow and deep problems may have overlapping
-p. This has to be checked with a pilot before the base models are retrained.
+Multi-input operators (`merge(f(x), g(y))`) turn problems into trees, which separates the number of operations from
+the dependency depth and from the shape. That gives more cells in which shallow and deep problems may have
+overlapping p. This has to be checked with a pilot before the base models are retrained.
 
-**What changes.**
+**What changes** (tree-v1, [`tree_v1.md`](tree_v1.md); decision 10):
 
-| aspect | v1 | v2 (proposed; final after the pilot) |
+| aspect | v1 (chain-v1) | v2 (tree-v1) |
 | --- | --- | --- |
-| problem structure | chain of unary functions | chains and trees: unary functions plus binary operators |
-| functions | 24 unary (H/L 12 each) | 24 unary (unchanged ids F00–F23) + 3–4 binary operators (F24 onwards) |
-| structure variables | depth | operation count `n_ops`, tree depth, binary nodes `n_bin`, dependency distance, token length |
+| problem structure | chain of unary functions | ordered expression tree, evaluated in left-to-right post-order |
+| operators | 24 unary (H/L 12 each) | 24: 12 unary (12 v1 functions dropped) + 8 binary + 4 ternary, reshuffled to F00–F23; H and L each 6 / 4 / 2 |
+| structure variables | depth | `depth` (operators on the longest root-to-leaf path), `n_ops` (≤ 10), `n_binary`, `n_ternary`, `n_leaves`, `max_live_values`, `shape_id`, token length |
 | tokenizer | 48 tokens | 49 tokens (adds `,`) |
 | inputs | one string, length 6–10 | one string per leaf; all leaves of a problem have the same length (6–10) |
-| pretraining corpus | atoms + chains (depth 2–4) | atoms (unary + binary) + chains + trees (`n_ops` 2–4) |
-| matched cells | d2-L vs d4-H | chosen from the pilot among (n_ops, tree depth, group) cells |
-| max generation length | 256 | 320 |
-| base models | weak / mid / strong / midbal | same four levels, retrained |
+| pretraining corpus | atoms + chains (depth 2–4, depth 4 H-only) | atoms (all 24 operators, uniform) + trees of depth 2–4 (`comp_depth_mix`); pilot recipe without H-only depths, `h_ratio` 0.5 |
+| held-out structure (E4) | 24 parent → child function pairs | 36 (parent, argument slot, child) edges, stratified by arity and H/L |
+| lengths | `max_len` 512, max generation 256 | `max_len` 1024, max generation 768 |
+| data and runs | `data/`, `runs/`, `checkpoints/` | `data/tree-v1/`, `runs/tree-v1/`, `checkpoints/tree-v1/`; rows and checkpoints carry a task fingerprint |
+| matched cells | d2-L vs d4-H | chosen from the pilot among structure cells |
+| base models | weak / mid / strong / midbal | same four levels, retrained from random weights |
 
 Not changed: research questions, hypotheses, model, optimiser, GRPO, decision rules.
+
+**Superseded variant (2026-11-15).** Before decision 10 the pretrain branch implemented another v2: the 24 v1 unary
+functions unchanged plus four binary operators (add, alternate, splice, max as F24–F27), `depth` = `n_ops`, eval v3.
+Its stage A passed (every operator 50/50 on E1) and its stage B was cancelled. Code and data are in git history
+(commits cb99f24 to c137d10); results in [`pretrain_v2_results.md`](pretrain_v2_results.md).
 
 ### v1 revision (Nov 2): larger pretraining
 
@@ -200,8 +208,8 @@ fully verifiable.
   behaviour on odd lengths (e.g. "swap halves" keeps the middle character); `Task` checks this when it is built.
 - Function names are meaningless ids `F00`–`F23`; the id → function mapping is shuffled with a fixed seed, so the model
   cannot guess behaviour from the name.
-- Depth d = number of nested functions, 1–8. Use: pretraining 1–4 (depth 4 H-only), RL 1–5, OOD evaluation 6–8. In v2
-  "depth" of a chain is its operation count `n_ops` (see below).
+- Depth d = number of nested functions, 1–8. Use: pretraining 1–4 (depth 4 H-only), RL 1–5, OOD evaluation 6–8. In
+  tree-v1 depth is the dependency depth of the tree (see below); a chain's depth is unchanged.
 
 **The 24 unary functions:**
 
@@ -227,90 +235,113 @@ A:jihgfedc<eos>
 
 Length: depth 8 at length 10 has a ~54-token prompt and a ~230-token target. `max_len` is 512.
 
-### Binary operators (v2, proposed)
+### Tree-v1 operators and trees (v2)
 
-The operator set is fixed after pilot stage A ([v2 pilot](#v2-pilot)). Every operator maps two strings of length n to
-one string of length n and needs both inputs.
+Full definitions, sampling and identity rules are in [`tree_v1.md`](tree_v1.md) (Hanzhong, implemented 2026-11-13).
+Summary:
 
-| category | operator | definition (a, b → c) |
+- **Operators.** 12 retained unary functions (swap_adjacent, swap_halves, even_pos_p1, odd_pos_m1, max_to_front,
+  min_to_back, mirror_first_half, reverse_first_half, riffle, shift_by_pos, sort_first_half, sort_asc) and 12
+  multi-input operators. Symbols are numbered a = 0 … z = 25, arithmetic is mod 26, indices are zero-based, n is the
+  string length:
+
+| operator | arity | definition |
 | --- | --- | --- |
-| character | add | c_i = (a_i + b_i) mod 26 |
-| position | alternate | c_i = a_i at even i, b_i at odd i |
-| position | splice | first ⌊n/2⌋ characters of a, the rest of b |
-| comparison | max | c_i = max(a_i, b_i) |
-| backup | sub, min | c_i = (a_i − b_i) mod 26; c_i = min(a_i, b_i) |
+| zip_add | 2 | out[i] = x[i] + y[i] |
+| zip_sub | 2 | out[i] = x[i] − y[i] |
+| zip_mul | 2 | out[i] = x[i] · y[i] |
+| gather | 2 | out[i] = x[y[i] mod n] |
+| gather_add | 2 | out[i] = x[y[i] mod n] + y[i] |
+| scatter_add | 2 | start with zeros; add each x[i] into out[y[i] mod n] |
+| rotate_by_sum | 2 | rotate x left by sum(y) mod n |
+| prefix_add | 2 | out[i] = x[i] + sum(y[0:i+1]) |
+| zip_add3 | 3 | out[i] = x[i] + y[i] + z[i] |
+| zip_mul_add | 3 | out[i] = x[i] · y[i] + z[i] |
+| gather_mix | 3 | out[i] = x[y[i] mod n] + z[i] |
+| select_parity | 3 | out[i] = x[i] if z[i] is even, else y[i] |
 
-- **Leaves.** Each leaf is its own random string; all leaves of one problem have the same length n (uniform in
-  6–10). Independent leaves avoid shortcuts that a shared input would create (alternate(x, x) = x, max(x, x) = x).
-- **Names.** Binary operators continue the F ids from F24, outside the unary shuffle, so the 24 unary functions keep
-  their v1 ids and chain-only problems keep their v1 pids and pool assignment.
-- **Groups.** H / L / mixed is decided by the unary functions only. Binary operators are not split into H/L in the
-  first version; all of them get the same exposure.
-- **Syntax and CoT.** Operands are separated by `,` (the only new token). The CoT is written in post-order: left
-  subtree, right subtree, then the node; a leaf operand is the raw input string from the prompt. Example (illustrative
-  ids: F03 rotate left 1, F07 +1, F25 add):
+- **Dropped unary functions:** reverse, rotl1, rotr1, rotl2, rotl3, swap_ends, shift_p1, shift_m1, shift_p3,
+  shift_p5, complement, sort_desc (simple permutations, constant character maps or redundant variants; a design
+  choice, not a measured ranking: all v1 functions reached E1 1.000). Their code stays for loading chain-v1 configs
+  and checkpoints.
+- **Groups.** H and L each have 6 unary, 4 binary and 2 ternary operators; a problem's group (H / L / mixed) is set by
+  all of its operators.
+- **Leaves.** Independent random strings of one shared length (6–10).
+- **Sampling.** For depth d: `n_ops` uniform over the feasible values d … min(10, 2d), then a uniformly random ordered
+  shape with that size and depth, then operators of the required arities (`n_ops` can also be fixed). Group
+  restrictions, pool rejection and held-out-edge rejection condition this distribution. Atoms (depth 1) use the 24
+  operators uniformly.
+- **Syntax and CoT.** Operands are separated by `,`. The CoT prints every operator node in post-order with its already
+  evaluated arguments, then `A:`. Example (default mapping: F22 swap_adjacent, F23 zip_sub, F02 zip_add), depth 2 with
+  three operations:
 
 ```text
-Q:F25(F03(abcdefgh),F07(ijklmnop))=
-F03(abcdefgh)=bcdefgha;F07(ijklmnop)=jklmnopq;F25(bcdefgha,jklmnopq)=kmoqsuwq;
-A:kmoqsuwq<eos>
+Q:F02(F22(abcdef),F23(bcdefg,aaaaaa))=
+F22(abcdef)=badcfe;F23(bcdefg,aaaaaa)=bcdefg;F02(badcfe,bcdefg)=ccggkk;
+A:ccggkk<eos>
 ```
 
-**Structure variables** (recorded for every problem, so comparisons stay interpretable):
-
-| variable | definition | chain value |
-| --- | --- | --- |
-| `n_ops` | number of operations = CoT steps | = depth |
-| `tree_depth` | operations on the longest leaf-to-root path | = depth |
-| `n_bin` | binary nodes (leaves = n_bin + 1) | 0 |
-| `dep_dist` | largest number of steps between a node and the step that produced its left operand (leaf operands not counted) | 1 |
-| `prompt_len`, `target_len` | tokens | as v1 |
-
-For example `F25(F11(F03(x)),F07(y))` has n_ops 4, tree_depth 3, n_bin 1, dep_dist 2. Trees let us change the number
-of operations at a fixed depth (`F25(F03(x),F07(y))` vs `F03(F07(x))`) or the depth at a fixed number of operations
-(`F11(F03(F07(x)))` vs `F25(F03(x),F07(y))`).
-
-**Length budget.** A unary step at length 10 is 27 tokens, a binary step 38. An 8-operation tree with 3 binary nodes
-needs ~263 target tokens, above the v1 limit of 256, so `eval.max_new_tokens` and `rl.max_new_tokens` go to 320. With a
-~90-token prompt and the 128-position offset, 512 positions still suffice.
+- **Structure variables** (stored with every problem, so comparisons stay interpretable): `depth`, `n_ops` (operator
+  nodes = CoT steps), `n_binary`, `n_ternary`, `n_leaves` (= 1 + n_binary + 2 · n_ternary), `max_live_values` (peak
+  number of stack values in the post-order traversal), `shape_id` (ordered topology and arity signature, without
+  operators or inputs), and prompt / target token length.
+- **Length budget.** `model.max_len` 1024 and a 768-token generation limit (`eval.max_new_tokens`,
+  `rl.max_new_tokens`); conservative bounds over every allowed tree are checked against padding and the position
+  offset before generation or streaming, so no long example is silently dropped.
+- **Identity.** JSONL rows store the full expression, the post-order trace, the structure features, a schema version
+  and a task fingerprint (operator specs and versions, Fxx mapping, H/L, alphabet, format, vocabulary). Loading
+  recomputes the answers and checks the metadata; checkpoints carry the fingerprint and `load_model` checks it.
+- **Rewards.** The binary reward checks only the final answer and `<eos>`; the partial reward divides by `n_ops`.
+  Noise injection (P10) changes one node and recomputes its ancestors.
 
 ### Data structures and functions
 
 ```python
 @dataclass(frozen=True)
-class Problem:
-    pid: str            # hash of the serialised expression (v1 chains keep their v1 pid)
-    expr: Node          # v2: tree of (fid, children); a chain is a tree with n_bin = 0
-    leaves: tuple[str]  # input strings, left to right
-    steps: list[str]    # result of each step, in post-order
+class Problem:              # chain-v1, rlvr/task.py
+    pid: str                # hash of funcs and input
+    funcs: tuple[int, ...]  # innermost first
+    x: str
+    depth: int
+    steps: tuple[str, ...]
     answer: str
-    # derived: n_ops, tree_depth, n_bin, dep_dist, group, str_len
+    group: str              # H / L / mixed
 
-sample_problem(shape, func_pool, rng, str_len=None) -> Problem   # str_len=None: uniform in 6-10
-format_prompt(p) -> str        # "Q:...=\n"
-format_target(p) -> str        # steps + "A:...<eos>"
+@dataclass(frozen=True)
+class TreeProblem:          # tree-v1, rlvr/tree_task.py
+    pid: str                # hash of the task fingerprint and the canonical expression
+    expr: Call              # Call(op, args) with Leaf(value) leaves
+    funcs: tuple[int, ...]  # operators in post-order
+    steps: tuple[str, ...]  # result of each operator node, in post-order
+    trace: tuple[dict, ...] # per node: path, op, args, value
+    answer: str
+    group: str
+    # depth, n_ops, n_binary, n_ternary, n_leaves, max_live_values, shape_id, task_fingerprint
+
+make_task(cfg["task"])      # Task (task.kind chain) or TreeTask (task.kind tree)
+sample_problem(depth, rng, group=None, func_pool=None, str_len=None)   # TreeTask also takes n_ops
+format_prompt(p) -> str     # "Q:...=\n"
+format_target(p) -> str     # steps + "A:...<eos>"
 parse_answer(text) -> str | None
-reward(text, p) -> float       # 1.0 if exactly right, else 0.0; no format reward
+reward(text, p) -> float    # 1.0 if exactly right, else 0.0; no format reward
 ```
 
-v1 code: `rlvr/task.py` (`Problem.funcs` is a tuple, innermost first). v2 replaces `funcs` with the tree and keeps a
-chain helper so v1 configs still build.
-
 **Tokenizer:** character level: `a`–`z`, `F`, `0`–`9`, `( ) = ; :`, `Q`, `A`, newline, `<pad>`, `<bos>`, `<eos>` (48
-tokens); v2 adds `,` (49). Every checkpoint carries its own `tokenizer.json`, and `CharTokenizer.load` must accept both
-vocabularies so v2 code still loads v1 checkpoints.
+tokens); tree-v1 appends `,` (49, `CharTokenizer(extra_chars=",")`), so the 48 chain-v1 token ids are unchanged.
+Every checkpoint carries its own `tokenizer.json`; saving and loading check it against the task.
 
 **Splits (no leakage):** problems are split by `pid` hash into pretraining (90%), RL (5%) and evaluation (5%) pools,
 strictly disjoint. Some **function pairs** appear only in the evaluation pool, to test compositional generalisation:
-of the 576 ordered parent → child pairs of unary functions, 6 per HH/HL/LH/LL are held out (24). In v2 a held-out pair
-is any parent → child edge between two unary functions anywhere in the tree. Streaming uses rejection sampling to keep
+of the 576 ordered parent → child pairs of unary functions, 6 per HH/HL/LH/LL are held out (24). Tree-v1 holds out 36
+(parent operator, argument slot, child operator) edges, one per (parent arity, child arity, H/L, H/L) cell; sibling
+operators are never an edge (`rlvr/tree_splits.py`, salt `rlvr-tree-v1`). Streaming uses rejection sampling to keep
 these constraints.
 
 ## Variables and config keys
 
 Every variable is a key in the YAML config; experiments only change configs, not code. Defaults live in
-`rlvr/params.py`. Priority: ★ core, varied on purpose; ○ if time allows; — frozen at the default. Keys marked (v2) are
-proposed and not implemented yet.
+`rlvr/params.py` (`python -m rlvr.params` lists them); RL dataset make-up is set by the fields of the dataset specs
+(`configs/datasets/*.yaml`). Priority: ★ core, varied on purpose; ○ if time allows; — frozen at the default.
 
 ### Pretraining (P)
 
@@ -319,33 +350,32 @@ proposed and not implemented yet.
 | P1 | model size | `model.n_layer`, `model.d_model`, `model.n_head`, `model.d_ff` | 12, 768, 12, 2048 | S (6/384) for debugging; M main; L (24/1024, ~300M) optional spot check | — |
 | P2 | position encoding | `model.pos` | RoPE | — | — |
 | P2b | random position offset | `pretrain.pos_offset_max` | 128 | 0 / 128 | ○ |
-| P3 | atomic coverage | `pretrain.atom_frac` | fills the rest | — | — |
-| P4 | share of composition examples (model level) | `pretrain.comp_frac` | set by sweeps | weak / mid / strong | ★ |
+| P3 | atomic coverage | derived: 1 − `pretrain.comp_frac` | fills the rest | — | — |
+| P4 | share of composition examples (model level) | `pretrain.comp_frac` | set by sweeps (v1 mid 3.2e-4) | weak / mid / strong | ★ |
 | P5 | chain depth mix | `pretrain.comp_depth_mix` | {2: 0.6, 3: 0.35, 4: 0.05} | with / without depth 4 | ○ |
 | P5b | depth 4 H-only | `pretrain.h_only_depths` | [4] | — | — |
 | P6 | uneven function exposure | `task.h_group`, `pretrain.h_ratio` | 12 H functions, 0.9 | 0.5 / 0.9 | ★ |
 | P7 | CoT format | `task.cot` | on | — | — |
-| P8 | input diversity | `task.str_len`, `task.alphabet` | [6, 10], a–z | — | — |
+| P8 | input diversity | `task.str_len`, `task.alphabet` | [6, 7, 8, 9, 10], a–z | — | — |
 | P9 | pretraining steps / checkpoints | `pretrain.save_at` | 25% / 50% / 100% | early / final | ○ |
 | P10 | noisy examples | `pretrain.noise_frac` | 0 | 0 / 0.1 | ○ |
 | P11 | seed | `seed` | 0 | 0 / 1 / 2 (mid only) | repeat |
-| P12 | binary operators (v2) | `task.binary_functions` | 4 operators, fixed after stage A | — | — |
-| P13 | share of trees among compositions (v2) | `pretrain.tree_frac` | 0.5 (pilot start) | set by the pilot | ★ |
-| P14 | tree shape mix (v2) | `pretrain.tree_shape_mix` | n_ops {2: 0.6, 3: 0.35, 4: 0.05}, P(n_bin = 2) = 0.3 | — | ○ |
+| P12 | task version and operator table (v2) | `task.kind`, `task.functions`, `task.h_group` | chain; tree-v1 in `configs/tasks/tree_v1.yaml` | chain-v1 / tree-v1 | — |
+| P13 | tree size limit (v2) | `task.tree_max_ops` | 10 | — | — |
 
 ### RL data (D)
 
 | id | variable | config key | default | levels | priority |
 | --- | --- | --- | --- | --- | --- |
-| D1 | amount of data | `data.n` | 500 | 100 / 500 / 2000 | ★ |
-| D2 | structural make-up (main goal) | `data.depth_mix` (v2: over n_ops and shape) | uniform 1–5 | single depth 1/2/3/4/5, mixed | ★ |
-| D3 | model-relative difficulty | `data.p_bins` | any | each p bin, or p ≈ 0.5 | ★ |
-| D4 | diversity | `data.n_unique_combos` | any | few / many | ★ |
-| D5 | overlap with eval | `data.eval_overlap` | 0 | 0 / partial | ○ |
+| D1 | amount of data | spec `n` | 500 | 100 / 500 / 2000 | ★ |
+| D2 | structural make-up (main goal) | spec `cells` (depth / frac; tree-v1: also the structure variables) | uniform 1–5 | single depth 1/2/3/4/5, mixed | ★ |
+| D3 | model-relative difficulty | spec `cells` (p_bin) | any | each p bin, or p ≈ 0.5 | ★ |
+| D4 | diversity | spec `n_unique_combos` | any | few / many | ★ |
+| D5 | overlap with eval | none (eval leakage is forbidden) | 0 | fixed at 0 | — |
 | D6 | string and reasoning length | — | recorded | covariate (lengths vary, must be matched) | — |
 | D7 | order | `data.order` | shuffled | shuffled / shallow to deep | ○ |
 | D8 | repeats per problem | set by N and total steps | — | recorded | — |
-| D9 | online filter / replay | `data.sampler` | static | static / keep only 0 < p < 1 | ○ |
+| D9 | online filter / replay | `data.sampler` (`auto` = the spec's `sampler`), `data.p_edge`, `data.explore_frac` | static | static / keep only p(t) in [1/32, 31/32] or unknown | ○ |
 | D10 | labelling samples K | `label.k` | 32 | — | — |
 
 ### GRPO (R)
@@ -355,9 +385,9 @@ proposed and not implemented yet.
 | R1 | group size G | `rl.group_size` | 8 | 4 / 8 / 32 | ★ |
 | R2 | prompts per step B | `rl.prompts_per_step` | 64 | — | — |
 | R3 | learning rate | `rl.lr` | 1e-5 | 3e-6 / 3e-5 | ○ |
-| R4 | total rollout budget | `rl.steps` | fixed | — | — |
+| R4 | total rollout budget | `rl.steps` × `rl.prompts_per_step` × `rl.group_size` | fixed | — | — |
 | R5 | sampling temperature | `rl.temperature` | 1.0 | 0.7 / 1.0 | ○ |
-| R6 | max generation length | `rl.max_new_tokens` | 256 (v2: 320) | — | — |
+| R6 | max generation length | `rl.max_new_tokens` | 256 (tree-v1: 768) | — | — |
 | R7 | divide by group std | `rl.adv_std_norm` | yes | yes / no (Dr.GRPO) | ○ |
 | R8 | loss aggregation | `rl.loss_agg` | token mean | — | — |
 | R9 | KL coefficient | `rl.kl_coef` | 0 | — | — |
@@ -386,8 +416,8 @@ Hugging Face `LlamaForCausalLM` with a small config:
 | --- | --- |
 | layers / hidden / heads | 12 / 768 / 12 (head_dim 64) |
 | FFN | SwiGLU, intermediate 2048 |
-| vocabulary | 48 (v2: 49) |
-| max length | 512 (longest v1 sample ~290 tokens plus a random offset ≤ 128) |
+| vocabulary | 48 (tree-v1: 49) |
+| max length | 512 (longest v1 sample ~290 tokens plus a random offset ≤ 128); tree-v1: 1024 |
 | parameters | ~85M (non-embedding) |
 | position encoding | RoPE, θ = 10000 |
 | attention | `sdpa` (no flash-attn in the env; length bucketing removes the need for varlen) |
@@ -406,8 +436,8 @@ still small enough for RL.
 | precision | bf16 autocast, fp32 parameters and optimiser state; per-layer `torch.compile` (whole-model compile needs a C++20 compiler that RHEL 8's g++ 8.5 lacks) |
 | FLOPs per token | ~6N = 5.1×10⁸ (short sequences, attention negligible) |
 | throughput | ~184k tokens/s per GPU (~30% MFU), ~740k on 4 GPUs, ~10–12 GB memory per GPU |
-| total tokens | ~2.6B (incl. prompts; ~70% supervised) |
-| global batch | 192k supervised tokens per step (~270k tokens) |
+| total tokens | ~2.6B (incl. prompts; ~70% supervised); v1 mid: 2.78B, 1.83B supervised (each run's `stats.json`) |
+| global batch | 192k supervised tokens per step (~270k tokens); micro-batches ≥ 6k supervised tokens, 8 accumulation steps on 4 GPUs |
 | steps | 9,500 (~0.40 s/step on 4 GPUs) |
 | time per model | ~70 min on one node including start-up and evaluation; full calibration ~35–50 min more |
 
@@ -415,27 +445,30 @@ still small enough for RL.
 
 - Next-token prediction, cross-entropy, **loss on the answer only**: the `Q:...=\n` prompt gets label -100.
 - **Length bucketing instead of packing:** every 20k examples are sorted by length and cut into micro-batches of
-  ≥ 12k supervised tokens, then shuffled. Lengths within a batch are nearly equal, padding is ~10%. Padding is always
-  after real tokens, so a causal mask suffices. Every micro-batch has the same number of supervised tokens and the loss
-  is "token sum ÷ fixed budget", so every supervised token has the same weight at every level.
+  ≥ 6k supervised tokens (`pretrain.micro_target_tokens`), then shuffled. Lengths within a batch are nearly equal,
+  padding is ~10%. Padding is always after real tokens, so a causal mask suffices. A micro-batch stops filling once it
+  reaches the budget (the tail joins the last one), and the loss is "token sum ÷ fixed budget", so every supervised
+  token has the same weight at every level.
 - **Random position offset (P2b):** each example starts at a random position in [0, 128], so the model sees all
   absolute positions and deeper (longer) answers do not shift the position distribution.
 - AdamW (β = 0.9, 0.95), peak lr 6e-4, 2% warmup, cosine decay to 10% of peak, weight decay 0.1, gradient clip 1.0.
 - Greedy evaluation on E1–E4 and the probe set every 2000 steps; checkpoints at 25% / 50% / 100% (P9). Early
   checkpoints can serve as "less trained" weak models for comparison.
-- Logged per run: loss by depth and group, throughput, MFU, tokens consumed per data component.
+- Logged per run: loss by depth (evaluation and corpus statistics also by group), throughput, MFU, tokens consumed
+  per data component.
 
 ### Streamed pretraining data
 
-v1 needs ~2.6B tokens, ~52M examples, so the corpus is **generated online**, never repeated, reproducible and
-leak-free (`rlvr/stream.py`, `PretrainStream`):
+v1 needs ~2.6B tokens, ~52M examples, so the corpus is **generated online** instead of looping over a fixed corpus,
+reproducible and leak-free (`rlvr/stream.py`, `PretrainStream`). There is no global dedup, so an example can repeat
+inside the stream; pools are kept apart by the pid hash and rejection sampling:
 
 1. **Deterministic seeds:** each worker's RNG derives from `(seed, rank, worker_id)`. With the same GPU and worker
    counts, a config always produces the same stream. No resume (a failed ~1 h run is simply rerun).
 2. **Component sampling:** each example first picks a component by token share (table below), then a depth/shape,
    functions and inputs (length uniform in 6–10).
 3. **Rejection sampling for splits:** only problems whose `hash(pid)` falls in the pretraining pool are kept; any
-   example with a held-out pair is dropped (~10% rejected).
+   example with a held-out pair (tree-v1: a held-out edge) is dropped (~10% rejected).
 4. **Eval dedup:** pids of E1–E4, the probe set and the calibration set are loaded at start-up and dropped (the RL
    pool is already excluded by the hash split).
 5. **Online statistics:** each worker counts examples and tokens per component / depth / group / function, merged
@@ -446,13 +479,14 @@ leak-free (`rlvr/stream.py`, `PretrainStream`):
 
 | component | content | weak | mid | strong | midbal |
 | --- | --- | --- | --- | --- | --- |
-| atoms | one operation; v1: 24 unary functions uniform; v2: 24 unary + 4 binary uniform | rest | rest | rest | rest |
-| chains (with CoT) | depth 2 : 3 : 4 = 0.6 : 0.35 : 0.05; depth 4 H-only | `comp_frac` × (1 − `tree_frac`) | " | " | " |
-| trees (v2, with CoT) | n_ops 2–4, n_bin 1–2 (P14); n_ops 4 H-only | `comp_frac` × `tree_frac` | " | " | " |
+| atoms | one operation; v1: 24 unary functions uniform; tree-v1: the 24 operators uniform | rest | rest | rest | rest |
+| chains (chain-v1, with CoT) | depth 2 : 3 : 4 = 0.6 : 0.35 : 0.05; depth 4 H-only | `comp_frac` | " | " | " |
+| trees (tree-v1, with CoT) | dependency depth 2 : 3 : 4 = 0.6 : 0.35 : 0.05, `n_ops` uniform over d … min(10, 2d); pilot recipe: no H-only depth, `h_ratio` 0.5 | `comp_frac` | " | " | " |
 | H/L exposure | of the other compositions, `h_ratio` are H-only, the rest contain at least one L function | 0.9 | 0.9 | 0.9 | **0.5** |
 
 v1 comp_frac: weak 1.25e-4, mid 3.2e-4, strong 8.3e-4, midbal 3.2e-4 (set by full-length sweeps; see
-[v1 results summary](#v1-results-summary)). v2 comp_frac must be swept again, because trees also teach composition.
+[v1 results summary](#v1-results-summary)). Tree-v1 comp_frac must be swept again at the full length (decision 1):
+tree compositions are longer and the operators differ.
 
 **Why this recipe:**
 
@@ -462,8 +496,9 @@ v1 comp_frac: weak 1.25e-4, mid 3.2e-4, strong 8.3e-4, midbal 3.2e-4 (set by ful
   "depth 2, L" lands in the middle because L has low exposure. In v1 these were the two matched cells.
 - **No depth 5 in pretraining:** RL depth 5 is structurally beyond pretraining, and E3 (depth 6–8) is fully OOD.
 
-**Confound control:** all four models have the same steps, total tokens and supervised tokens; a model with a smaller
-`comp_frac` gets more atoms. Otherwise "weak" would just mean "trained less", not "fewer composition skills".
+**Confound control:** all four models have the same steps and the same supervised-token budget per step; a model
+with a smaller `comp_frac` gets more atoms. Otherwise "weak" would just mean "trained less", not "fewer composition
+skills". Actual totals differ slightly because micro-batches overfill; they are reported from each run's `stats.json`.
 
 ### Deliverables
 
@@ -471,14 +506,14 @@ v1 comp_frac: weak 1.25e-4, mid 3.2e-4, strong 8.3e-4, midbal 3.2e-4 (set by ful
    `stats.json`; intermediate checkpoints at 25% / 50%. Uploaded to Hugging Face with `scripts/push_hf.py`, one folder
    per run, with the run's `calib/` files and optionally the RL-pool labels.
 2. **Calibration heatmap:** success rate per (depth 1–8 × H/L/mixed) cell (T = 1.0, 200 problems per cell, 32 samples
-   each); v2 adds the tree cells.
+   each); tree-v1 cells are (depth × group), with the structure variables of every problem.
 3. **Gate check** (`scripts/calibrate.py`, rules in `rlvr/gate.py`). Checks in `gate.hard_checks` fail the gate and
    lead to retraining with another `comp_frac` or `h_ratio`; the others are warnings in `gate.json`. Hard checks: the
    first three for mid; the first two for midbal (decision 3); only the first for weak and strong, whose other checks
    are judged against the design targets by hand.
    - Depth-1 greedy accuracy ≥ 98%: overall as a point estimate, and per function (50 problems each) by its Wilson
-     upper bound (≤ 2 errors in 50 pass). v2: covers the binary operators too.
-   - Spread: at each of depths 2–4 (decision 2; v2: n_ops 2–4, chains and trees), ≥ 20% of calibration problems have
+     upper bound (≤ 2 errors in 50 pass). Tree-v1: all 24 operators.
+   - Spread: at each of depths 2–4 (decision 2; tree-v1: dependency depth), ≥ 20% of calibration problems have
      0 < p̂ < 1.
    - Matched cells: each of the two cells chosen for D and E ([Matched cells](#matched-cells-v2)) has ≥ 300 problems
      with p in 0.4–0.6 (from the second labelling), with enough per input length for D and E to share one length mix
@@ -489,63 +524,43 @@ v1 comp_frac: weak 1.25e-4, mid 3.2e-4, strong 8.3e-4, midbal 3.2e-4 (set by ful
 
 ## v2 pilot
 
-Goal: decide by **Sun Nov 22** whether v2 (trees) replaces v1 for the main experiments. Lessons from v1: the pilot
-runs at the full training length, and it measures the per-problem p distribution, not only cell means.
+Goal: decide by **Sun Nov 22** whether v2 (tree-v1, decision 10) replaces v1 for the main experiments. Lessons from
+v1: the pilot runs at the full training length (decision 1), and it measures the per-problem p distribution, not only
+cell means.
 
-**Stage A: can each binary operator be learned?**
+**Stage A: can each operator be learned?**
 
-- One node, atoms only (24 unary + candidate binary operators), ~2000 steps (~15 min). In v1, E1 was already .996 at
-  step 2000.
-- Pass: every binary operator ≥ 98% greedy on 50 problems (same Wilson rule as the gate). An operator that fails is
-  replaced by a backup (sub, min).
+- One node, atoms only (`comp_frac` 0: the 24 tree-v1 operators, uniform), 2000 steps (~15 min). This is also the
+  pure-atom control that [`tree_v1.md`](tree_v1.md) asks for. In v1, E1 was already .996 at step 2000.
+- Pass: every operator ≥ 98% greedy on its 50 E1 problems (same Wilson rule as the gate). An operator that fails is
+  replaced or dropped together with Hanzhong; the ternary operators can be ablated by editing the operator table.
 
 **Stage B: do trees give enough p ≈ 0.5 problems?**
 
-- Three full-length runs (9500 steps), mid recipe with trees (`tree_frac` 0.5), at comp_frac around v1 mid (e.g.
-  2e-4 / 3.2e-4 / 5e-4), in parallel, one node each.
-- Each run: calibration over all (n_ops 1–8 × shape × group) cells and labelling of a tree candidate pool, with the
-  second labelling on the cells near 0.5.
-- Report per cell: mean p, share of problems with p in [0.4, 0.6] (v1: ≤ 12.5%), signal_frac, and the four structure
+- Three full-length runs (9500 steps) of the tree-v1 recipe, in parallel, one node each, at three comp_frac values
+  set after stage A (the v1 values do not carry over).
+- Each run: calibration over (depth 1–8 × group) cells with the structure variables of every problem, and labelling of
+  a candidate pool in the cells nearest 0.5, with the second labelling.
+- Report per cell: mean p, share of problems with p in [0.4, 0.6] (v1: ≤ 12.5%), signal_frac, and the structure
   variables.
 
-**Go criterion (proposed).** For one of the stage-B runs there are two cells, a simple one for D and a complex one
-for E (E has at least two more operations than D, as in v1's 2 vs 4), each with ≥ 500 problems with relabelled p in
-[0.4, 0.6] from ≤ 10,000 candidates, after removing skippable problems and with a shared length mix. The binary
-operators also pass stage A.
+**Go criterion.** For one of the stage-B runs there are two cells, a simple one for D and a complex one for E (E has
+at least two more operations than D, as in v1's 2 vs 4), each with ≥ 500 problems with relabelled p in [0.4, 0.6]
+from ≤ 10,000 candidates, after removing skippable problems and with a shared length mix. All operators also pass
+stage A.
 
 **If no-go:** keep the v1 models and use Jay's plan: expand the v1 RL pool (d4-H to ~34,000 and d2-L to ~11,000
 candidates, ~2–2.5 node-hours of labelling), remove skippable problems and give D and E the same length mix.
 
-### Implementation (2026-11-15)
+**Implementation.** Data and training use the tree-v1 code (`configs/tasks/tree_v1.yaml`, `scripts/make_tree_data.sh`;
+the task config's `pretrain` block is a 400-step pilot recipe, so full runs override `pretrain.steps`). Still to add
+for the pilot (Yupeng): an E1-only calibration mode for stage A, the stage-B candidate pool and its report (D/E cells,
+shared length mix, go), and the skippable check for trees. The D/E cell definition (which structure variables define
+a cell) is agreed with Hanzhong before stage B.
 
-Choices the design above leaves open, as implemented (Yupeng; open for review, see open items):
-
-- **Tree shapes.** For given n_ops and n_bin: a random binary skeleton with n_bin binary nodes (the left subtree's
-  number of binary nodes uniform), then each of the n_ops − n_bin unary functions on a uniformly random edge (above
-  the root, a binary node or a leaf). Unary functions follow the group rules of chains; binary operators are uniform.
-- **Group of a tree without unary functions** (e.g. `F24(F25(x,y),z)`): `bin`, its own cell. In pretraining these
-  are the n_ops = n_bin trees (n_ops 2 with n_bin 2: ~20% of trees).
-- **Cells.** Calibration and evaluation cells are (n_ops, n_bin, group); "shape" in stage B is n_bin. Calib: n_ops
-  1–8 × n_bin 0–3 × group, 77 cells × 200 = 15,400 problems. Eval v3 (`data/eval/v3/`): E1 1,400 (adds 50 per binary
-  operator), E2 2,400 (n_ops 2–5, n_bin 0–2, 75 per cell), E3 1,800 (n_ops 6–8, n_bin 0–3, 50 per cell), E4 800
-  (chains, as v2), probe 770 (10 per cell). Longest sample 351 tokens (+ 128 offset < 512); longest target 263.
-- **Stage-B candidate pool** (`rl_pool.mode: pilot`, `rlvr/pilot.py`). From the calib labels, every D/E pair with
-  n_ops in 1–5 and E ≥ D + 2 operations is scored by the smaller of the two cells' shares of non-skippable problems
-  with p̂ in [0.4, 0.6]; the cells of the best pairs (≤ 4 cells) get 10,000 candidates each, labelled with k = 32,
-  and the non-skippable ones with p̂ in [0.3, 0.7] are relabelled with k = 64. `calib/pilot.json` reports, per pair,
-  the problems both cells can supply with one length mix (that of the scarcer cell); `go` if any pair reaches 500.
-  Candidates come from one random stream per cell, so every model sees the same first N candidates of a cell.
-- **Stage A** (`configs/v2/stage_a.yaml`): atoms only (24 unary + 4 binary, uniform), 2000 steps, then
-  `calibrate.py --e1-only`. **Smoke run** (`configs/v2/smoke.yaml`, 300 steps): a pipeline check before stage A/B,
-  not an experiment.
-- **Noisy examples** (P10, default off) apply to chains only.
-- **Gate in stage B:** hard checks depth1_greedy (incl. the binary operators) and spread (n_ops 2–4, chains and
-  trees pooled); matched_cells waits for the chosen D/E pair; the mid target (d3 0.35–0.55) pools n_ops-3 chains
-  and trees.
-
-**Compute (node-hours):** stage A ~0.3; stage B ~6 (3 × ~2 incl. calibration and labelling); final four v2 models
-with full calibration ~8.5 (one stage-B run can become mid if it is on target). Total ~15, i.e. ~36 of 50 if nothing
-else was used after 2026-11-08. The same cap also has to cover RL (see [Risks](#risks)).
+**Compute (node-hours):** stage A ~0.4. Stage B and the final models are estimated after stage A and a `--bench`:
+tree-v1 sequences are up to ~2× longer than v1 chains, so labelling (k = 32 samples of up to 768 tokens) costs more than
+v1's 35–50 min per model. The same 50-node-hour cap also covers RL (see [Risks](#risks)).
 
 ## Difficulty labels and RL datasets (`scripts/calibrate.py`, `scripts/build_dataset.py`)
 
@@ -561,7 +576,7 @@ given by the generator, and model-relative difficulty (success rate p), measured
 3. Also record the Wilson 95% interval. With K = 32 the standard error of p̂ is up to ~0.09; binning has to allow for
    this noise.
 4. Output `data/labels/{model_id}.parquet` with columns `pid, depth, funcs, group, str_len, n_correct, k, p_hat,
-   ci_lo, ci_hi, model_id` (v2 adds the structure variables); relabelled problems also have `n_correct_relabel,
+   ci_lo, ci_hi, model_id` (tree-v1 adds the structure variables and the task fingerprint); relabelled problems also have `n_correct_relabel,
    k_relabel, p_hat_relabel, ci_lo_relabel, ci_hi_relabel`.
 5. Cost (measured in v1): ~730 sequences/s on 4 GPUs; calibration, pool labelling and relabelling take ~35–50 min per
    model.
@@ -571,8 +586,10 @@ systematically picks "lucky" problems: where most problems have low p, the chose
 versa. A rough Beta-prior estimate for d2-L with mean 0.2 and d4-H with mean 0.8 gives true means of ~0.44 and ~0.56
 for the chosen problems, with ~40% truly outside 0.4–0.6. So problems in `label.relabel_cells` whose first p̂ is in
 0.3–0.7 get 64 more independent samples (`label.relabel_k`), and the matched datasets (`p_label: relabel`) select on
-the second estimate. In v1, problems first selected for mid and midbal had a mean relabelled p of .47–.52, and
-55–57% stayed in range. Both estimates are reported (`mean_p` and `mean_p_relabel` in `meta.json`).
+the second estimate. The relabelling screen is 0.3–0.7 (`label.relabel_range`, as in every v1 run_config.yaml);
+`relabel_report.py` then checks the problems first selected with p̂ in 0.4–0.6: in v1 their mean relabelled p was
+.47–.52 for mid and midbal, and 55–57% stayed in range. The second estimate still has sampling and selection error, so
+it is not the true p. Both estimates are reported (`mean_p` and `mean_p_relabel` in `meta.json`).
 
 **Online p during training:** p changes during RL. No extra sampling is needed: per-problem group accuracy from the
 rollout log, smoothed with an EMA, gives each problem's p(t).
@@ -607,13 +624,13 @@ match_covariates: [str_len]   # lengths vary, so match them to the control group
 
 ### Matched cells (v2)
 
-- **Choice of cells.** v1 used d2-L (D) and d4-H (E). In v2 the pair is chosen after the pilot among (n_ops,
-  tree_depth, n_bin, group) cells, as the pair with the largest supply of p ≈ 0.5 problems among pairs where E has at
-  least two more operations than D. tree_depth and dep_dist are reported for both. The v1 pair stays as a reference if
-  it is available.
+- **Choice of cells.** v1 used d2-L (D) and d4-H (E). In v2 the pair is chosen after the pilot among tree-v1
+  structure cells (built from depth, `n_ops`, `n_binary`, `n_ternary` and group; exact definition agreed before stage
+  B), as the pair with the largest supply of p ≈ 0.5 problems among pairs where E has at least two more operations
+  than D. The other structure variables are reported for both. The v1 pair stays as a reference if it is available.
 - **Skippable problems are excluded** (decision 6). A problem is skippable if removing any one unary node, or
-  replacing any binary node by one of its operands, gives the same answer. The share of excluded problems is reported
-  per cell (v1 RL pool: 31% of d4-H, 10.5% of d2-L).
+  replacing any multi-input node by one of its operands, gives the same answer. The share of excluded problems is
+  reported per cell (v1 RL pool: 31% of d4-H, 10.5% of d2-L). Not yet implemented for tree-v1.
 - **Length matching.** D and E use the same input-length mix, set by the scarcer cell, instead of a fixed 100 per
   length. Token length is reported as a covariate, because trees are longer than chains at the same n_ops.
 
@@ -640,9 +657,14 @@ the report.
 
 ## GRPO (Hanzhong)
 
-GRPO is our own PyTorch implementation, ~150 lines at its core, with every variant behind a config switch. TRL's
-`GRPOTrainer` is used once as a cross-check. The code is developed on the v1 mid checkpoint (from Hugging Face) while
-the v2 pilot runs.
+GRPO is our own PyTorch implementation with every variant behind a config switch: `rlvr/grpo.py` (group advantages,
+teacher-forced completion log-probs, micro-batched update), `rlvr/sampler.py` (static / online_filter / learnability
+samplers and online p(t)), `scripts/grpo.py` (one run) and `scripts/rl_sweep.py` (checkpoints × datasets × seeds ×
+grid, one run per GPU, resumable); usage in the README. A run inherits task, model, splits, paths, eval version and
+length budgets from the base checkpoint's `run_config.yaml`, so the same commands work for chain-v1 and tree-v1
+checkpoints. **Status:** implemented and smoke-tested on the v1 round-1 checkpoints (`tests/test_grpo.py`: advantages,
+log-probs equal to generation scores, update equal to the hand-written policy gradient, micro-batch invariance,
+samplers, a tiny end-to-end run). Not done yet: the TRL `GRPOTrainer` cross-check, pass@k, the A/B/C_mid fits.
 
 ### One step
 
@@ -680,14 +702,16 @@ for step in range(cfg.rl.steps):
 | prompts per step B | 64 |
 | learning rate | 1e-5, constant, 10 warmup steps |
 | training steps | 500 (set by the total rollout budget) |
-| max generation length | 256 (v2: 320) |
+| max generation length | 256 (tree-v1: 768) |
 | KL coefficient | 0 |
 | entropy bonus | 0 |
 | updates per batch | 1 |
 
-**Time per RL run (to be measured):** 512 answers per step of at most 256 tokens; the 85M model needs ~2–4 s per step
-to generate on one GPU, plus forward and backward, so ~20–30 min for 500 steps. 135 runs are ~55 GPU-hours, ~14 node-
-hours. If it is much slower, speed up generation (vLLM or a static KV cache) before shrinking the plan.
+**Time per RL run (measured on one A100, weak round-1 checkpoint, B 64 × G 8):** ~3.3 s/step (2.6 s rollout, 0.7 s
+update) at ~100-token completions, ~13 GB; a full E1–E4 greedy evaluation ~55 s; 500 steps with the default evaluation
+schedule ~35–40 min. Longer completions (deeper problems, tree-v1) are slower in proportion. At ~40 min, 135 runs are
+~90 GPU-hours, ~22 node-hours. If it is much slower, speed up generation (vLLM or a static KV cache) before shrinking
+the plan.
 
 ### Common pitfalls
 
@@ -711,17 +735,19 @@ hours. If it is much slower, speed up generation (vLLM or a static KV cache) bef
 Pretrained and RL models use the same `rlvr/evaluate.py`; all figures come from offline scripts reading the logs, so a
 plotting bug never needs retraining.
 
-### Evaluation sets (fixed and versioned; v1 sets are version v2, the tree sets will be v3)
+### Evaluation sets (fixed and versioned; chain-v1 sets are `data/eval/v2/`, tree-v1 sets `data/tree-v1/eval/v1/`)
 
 | set | content | problems | measures |
 | --- | --- | --- | --- |
-| E1 atomic | depth 1, all functions (50 each); v3 adds the binary operators | 1200 | pretraining quality |
-| E2 in-distribution | depth 2–5, H/L/mixed separately; v3 adds trees with n_ops 2–5 | 1800 | main RL gain |
-| E3 deeper | depth 6–8; v3 adds trees with n_ops 6–8 | 900 | OOD generalisation (H2) |
-| E4 new combinations | contains held-out pairs, never seen in pretraining or RL | 800 | compositional generalisation |
+| E1 atomic | depth 1, all functions (50 each); tree-v1: the 24 operators | 1200 | pretraining quality |
+| E2 in-distribution | depth 2–5, H/L/mixed separately | 1800 | main RL gain |
+| E3 deeper | depth 6–8 | 900 | OOD generalisation (H2) |
+| E4 new combinations | contains held-out pairs (tree-v1: held-out edges), never seen in pretraining or RL | 800 | compositional generalisation |
 | probe | fixed problems never used for training, all depths and groups | 600 | transfer during training |
 
-All sets are stratified over input lengths 6–10 so results can be reported per length.
+All sets are stratified over input lengths 6–10 so results can be reported per length. In E2, depths 2–4 are covered
+by pretraining and depth 5 is not, so they are reported separately. Tree-v1 rows also carry the structure variables,
+and `eval.jsonl` adds one row per (depth, n_ops, n_binary, n_ternary).
 
 **Metrics:** greedy accuracy; pass@k (k = 1, 2, 4, 8, 16, T = 1.0, unbiased estimator); format error rate; mean answer
 length. Depth-5 accuracy is reported on its own (decision 7). **Step score** (decision 7): the number of correct steps
@@ -737,8 +763,9 @@ One directory per run, `runs/{run_name}/`, named `pt-{level}-s{seed}` (pretraini
 | --- | --- |
 | `run_config.yaml` | full config + git commit |
 | `stats.json` (pretraining) | examples and tokens actually consumed per component / depth / group / function |
-| `rollouts.jsonl` | `step, pid, depth, group, str_len, sample_idx, completion, reward, len` (v2: + structure variables) |
-| `metrics.jsonl` | `step, mean_reward, signal_frac, entropy, mean_len, grad_norm, kl_to_base, lr` (pretraining also `tok_per_s, mfu` and loss per depth) |
+| `rollouts.jsonl` | one row per (step, problem): `step, pid, depth, group, str_len, rewards[G], lens[G], p_online, completions[G]` (`rl.log_completions=false` drops the texts) |
+| `metrics.jsonl` | `step, mean_reward, signal_frac, entropy, mean_len, grad_norm, kl_to_base, lr` (pretraining also `tok_per_s, mfu` and loss per depth; RL also `rollouts, trunc_frac, loss, reward_d{d}, signal_d{d}`, sampler state and time per step, `kl_to_base` every `rl.kl_every` steps) |
+| `summary.json` (RL) | written last: first and last greedy accuracy per evaluation set, training reward, time; `rl_sweep.py` uses it to see that a run finished |
 | `eval.jsonl` | `step, eval_set, depth, group, greedy_acc, pass@k…, step_score, format_err` |
 
 ### Offline analysis
@@ -767,7 +794,7 @@ Five phases, ~135 short RL runs in total, plus pretraining.
 
 | phase | content | runs (approx.) | condition to move on |
 | --- | --- | --- | --- |
-| P. pretraining | v1 done; v2 pilot (stages A, B) → four v2 models → calibration + gate | 4 + 4 | four models pass the gate |
+| P. pretraining | v1 done; tree-v1 pilot (stages A, B) → four tree-v1 models → calibration + gate | 4 + 4 | four models pass the gate |
 | 0. noise | default config, 5 seeds | 5 | seed std known, used as the minimum detectable effect |
 | 1. replication + screening | Easy/Mixed × N; 6–8 ★ variables at two levels each, random or fractional design | 50 | the 2–3 variables with the largest effect and interaction with make-up |
 | 2. main experiment + curves | heatmap (model level × make-up × 3 seeds); groups A–G; A, B, C_mid per run | 60 | clear patterns in A and B, complete per-problem p(t) data |
@@ -778,8 +805,8 @@ Five phases, ~135 short RL runs in total, plus pretraining.
 
 | week | pretraining (Yupeng) | RL (Hanzhong) | evaluation (Jay) |
 | --- | --- | --- | --- |
-| 3 (Nov 16–22) | v2 task code, v3 eval sets and tree pool, stage A, stage B; go/no-go on Sun Nov 22 | GRPO on v1 mid: smoke, TRL and overfitting checks; time one run | d5 accuracy and step score in `evaluate.py` |
-| 4 (Nov 23–29) | four v2 models (or v1 pool expansion if no-go), calibration, D/E datasets | phase 0 (noise), phase 1 | pre-RL step-level baseline on the labelling samples |
+| 3 (Nov 16–22) | tree-v1 adopted (decision 10); stage A and stage B on tree-v1; go/no-go on Sun Nov 22 | GRPO implemented and smoke-tested; TRL and overfitting checks; time one run | d5 accuracy and step score in `evaluate.py` |
+| 4 (Nov 23–29) | four tree-v1 models (or v1 pool expansion if no-go), calibration, D/E datasets | phase 0 (noise), phase 1 | pre-RL step-level baseline on the labelling samples |
 | 5 (Nov 30–Dec 6) | mid seeds 1/2 if budget allows | phase 2 | F and G, analysis |
 | 6 (Dec 7–13) | write-up | phase 3 (reduced), write-up | write-up |
 
@@ -806,7 +833,7 @@ stages. Pipeline: task → streamed corpus → pretraining → calibration and g
 
 | part | Yupeng (pretraining) | Hanzhong (RL and laws) | Jay (evaluation and analysis) |
 | --- | --- | --- | --- |
-| task, tokenizer, model (`rlvr/task.py`, `tokenizer.py`, `model.py`) | writes | reviews | reviews |
+| task, tokenizer, model (`rlvr/task.py`, `tokenizer.py`, `model.py`) | writes (chain-v1) | writes (tree-v1) | reviews |
 | splits, log format | agreed together | agreed together | agreed together |
 | streamed corpus, DDP training, sweeps | writes | — | — |
 | calibration, gate, labelling | writes | reviews | — |
@@ -816,16 +843,12 @@ stages. Pipeline: task → streamed corpus → pretraining → calibration and g
 | baselines F and G | — | reviews | writes |
 | analysis | pretraining part | curves and formulas | step-level and RL evaluation |
 
-**v2 code changes:** `rlvr/task.py` (tree `Problem`, sampling, formatting, `parse_steps`), `rlvr/atoms.py` (binary
-operator registry), `rlvr/tokenizer.py` (`,`, loading both vocabularies), `rlvr/splits.py` (held-out edges in trees),
-`rlvr/stream.py` (tree component), `rlvr/sets.py` and `scripts/make_eval_sets.py` (structure cells, eval v3),
-`scripts/make_rl_pool.py`, `rlvr/gate.py` and `scripts/calibrate.py` (new cells and rules), `scripts/diag_steps.py`,
-`rlvr/rewards.py` (partial reward on trees). Done on 2026-11-15; the partial reward needed no change (it scores the
-post-order steps). With the v1 configs, eval v2, the v1 RL pool and the pretraining stream regenerate byte for byte
-(`tests/test_tree.py`). `scripts/diag_steps.py` checks tree steps in post-order against the operand refs (a wrong
-operand is a `copy` error, with the operand index and whether it is a leaf), takes tree cells as `4b1-H` and any
-problems file (`--pool`, e.g. a model's `calib/pilot_candidates.jsonl`), and counts tree examples in `replay`; on
-the v1 diagnosis data it reproduces `analysis.json` byte for byte.
+**Tree-v1 code** (Hanzhong, 2026-11-13; merged into the pretrain branch on 2026-11-16): `rlvr/tree_task.py`
+(`TreeTask`, `TreeProblem`), `rlvr/tree_ops.py` (operators with declared arity), `rlvr/tree_sampling.py` (shape
+counting and sampling), `rlvr/tree_splits.py` (held-out edges), `rlvr/task.py` (`make_task`), `rlvr/tokenizer.py`
+(`extra_chars`), `rlvr/model.py` (vocabulary and fingerprint checks), `scripts/make_tree_data.sh`. The chain-v1 code
+paths and data are unchanged. `scripts/diag_steps.py` stays chain-only. Still to add for the pilot (Yupeng): stage-A
+calibration mode, stage-B candidate pool and report, skippable check for trees.
 
 ## Risks
 
@@ -835,11 +858,11 @@ The main risk is still that simple and complex problems do not both have enough 
 | risk | consequence | response |
 | --- | --- | --- |
 | trees are just as bimodal as chains | v2 does not add matched problems | go criterion; fall back to v1 + pool expansion |
-| a binary operator is not learned | depth-1 gate fails | stage A; replace with a backup |
-| operator shortcuts (splice ignores half of each input, max saturates) | some steps do not matter, structure is overstated | skippable filter; report the excluded share |
-| longer sequences | slower RL generation, length confounds structure | max_new_tokens 320; report token length; match lengths |
+| an operator (binary or ternary) is not learned | depth-1 gate fails | stage A; replace or drop it, or ablate the ternary operators |
+| operator shortcuts (zip_add simplifies algebraically, select_parity ignores one operand per position) | some steps do not matter, structure is overstated | skippable filter; report the excluded share |
+| longer sequences | slower labelling and RL generation, length confounds structure | max_len 1024, generation 768; measure cost in the pilot; report token length; match lengths |
 | v2 retraining delays RL | fewer phase-2/3 runs | RL code developed on v1 mid now; no-go fallback on Nov 22; phase 3 reduced |
-| compute cap (50 node-hours) shared with RL | not enough for everything | v2 ~15 node-hours, RL ~14 at the design estimate; reuse a stage-B run as mid; check NERSC_LOG before each submission |
+| compute cap (50 node-hours) shared with RL | not enough for everything | estimate tree-v1 cost after stage A; RL ~22 node-hours for 135 runs at the measured speed; reuse a stage-B run as mid; check NERSC_LOG before each submission |
 | all levels share seed 0's data luck | levels are paired, not independent | mid seeds 1/2 (P11); interpret level comparisons as paired |
 | deeper problems stay at 0 after RL | H2 untestable on accuracy | step score on E3 (decision 7) |
 | the 85M model solves every depth | no medium difficulty | smaller comp_frac; 25% checkpoint |
@@ -856,9 +879,11 @@ The main risk is still that simple and complex problems do not both have enough 
 - [x] Fourth base model: midbal (h_ratio 0.5)
 - [x] Spread depths, midbal matched cells, strong comp_frac (decisions 2–4)
 - [x] Upload the v1 checkpoints to Hugging Face and put the repo name in [Status](#status-2026-11-16)
-- [ ] Review the v2 implementation choices ([Implementation](#implementation-2026-11-15))
-- [ ] v2: final binary operators (stage A)
-- [ ] v2: `tree_frac`, shape mix and comp_frac levels (stage B)
+- [x] Gate rules from decisions 2–3 in code and configs (2026-11-15)
+- [x] Operator set and code for the tree task: tree-v1 (decision 10)
+- [ ] Check that the Hugging Face v1 checkpoints load with `load_model` after download
+- [ ] Tree-v1 stage A: every operator learnable
+- [ ] Tree-v1 stage B: comp_frac levels, D/E cell definition, candidate pool; skippable check for trees
 - [ ] v2 go/no-go (Sun Nov 22) and the D/E cell pair
 - [ ] RL role of midbal (proposed: mid vs midbal on A)
 - [ ] Total RL rollout budget (sets the steps per run)

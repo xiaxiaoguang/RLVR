@@ -63,6 +63,15 @@ def n_params(model, embeddings: bool = True) -> int:
 def save_model(model, tok: CharTokenizer, cfg: dict | None, path: str | Path) -> None:
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
+    if model.config.vocab_size != tok.vocab_size:
+        raise ValueError("model and tokenizer vocabulary sizes differ")
+    if cfg is not None:
+        from .task import make_task
+        task = make_task(cfg["task"])
+        if tok.vocab != task.tokenizer().vocab:
+            raise ValueError("model tokenizer does not match task config")
+        if hasattr(task, "fingerprint"):
+            model.config.task_fingerprint = task.fingerprint
     model.save_pretrained(path)
     tok.save(path / "tokenizer.json")
     if cfg is not None:
@@ -74,6 +83,14 @@ def load_model(path: str | Path, device: str | torch.device = "cuda") -> tuple[L
     tok = CharTokenizer.load(path / "tokenizer.json")
     model = LlamaForCausalLM.from_pretrained(path).to(device).eval()
     model.generation_config = generation_config(tok)
+    if (path / "run_config.yaml").exists():
+        from .task import make_task
+        cfg = yaml.safe_load((path / "run_config.yaml").read_text())
+        task = make_task(cfg["task"])
+        if tok.vocab != task.tokenizer().vocab or model.config.vocab_size != tok.vocab_size:
+            raise ValueError("checkpoint tokenizer/task vocabulary mismatch")
+        if hasattr(task, "fingerprint") and getattr(model.config, "task_fingerprint", None) != task.fingerprint:
+            raise ValueError("checkpoint task fingerprint mismatch")
     return model, tok
 
 
@@ -97,23 +114,44 @@ def cut_at_eos(text: str) -> str:
     return text if i < 0 else text[:i + len(EOS)]
 
 
+def checkpoint_ids(ckpt: str | Path) -> tuple[str, str, int | None]:
+    """(model_id, run_name, step): checkpoints/pt-mid-s0 -> (pt-mid-s0, pt-mid-s0, None);
+    runs/pt-mid-s0/ckpt/step-3000 -> (pt-mid-s0-step-3000, pt-mid-s0, 3000)."""
+    ckpt = Path(ckpt)
+    if ckpt.parent.name == "ckpt":
+        run = ckpt.parent.parent.name
+        return f"{run}-{ckpt.name}", run, int(ckpt.name.split("-")[-1])
+    return ckpt.name, ckpt.name, None
+
+
 @torch.no_grad()
-def generate(model, tok: CharTokenizer, prompts: list[str], max_new_tokens: int = 128,
-             temperature: float = 0.0, num_return_sequences: int = 1,
-             batch_size: int = 1024) -> list[str]:
-    """Completions (prompt excluded), grouped by prompt: out[i*n + j] is sample j
-    of prompt i. temperature=0 means greedy. batch_size counts prompts."""
+def generate_ids(model, tok: CharTokenizer, prompts: list[str], max_new_tokens: int = 128,
+                 temperature: float = 0.0, num_return_sequences: int = 1,
+                 batch_size: int = 1024) -> list[list[int]]:
+    """Sampled completion token ids (prompt excluded), grouped by prompt: out[i*n + j] is
+    sample j of prompt i. Each row ends with its first <eos>; a row without <eos> has all
+    max_new_tokens tokens. temperature=0 means greedy. batch_size counts prompts."""
     device = next(model.parameters()).device
     was_training = model.training
     model.eval()
-    out: list[str] = []
+    out: list[list[int]] = []
     for s in range(0, len(prompts), batch_size):
         input_ids, mask = left_pad(tok, prompts[s:s + batch_size], device)
         kw = dict(do_sample=True, temperature=temperature) if temperature > 0 else dict(do_sample=False)
         with torch.autocast(device.type, dtype=torch.bfloat16, enabled=device.type == "cuda"):
             seqs = model.generate(input_ids=input_ids, attention_mask=mask, max_new_tokens=max_new_tokens,
                                   num_return_sequences=num_return_sequences, **kw)
-        for row in seqs[:, input_ids.shape[1]:].tolist():
-            out.append(cut_at_eos(tok.decode(row)))
+        new = seqs[:, input_ids.shape[1]:]
+        is_eos = new == tok.eos_id
+        n = torch.where(is_eos.any(1), is_eos.int().argmax(1) + 1, new.shape[1])
+        out.extend(row[:k] for row, k in zip(new.tolist(), n.tolist()))
     model.train(was_training)
     return out
+
+
+def generate(model, tok: CharTokenizer, prompts: list[str], max_new_tokens: int = 128,
+             temperature: float = 0.0, num_return_sequences: int = 1,
+             batch_size: int = 1024) -> list[str]:
+    """Completions as text (see generate_ids); <pad> tokens are dropped."""
+    return [tok.decode(ids) for ids in generate_ids(model, tok, prompts, max_new_tokens, temperature,
+                                                    num_return_sequences, batch_size)]

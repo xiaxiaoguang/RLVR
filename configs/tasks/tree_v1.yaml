@@ -1,0 +1,62 @@
+# New task and artifact namespace; legacy defaults/checkpoints stay chain-v1.
+paths:
+  data: data/tree-v1
+  runs: runs/tree-v1
+  checkpoints: checkpoints/tree-v1
+task:
+  kind: tree
+  max_depth: 8
+  tree_max_ops: 10
+  functions:
+    # Retained unary operators (12). Removed simple/redundant permutations and shifts.
+    swap_adjacent: swap_adjacent
+    swap_halves: swap_halves
+    even_pos_p1: {name: shift_at, k: 1, parity: 0}
+    odd_pos_m1: {name: shift_at, k: -1, parity: 1}
+    max_to_front: max_to_front
+    min_to_back: min_to_back
+    mirror_first_half: mirror_first_half
+    reverse_first_half: {name: reverse_half, first: true}
+    riffle: riffle
+    shift_by_pos: {name: shift_by_pos, k: 1}
+    sort_first_half: {name: sort_half, first: true}
+    sort_asc: sort
+    # Binary operators (8).
+    zip_add: zip_add
+    zip_sub: zip_sub
+    zip_mul: zip_mul
+    gather: gather
+    gather_add: gather_add
+    scatter_add: scatter_add
+    rotate_by_sum: rotate_by_sum
+    prefix_add: prefix_add
+    # Ternary operators (4).
+    zip_add3: zip_add3
+    zip_mul_add: zip_mul_add
+    gather_mix: gather_mix
+    select_parity: select_parity
+  # Both groups contain 6 unary, 4 binary, and 2 ternary operators.
+  h_group: [swap_adjacent, even_pos_p1, max_to_front, mirror_first_half, riffle, sort_first_half,
+            zip_add, zip_mul, gather_add, rotate_by_sum, zip_add3, gather_mix]
+splits:
+  salt: rlvr-tree-v1
+  heldout_pairs_per_group_pair: 1  # per parent/child arity and H/L cell: 36 directed edges
+model:
+  max_len: 1024
+eval:
+  version: v1
+  max_new_tokens: 768
+rl:
+  max_new_tokens: 768
+pretrain:
+  level: tree-pilot
+  h_only_depths: []  # separate structure from exposure in the first pilot
+  h_ratio: 0.5
+  comp_frac: 0.01   # starting point to sweep, not calibrated from chain-v1
+  steps: 400
+  eval_every: 200
+  target_minutes: 10
+gate:
+  hard_checks: [depth1_greedy]
+  spread_depths: [2, 3, 4]
+  target: null

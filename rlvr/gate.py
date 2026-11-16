@@ -1,4 +1,4 @@
-"""Gate checks after pretraining (design.md "Deliverables", gate check), as pure functions of eval / label tables.
+"""Gate checks after pretraining (design.md "Deliverables"), as pure functions of eval / label tables.
 
 scripts/calibrate.py computes the inputs (E1 greedy rows, calib labels, RL-pool labels,
 metrics.jsonl) and calls these, so the checks can be tested without a GPU. Every check
@@ -10,8 +10,8 @@ Checks:
   depth1_greedy  E1 greedy accuracy >= gate.depth1_greedy overall; per function, fail only
                  when the Wilson upper bound (z = gate.depth1_func_z) is below it, because
                  50 problems per function cannot separate 0.98 from 0.99
-  spread         at each gate.spread_depths depth (n_ops; chains and trees together),
-                 >= gate.min_spread_frac of the calib problems have 0 < p_hat < 1
+  spread         at each gate.spread_depths depth, >= gate.min_spread_frac of the calib
+                 problems have 0 < p_hat < 1
   matched_cells  each gate.matched_cells RL-pool cell has >= gate.min_matched problems with p
                  in gate.p_range in total and >= gate.min_matched_per_len at every input length
                  (build_dataset.py stratifies the matched-p datasets on str_len); p is the
@@ -36,24 +36,14 @@ RELABEL_COLS = {"n_correct": "n_correct_relabel", "k": "k_relabel", "p_hat": "p_
                 "ci_lo": "ci_lo_relabel", "ci_hi": "ci_hi_relabel"}
 
 
-def cell_key(c: dict) -> tuple:
-    """(depth, n_bin, group) of a cell spec; n_bin defaults to 0 (chains)."""
-    return c["depth"], c.get("n_bin", 0), c["group"]
-
-
-def cell_name(depth, group, n_bin=0) -> str:
-    """d4-H (chain) or d4b1-H (tree with one binary operator)."""
-    return f"d{depth}{f'b{n_bin}' if n_bin else ''}-{group}"
-
-
 def check_config(gc: dict, lc: dict) -> None:
     """Fail fast (before any labelling) on gate / relabel settings that cannot work."""
     unknown = [c for c in gc["hard_checks"] if c not in CHECKS]
     if unknown:
         raise ValueError(f"gate.hard_checks: unknown {unknown}; choose from {list(CHECKS)}")
     if lc["relabel_k"]:
-        cells = {cell_key(c) for c in lc["relabel_cells"]}
-        missing = [c for c in gc["matched_cells"] if cell_key(c) not in cells]
+        cells = {(c["depth"], c["group"]) for c in lc["relabel_cells"]}
+        missing = [c for c in gc["matched_cells"] if (c["depth"], c["group"]) not in cells]
         if missing:
             raise ValueError(f"gate.matched_cells {missing} are not in label.relabel_cells")
     t = gc.get("target")
@@ -61,16 +51,10 @@ def check_config(gc: dict, lc: dict) -> None:
         raise ValueError(f"gate.target must be {{depth, p_range: [lo, hi]}}, got {t}")
 
 
-def _n_bin(df: pd.DataFrame) -> pd.Series:
-    return df.n_bin if "n_bin" in df else pd.Series(0, index=df.index)
-
-
 def _in_cells(df: pd.DataFrame, cells: list[dict]) -> np.ndarray:
     m = np.zeros(len(df), dtype=bool)
-    nb = _n_bin(df)
     for c in cells:
-        d, b, g = cell_key(c)
-        m |= ((df.depth == d) & (nb == b) & (df.group == g)).to_numpy()
+        m |= ((df.depth == c["depth"]) & (df.group == c["group"])).to_numpy()
     return m
 
 
@@ -129,16 +113,16 @@ def matched_cells(pool: pd.DataFrame, gc: dict, relabel_cells: list[dict] | None
     """Counts of p in gate.p_range per matched cell, in total and per str_len. The str_len
     levels are those of the whole pool, as in build_dataset.py's covariate matching."""
     lo, hi = gc["p_range"]
-    relabelled = {cell_key(c) for c in relabel_cells or []}
+    relabelled = {(c["depth"], c["group"]) for c in relabel_cells or []}
     lens = sorted(int(v) for v in pool.str_len.unique())
     cells = {}
     for c in gc["matched_cells"]:
-        sel = pool[_in_cells(pool, [c])]
-        col = "p_hat_relabel" if cell_key(c) in relabelled else "p_hat"
+        sel = pool[(pool.depth == c["depth"]) & (pool.group == c["group"])]
+        col = "p_hat_relabel" if (c["depth"], c["group"]) in relabelled else "p_hat"
         p = sel[col] if col in sel else pd.Series(np.nan, index=sel.index)
         inr = ((p >= lo) & (p <= hi)).to_numpy()
         by_len = sel.str_len[inr].value_counts().reindex(lens, fill_value=0)
-        cells[cell_name(c["depth"], c["group"], c.get("n_bin", 0))] = {
+        cells[f"d{c['depth']}-{c['group']}"] = {
             "p_col": col, "n_in_range": int(inr.sum()), "n_cell": len(sel),
             "n_in_range_by_len": {int(k): int(v) for k, v in by_len.items()},
             "mean_p": float(sel.p_hat.mean()),
