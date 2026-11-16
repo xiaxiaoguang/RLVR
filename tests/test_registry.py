@@ -47,11 +47,11 @@ def test_config_defaults_and_overrides():
     cfg = load_config()
     assert cfg["pretrain"]["comp_frac"] == PARAMS.get("pretrain.comp_frac").default
     cfg = load_config("configs/pretrain/weak.yaml", ["pretrain.h_ratio=0.5", "task.str_len=[4,5,6]"])
-    assert cfg["pretrain"]["comp_frac"] == 0.001 and cfg["pretrain"]["h_ratio"] == 0.5
+    assert cfg["pretrain"]["comp_frac"] == 0.000125 and cfg["pretrain"]["h_ratio"] == 0.5
     assert cfg["task"]["str_len"] == [4, 5, 6]
     assert PARAMS_DEFAULTS["pretrain"]["comp_frac"] == 0.01, "defaults must not be mutated"
     mb = load_config("configs/pretrain/midbal.yaml")["pretrain"]
-    assert mb["level"] == "midbal" and mb["h_ratio"] == 0.5 and mb["comp_frac"] == 0.01, "base: inheritance"
+    assert mb["level"] == "midbal" and mb["h_ratio"] == 0.5 and mb["comp_frac"] == 0.00032, "base: inheritance"
     cfg = load_config(None, ["pretrain.comp_depth_mix={2: 0.5, 3: 0.5}"])
     assert cfg["pretrain"]["comp_depth_mix"] == {2: 0.5, 3: 0.5}, "dict params are replaced whole"
 
