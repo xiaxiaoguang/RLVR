@@ -9,3 +9,9 @@ pretrain:
   eval_every: 300
 rl_pool:
   pilot_per_cell: 40
+# Widen both p ranges so the pilot branch (cell choice, candidates, relabelling, pilot.json)
+# runs even though a 300-step model has p ~ 0 almost everywhere.
+gate:
+  p_range: [0.0, 1.0]
+label:
+  relabel_range: [0.0, 1.0]
