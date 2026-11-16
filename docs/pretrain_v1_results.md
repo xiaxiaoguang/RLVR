@@ -21,7 +21,8 @@ Training results of the v1 base models, round by round, and how comp_frac was ch
 All four candidates are trained and fully calibrated: calib heatmap, 35,000-problem RL-pool labelling, and relabelling
 of the matched cells.
 
-Open questions for the team (details under "Open questions" below):
+Open questions for the team (details under "Open questions" below). **Decided on 2026-11-15; see the decision log in
+[`design.md`](design.md#decision-log).**
 
 1. Should spread check only d2–d4? By design depth 5 is not in pretraining, so a spread check that includes d5
    cannot pass at any comp_frac.
@@ -276,6 +277,9 @@ d4 stays on a plateau and then jumps at 1e-3, with only 20% more d4 examples, so
 ("8.3e-4 → 0.5") was wrong. d4-H is already in the target range from 5e-4 to 8.3e-4; overall d4 is held down by d4-L.
 
 ## Open questions
+
+Decided on 2026-11-15 (design.md decisions 2–5): spread checks d2–d4 only; question 2 goes to the v2 pilot with tree
+problems, with pool expansion as the fallback; midbal's matched_cells is a warning; strong stays at 8.3e-4.
 
 1. **Which depths spread checks.** The design keeps depth 5 out of pretraining, and d5's signal_frac is at most 0.065
    at every comp_frac. Proposal: check only d2–d4 and drop the optional E′ (d5-H).

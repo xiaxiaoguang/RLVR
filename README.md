@@ -44,6 +44,7 @@ scripts/
   slurm/              Perlmutter: pt-{level}.sbatch (1 node, 4-GPU training + quick calibration),
                       calib.sbatch (1 shared GPU, full calibration, chained with --dependency=afterok)
   relabel_report.py   winner's-curse check: first-pass p in [0.4, 0.6] vs the second labelling
+  push_hf.py          upload final checkpoints (+ calib files, optional RL-pool labels) to a Hugging Face repo
 configs/              overrides only: pretrain/{weak,mid,strong,midbal,pilot}.yaml, datasets/*.yaml
 tests/                python tests/test_task.py; python tests/test_registry.py; python tests/test_model.py
 ```

@@ -1,97 +1,215 @@
-# RLVR 数据难度实验设计文档（v1：扩大预训练规模）
+# RLVR data-difficulty experiment design
 
-Oct 22, 2026 · @Hanzhong Cao · v1 修订 Nov 2, 2026
+Oct 22, 2026 · Hanzhong Cao · v1 revision Nov 2, 2026 · v2 revision Nov 16, 2026 (draft)
 
-## v1 修订摘要
+This file is the team's shared record of settings, results and decisions, kept up to date so it can be turned into
+the paper. When a setting changes, a result comes in or a decision is made, update this file in the same commit and
+add the decision to the [decision log](#decision-log). Round-by-round pretraining details stay in
+[`pretrain_v1_results.md`](pretrain_v1_results.md); this file keeps only the summary.
 
-v0（4 层 / 256 维 / 约 3M 参数，64M 监督 token，单卡约 3 分钟）暴露了两个问题：
+Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Lesner (evaluation and analysis).
 
-1. **任务太容易、算力太小。** 训练 loss 在 1 个 epoch 内降到约 1e-9，模型基本把语料记住了；字母表 10、串长 5 时，所有可能的原子题只有 160 万道，没有能逼模型去泛化的数据。
-2. **深度断崖。** 预训练只见过深度 2，`pt-weak-s0` 在深度 3/4 上 p ≈ 0（d3 平均 0.004，d4 平均 0.0005），门槛检查中 spread 和 matched_cells 两项失败。mid 模型的 E2 = 0.333，也就是只解出了深度 2。深题里没有 p≈0.5 的题，解耦实验没法做。
+## Status (2026-11-16)
 
-v1 的改动：
+- **v1 base models:** all four candidates are trained and fully calibrated
+  ([v1 results summary](#v1-results-summary)). They stay available as chain-only reference models and for building
+  the RL code. Checkpoints go to Hugging Face with `scripts/push_hf.py` (repo name to be filled in after the upload).
+- **v2:** on 2026-11-15 we decided to add binary operators, so problems become trees instead of chains
+  ([v2 revision](#v2-revision-tree-problems)). This week the task change gets implemented and piloted; the go/no-go
+  decision is on Sun Nov 22 ([v2 pilot](#v2-pilot)).
+- **Compute:** 21.09 of 50 NERSC GPU node-hours used as of 2026-11-08.
 
-| 方面 | v0 | v1 |
+## Decision log
+
+Newest first. "Proposed by" is who raised it in the team discussion.
+
+| # | date | question | decision | proposed by |
+| --- | --- | --- | --- | --- |
+| 9 | 2026-11-15 | Where do checkpoints go? | Hugging Face model repo, one folder per run in `save_model` format (`scripts/push_hf.py`); too large for git. | Yupeng |
+| 8 | 2026-11-15 | Where do we record settings, results and decisions? | This file, in English, as the shared record for the paper. | Hanzhong |
+| 7 | 2026-11-15 | Deeper test set is too hard (E3 greedy ≤ .003 for every v1 model, including comp_frac 1e-2) | Report depth-5 accuracy separately and add a step score on E3 (correct steps before the first mistake), so H2 does not "fail" only because the test is at 0. | Jay |
+| 6 | 2026-11-15 | Problems that still come out right with a step skipped | Exclude them from D and E (rule in [Matched cells](#matched-cells-v2)). | Jay |
+| 5 | 2026-11-15 | Not enough p ≈ 0.5 problems in the matched cells (open question 2) | **v2: add binary operators** (tree problems) and pilot them first. Expanding the v1 RL pool (Jay's proposal, ~2–2.5 node-hours) is the fallback if the pilot fails the go criterion. | Hanzhong (chosen by Yupeng) |
+| 4 | 2026-11-15 | strong: accept 8.3e-4 or try 9e-4 / 9.5e-4 (open question 4) | Keep 8.3e-4 for v1. d4 sits on a plateau from 5e-4 to 8.3e-4 and jumps to .681 at 1e-3, so another round would likely overshoot; strong is not used for D vs E. | Jay |
+| 3 | 2026-11-15 | midbal's matched_cells (open question 3) | Warning only. midbal practises L chains 5× more than mid, so d2-L being easy (.870) is the intended effect of P6. D vs E runs on mid. Proposed RL role of midbal: mid vs midbal on the uniform pool (A). | Jay |
+| 2 | 2026-11-15 | Which depths spread checks (open question 1) | Depths 2–4 only; drop the optional E′ (depth 5, H). No v1 run gets above 6.5% signal at depth 5, against a 20% threshold. | Jay |
+| 1 | 2026-11-05 | How to choose comp_frac | Sweep at the full training length; the 400-step pilot extrapolation overestimated comp_frac by ~10×. | Yupeng |
+
+## Revision history
+
+### v2 revision: tree problems
+
+**Why.** v1 trained all four base models on target (weak d3 .114, mid d3 .381, strong d4-H .594), but the decoupling
+datasets D and E are hard to build from chains:
+
+1. Per-problem p is bimodal. Even in cells whose mean p is near 0.5, at most 12.5% of problems have p in [0.4, 0.6].
+2. With 5,000 candidates per matched cell, mid has only 31 and 18 d4-H problems at lengths 7 and 9 (≥ 120 needed).
+   Relaxing thresholds cannot fix 18.
+3. Chains give one structural knob (length of the chain). The same chain structure sampled more often keeps the same
+   bimodal p.
+
+Binary operators (`merge(f(x), g(y))`) turn problems into trees, which separates the number of operations from tree
+depth and from the dependency pattern. That gives more cells in which shallow and deep problems may have overlapping
+p. This has to be checked with a pilot before the base models are retrained.
+
+**What changes.**
+
+| aspect | v1 | v2 (proposed; final after the pilot) |
 | --- | --- | --- |
-| 算力目标 | 单卡约 3 分钟 | **每个模型 4×A100 训练 ≥ 1 小时**；4 个模型，8 卡分两轮并行，共约 2 小时（不含试点和校准） |
-| 模型 | 4 层，d 256，约 3M | **12 层，d 768，12 头，FFN 2048（SwiGLU），约 85M 非嵌入参数** |
-| 字母表 / 串长 | a–j / 固定 5 | **a–z / 6–10 可变** |
-| 原子函数 | 16 个 | **24 个**（H/L 各 12 个） |
-| 深度范围 | 1–6 | **1–8** |
-| 预训练组合深度 | 只有 2 | **2–3 为主，另有少量只用 H 组的深度 4** |
-| 语料 | 预先生成 parquet，按 `count` 重复 | **流式在线生成，不重复，按 token 占比控制构成** |
-| 模型强弱控制 | `n_comp`：2k / 20k / 200k | **`comp_frac`（组合示例占监督 token 的比例），由试点扫描确定** |
-| 训练 token | 64M | **约 2.6B（含 prompt），约 1.8B 监督 token**（实测吞吐下 4 卡约 63 分钟） |
-| 基础模型 | weak / mid / strong | **weak / mid / strong + mid-bal（h_ratio=0.5）** |
+| problem structure | chain of unary functions | chains and trees: unary functions plus binary operators |
+| functions | 24 unary (H/L 12 each) | 24 unary (unchanged ids F00–F23) + 3–4 binary operators (F24 onwards) |
+| structure variables | depth | operation count `n_ops`, tree depth, binary nodes `n_bin`, dependency distance, token length |
+| tokenizer | 48 tokens | 49 tokens (adds `,`) |
+| inputs | one string, length 6–10 | one string per leaf; all leaves of a problem have the same length (6–10) |
+| pretraining corpus | atoms + chains (depth 2–4) | atoms (unary + binary) + chains + trees (`n_ops` 2–4) |
+| matched cells | d2-L vs d4-H | chosen from the pilot among (n_ops, tree depth, group) cells |
+| max generation length | 256 | 320 |
+| base models | weak / mid / strong / midbal | same four levels, retrained |
 
-没提到的部分（研究问题、假设、GRPO 算法、判读规则）与 v0 相同。
+Not changed: research questions, hypotheses, model, optimiser, GRPO, decision rules.
 
-## 项目概述
+### v1 revision (Nov 2): larger pretraining
 
-我们在可控的玩具设定下，研究 RL（GRPO）训练数据的复杂度构成如何影响模型最终能力，并从实验数据中归纳出可预测的经验公式。
+v0 (4 layers / 256 dims / ~3M parameters, 64M supervised tokens, ~3 minutes on one GPU) had two problems:
 
-**主目标（与 Learning from Less 一致）：** 在固定算力下，RL 数据的结构难度构成（深度分布）如何影响最终能力（同分布 + 更深的题）？它改变的是能力上限，还是学习效率？
+1. **Too easy, too little compute.** Training loss fell to ~1e-9 within one epoch, i.e. the model memorised the corpus.
+   With alphabet 10 and length 5 there are only 1.6M possible atomic problems, nothing that forces generalisation.
+2. **Depth cliff.** Pretraining only saw depth 2, and `pt-weak-s0` had p ≈ 0 at depths 3/4 (d3 mean 0.004, d4 mean
+   0.0005); the gate failed on spread and matched_cells. The mid model had E2 = 0.333, i.e. it solved only depth 2. No
+   deep problem had p ≈ 0.5, so the decoupling experiment was impossible.
 
-**核心难点：** 在真实 LLM 里，结构难度（题目本身多难）和模型相对难度（模型的成功率 p）总是混在一起。我们从零预训练 transformer，控制模型在 RL 前知道什么，从而把两者分开。v1 把模型扩大到约 85M 参数、预训练扩大到约 2.6B token，让基础模型更接近「真的学过东西、而不是背下语料」的状态，得出的结论也更有说服力。
-
-**待检验假设**（不预设公式，由数据决定）：
-
-- H1：同分布的收益主要由初始成功率 p 解释（信号假设）。
-- H2：分布外（更深的题）的泛化额外依赖结构难度。
-- H3：数据复杂度构成主要影响学习效率，而不是能力上限（对照 ScaleRL 的发现）。
-
-**方法路线：** 列全变量 → 测噪声 → 筛选重要变量 → 把训练曲线参数化 → 归纳候选公式 → 先预测、再训练验证。
-
-**预期产出：**
-
-1. 在玩具设定下复现 Learning from Less 的核心结论。
-2. 一个或多个「数据配置 → 最终能力」的经验公式，带置信区间。
-3. 由公式推出的数据选择规则，与均匀采样、learnability 采样对比。
-
-## 相关工作与定位
-
-我们的定位：在可控设定下完成 Learning from Less 提出的未来工作，即为 RLVR 建立「数据构成 → 能力」的经验规律。方法论借鉴 RegMix（小模型筛选）、ScaleRL（曲线参数化）和 Data Mixing Laws（参数化公式）。
-
-| 论文 | 关键内容 | 和我们的关系 |
+| aspect | v0 | v1 |
 | --- | --- | --- |
-| [Learning from Less](https://arxiv.org/abs/2604.18381)（MLSys 2026） | Qwen3-4B + LoRA + GRPO，Easy/Mixed × 100/200/500；计数任务上 100 道混合题 ≈ 500 道简单题；单模型、单种子 | 复现对象；作者把建立 RLVR 数据规律列为未来工作 |
-| [The Art of Scaling RL Compute](https://arxiv.org/abs/2510.13786)（ScaleRL，ICLR 2026） | 用 S 形曲线拟合算力–性能，区分上限 A 和效率 B；损失聚合、归一化、课程等主要影响效率 | 借鉴曲线参数化；检验 H3 |
-| [RegMix](https://arxiv.org/abs/2407.01492) | 512 个 1M 参数小模型 + 回归，预测未跑过的数据配比 | 借鉴「大量小运行 + 回归」的筛选方法 |
-| [Data Mixing Laws](https://arxiv.org/abs/2403.16952) | 性能对数据配比有可预测的函数形式，可在训练前预测 | 借鉴参数化公式的写法 |
-| [Can GRPO Transcend Its Pretraining Origin?](https://arxiv.org/abs/2510.15990) | 从零训练 transformer，研究预训练数据分布对 GRPO 的影响 | 「用预训练控制模型」已有先例；它没研究 RL 数据构成 |
-| [Outcome-Based RL ... Only With the Right Data](https://arxiv.org/abs/2601.15158)（NeurIPS 2026） | 理论：训练分布里需要足够的简单样本，RL 才能学会可外推的推理 | 我们检验：简单样本重要，是因为内容还是因为能拿到奖励 |
-| [From f(x) and g(x) to f(g(x))](https://arxiv.org/abs/2509.25123)（ICLR 2026） | 字符串函数组合任务；RL 让模型学会组合原子技能 | 任务设计的直接来源 |
-| [No Regrets / SFL](https://arxiv.org/abs/2408.15099)（NeurIPS 2024） | 经典 RL 课程学习：按「有时成功、有时失败」挑环境最有效 | learnability 采样基线 |
-| [Reasoning Depth and Environment Complexity](https://arxiv.org/abs/2605.26934) | 两个难度轴都要覆盖；均匀混合优于分阶段课程 | 已回答「哪个难度轴重要」，我们不重复 |
-| [Mechanistic Role of Sample Difficulty](https://arxiv.org/abs/2605.28388) | 用成功率当难度代理；中等难度最好 | 难度和 p 混在一起，正是我们要拆开的 |
+| compute target | ~3 min on one GPU | **≥ 1 h on 4×A100 per model**; 4 models |
+| model | 4 layers, d 256, ~3M | **12 layers, d 768, 12 heads, FFN 2048 (SwiGLU), ~85M non-embedding parameters** |
+| alphabet / length | a–j / fixed 5 | **a–z / 6–10 variable** |
+| atomic functions | 16 | **24** (H/L 12 each) |
+| depth range | 1–6 | **1–8** |
+| pretraining composition depth | 2 only | **mainly 2–3, plus a little H-only depth 4** |
+| corpus | pre-generated parquet, repeated by `count` | **streamed online, never repeated, composition set by token share** |
+| strength knob | `n_comp`: 2k / 20k / 200k | **`comp_frac`** (share of supervised tokens from compositions), set by sweeps |
+| training tokens | 64M | **~2.6B (incl. prompts), ~1.8B supervised** |
+| base models | weak / mid / strong | **weak / mid / strong + midbal (h_ratio = 0.5)** |
 
-**不要声称「首次」。** 提案里写「据我们所知」，并在第 1 周再做一次文献检索。
+## v1 results summary
 
-## 任务设计（task.py）
+Full details, including every sweep point, the d4 length diagnosis and compute per job:
+[`pretrain_v1_results.md`](pretrain_v1_results.md).
 
-任务是字符串函数组合：给定输入串和若干嵌套函数，模型逐步写出中间结果和最终答案。所有答案由 Python 计算，奖励完全可验证。
+85M model, 9500 steps (~1.84B supervised tokens), seed 0, pos_offset_max 128. Calibration: 200 problems per cell,
+T = 1.0, k = 32; mean p̂ per depth. E3 is greedy accuracy on depths 6–8.
 
-**基本设定（v1）：**
+| model | run | comp_frac | h_ratio | d2 | d3 | d4 | d5 | E3 | gate (v1 rules) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| weak | pt-weak-cf0.000125-s0 | 1.25e-4 | 0.9 | .440 | **.114** | .011 | .001 | .000 | PASS |
+| mid | pt-mid-cf0.00032-s0 | 3.2e-4 | 0.9 | .724 | **.381** | .072 | .003 | .001 | FAIL: spread (d5), matched_cells |
+| strong | pt-strong-cf0.00083-s0 | 8.3e-4 | 0.9 | .919 | .759 | **.353** (d4-H .594) | .010 | .001 | PASS |
+| midbal | pt-midbal-cf0.00032-s0 | 3.2e-4 | 0.5 | .906 | **.549** | .119 | .001 | .003 | FAIL: spread (d5), matched_cells |
 
-- 字母表：26 个字母 `a`–`z`；输入串长**在 6–10 之间均匀采样**。可能的输入串约 1.5×10¹⁴ 个，2.6B token 的预训练不会重复见到同一道题，模型只能靠泛化。
-- 24 个**保持长度**的原子函数，串长不随深度增长。所有函数都要对奇数长度有明确定义（例如「前后两半互换」时中间字符不动），由 `Task` 构建时自动检查。
-- 函数名用无意义编号 `F00`–`F23`，编号与函数的对应关系用固定种子打乱，模型无法从名字猜出功能。
-- 深度 d = 嵌套函数个数，取 1–8。用途划分：预训练 1–4（深度 4 只有 H 组），RL 1–5，分布外评测 6–8。
+Design targets: weak d3 0.05–0.2, mid d3 0.35–0.55, strong d4 0.4–0.6. E1 (depth 1) = 1.000 for every model. Under
+the rules of decisions 2 and 3, midbal passes and mid fails only matched_cells (d4-H at lengths 7 and 9).
 
-**24 个原子函数（v0 的 16 个 + 新增 8 个，候选，可替换）：**
+mid's matched cells (problems with relabelled p in [0.4, 0.6]; lengths 6 / 7 / 8 / 9 / 10): d2-L 369 (73 / 75 / 81 /
+84 / 56), d4-H 326 (103 / 31 / 103 / 18 / 71).
 
-| 类别 | v0 已有 | v1 新增 |
+Findings:
+
+1. **The short pilot misleads.** 400-step pilots (4% of the tokens) extrapolated by /25 overestimated comp_frac by
+   ~10×. Composition is learned late (after ~4000 of 9500 steps), so comp_frac has to be set by full-length sweeps.
+2. **Very few composition examples are enough** once the atoms are learned: mid saw 8,800 composition examples in
+   total. Composition transfers across functions (d4-L reached .59 with no d4-L training example in round 1).
+3. **p is bimodal per problem** (see the v2 motivation above).
+4. **Cliff at untrained depths.** Depth 5 is ≤ .010 and E3 ≤ .003 for every model, even comp_frac 1e-2. Composition
+   does not extend to more steps than pretraining showed.
+5. **d4 at length 7 is a seed-0 accident.** d4 has only ~70–200 training examples per length; seed 0 drew the fewest at
+   length 7, and the models skip step 3 there. All levels share most composition examples (same seed), so they are
+   paired, not independent replicates.
+6. **Some problems can be solved with a step skipped.** On the RL pool, 31% of d4-H problems and 10.5% of d2-L
+   problems give the same answer with one step removed (measured 2026-11-08).
+7. **The reward checks only the final answer.** 1.4–2.6% of sampled completions have a wrong chain but the right
+   answer.
+
+## Project overview
+
+In a controlled toy setting we study how the complexity make-up of RL (GRPO) training data affects the final
+capability of the model, and derive predictive empirical formulas from the data.
+
+**Main goal (as in Learning from Less):** at fixed compute, how does the structural-difficulty make-up of the RL data
+(its depth distribution) affect final capability (in-distribution and deeper problems)? Does it change the capability
+ceiling or the learning efficiency?
+
+**Core difficulty:** in real LLMs, structural difficulty (how hard the problem is) and model-relative difficulty (the
+model's success rate p) are always entangled. We pretrain transformers from scratch, control what the model knows
+before RL, and so separate the two.
+
+**Hypotheses** (no formula assumed; the data decides):
+
+- H1: in-distribution gains are explained mainly by the initial success rate p (signal hypothesis).
+- H2: out-of-distribution generalisation (deeper problems) additionally depends on structural difficulty.
+- H3: the complexity make-up of the data mainly affects learning efficiency, not the ceiling (cf. ScaleRL).
+
+**Method:** list all variables → measure noise → screen important variables → parameterise training curves →
+derive candidate formulas → predict first, then train to verify.
+
+**Expected outputs:**
+
+1. A replication of the core Learning from Less result in the toy setting.
+2. One or more empirical formulas "data configuration → final capability", with confidence intervals.
+3. Data-selection rules derived from the formulas, compared with uniform and learnability sampling.
+
+## Related work
+
+Our position: in a controlled setting, carry out the future work proposed by Learning from Less, i.e. empirical laws
+"data make-up → capability" for RLVR. Methods borrowed from RegMix (small-model screening), ScaleRL (curve
+parameterisation) and Data Mixing Laws (parametric formulas).
+
+| paper | key content | relation to us |
 | --- | --- | --- |
-| 位置变换 | 反转；循环左移 1；循环右移 1；循环左移 2；交换相邻两位；首尾互换；前后两半互换 | 循环左移 3；只反转前半段；交错洗牌（riffle：前后半交替取） |
-| 字符变换 | 每个字符 +1（循环）；每个字符 −1；每个字符 +3；字母互补映射（a↔z, b↔y …） | 每个字符 +5；按位置加偏移（第 i 位 +i） |
-| 排序类 | 升序排序；降序排序 | 只对前半段升序排序 |
-| 条件变换 | 只对偶数位 +1；把最大字符移到首位；用前半段的反转覆盖后半段 | 只对奇数位 −1；把最小字符移到末位 |
+| [Learning from Less](https://arxiv.org/abs/2604.18381) (MLSys 2026) | Qwen3-4B + LoRA + GRPO, Easy/Mixed × 100/200/500; on counting, 100 mixed ≈ 500 easy; one model, one seed | replication target; the authors list RLVR data laws as future work |
+| [The Art of Scaling RL Compute](https://arxiv.org/abs/2510.13786) (ScaleRL, ICLR 2026) | sigmoid fit of compute vs performance, separating ceiling A and efficiency B; loss aggregation, normalisation, curricula mostly affect efficiency | curve parameterisation; tests H3 |
+| [RegMix](https://arxiv.org/abs/2407.01492) | 512 models of 1M parameters + regression predict unseen data mixtures | "many small runs + regression" screening |
+| [Data Mixing Laws](https://arxiv.org/abs/2403.16952) | performance is a predictable function of the data mixture, predictable before training | parametric formula form |
+| [Can GRPO Transcend Its Pretraining Origin?](https://arxiv.org/abs/2510.15990) | from-scratch transformers, effect of the pretraining distribution on GRPO | precedent for controlling the model through pretraining; does not study RL data make-up |
+| [Outcome-Based RL ... Only With the Right Data](https://arxiv.org/abs/2601.15158) (NeurIPS 2026) | theory: the training distribution needs enough easy samples for RL to learn extrapolating reasoning | we test whether easy samples matter for their content or because they give reward |
+| [From f(x) and g(x) to f(g(x))](https://arxiv.org/abs/2509.25123) (ICLR 2026) | string function-composition task; RL teaches composing atomic skills | direct source of the task |
+| [No Regrets / SFL](https://arxiv.org/abs/2408.15099) (NeurIPS 2024) | classic RL curricula: environments with mixed success work best | learnability baseline |
+| [Reasoning Depth and Environment Complexity](https://arxiv.org/abs/2605.26934) | both difficulty axes need coverage; uniform mixing beats staged curricula | already answers "which difficulty axis matters"; we do not repeat it |
+| [Mechanistic Role of Sample Difficulty](https://arxiv.org/abs/2605.28388) | success rate as difficulty proxy; medium difficulty is best | difficulty and p entangled, exactly what we separate |
 
-- H/L 分组各 12 个，每组内各类别都要有，避免「L 组难只是因为 L 组都是排序类」。
-- 第 1 周试点：如果某个函数在深度 1 学不到 ≥ 98%，就替换掉。
-- 新增的「按位置加偏移」和「交错洗牌」需要模型同时用到位置和字符信息，比 v0 的函数更难，用来防止 85M 模型把所有组合都轻松解掉。
+**Do not claim "first".** The proposal says "to our knowledge"; repeat the literature search before writing up.
 
-**单条样本格式**（字符级 token，函数从最内层开始执行）：
+## Task design
+
+The task is string-function composition: given input strings and nested functions, the model writes out the
+intermediate results step by step and then the final answer. All answers are computed in Python, so the reward is
+fully verifiable.
+
+**Basic setup:**
+
+- Alphabet: 26 letters `a`–`z`; input length **uniform in 6–10**. There are ~1.5×10¹⁴ possible input strings, so
+  2.6B tokens of pretraining never see the same problem twice and the model has to generalise.
+- 24 **length-preserving** unary functions, so string length does not grow with depth. Every function has a defined
+  behaviour on odd lengths (e.g. "swap halves" keeps the middle character); `Task` checks this when it is built.
+- Function names are meaningless ids `F00`–`F23`; the id → function mapping is shuffled with a fixed seed, so the model
+  cannot guess behaviour from the name.
+- Depth d = number of nested functions, 1–8. Use: pretraining 1–4 (depth 4 H-only), RL 1–5, OOD evaluation 6–8. In v2
+  "depth" of a chain is its operation count `n_ops` (see below).
+
+**The 24 unary functions:**
+
+| category | from v0 | added in v1 |
+| --- | --- | --- |
+| position | reverse; rotate left 1; rotate right 1; rotate left 2; swap adjacent pairs; swap first and last; swap halves | rotate left 3; reverse first half only; riffle (interleave first and second half) |
+| character | +1 to every character (cyclic); −1; +3; mirror alphabet (a↔z, b↔y …) | +5; add position (i-th char +i) |
+| sorting | sort ascending; sort descending | sort first half ascending |
+| conditional | +1 at even positions; move largest char to the front; overwrite second half with reversed first half | −1 at odd positions; move smallest char to the back |
+
+- H/L groups of 12 each, every category on both sides, so "L is hard" cannot mean "L is all sorts".
+- A function that cannot be learned to ≥ 98% at depth 1 is replaced (all 24 reach 1.000 in v1).
+- "Add position" and "riffle" need both position and character information; they make single steps harder so the
+  85M model does not solve every composition easily.
+
+**Sample format** (character tokens, innermost function first):
 
 ```text
 Q:F03(F11(F07(abcdefgh)))=
@@ -99,469 +217,608 @@ F07(abcdefgh)=bcdefghi;F11(bcdefghi)=ihgfedcb;F03(ihgfedcb)=jihgfedc;
 A:jihgfedc<eos>
 ```
 
-长度估计：深度 8、串长 10 时，prompt 约 54 个 token，目标约 230 个 token。模型 `max_len` 设为 512，RL 的 `max_new_tokens` 设为 256。
+Length: depth 8 at length 10 has a ~54-token prompt and a ~230-token target. `max_len` is 512.
 
-**核心数据结构与函数：**
+### Binary operators (v2, proposed)
+
+The operator set is fixed after pilot stage A ([v2 pilot](#v2-pilot)). Every operator maps two strings of length n to
+one string of length n and needs both inputs.
+
+| category | operator | definition (a, b → c) |
+| --- | --- | --- |
+| character | add | c_i = (a_i + b_i) mod 26 |
+| position | alternate | c_i = a_i at even i, b_i at odd i |
+| position | splice | first ⌊n/2⌋ characters of a, the rest of b |
+| comparison | max | c_i = max(a_i, b_i) |
+| backup | sub, min | c_i = (a_i − b_i) mod 26; c_i = min(a_i, b_i) |
+
+- **Leaves.** Each leaf is its own random string; all leaves of one problem have the same length n (uniform in
+  6–10). Independent leaves avoid shortcuts that a shared input would create (alternate(x, x) = x, max(x, x) = x).
+- **Names.** Binary operators continue the F ids from F24, outside the unary shuffle, so the 24 unary functions keep
+  their v1 ids and chain-only problems keep their v1 pids and pool assignment.
+- **Groups.** H / L / mixed is decided by the unary functions only. Binary operators are not split into H/L in the
+  first version; all of them get the same exposure.
+- **Syntax and CoT.** Operands are separated by `,` (the only new token). The CoT is written in post-order: left
+  subtree, right subtree, then the node; a leaf operand is the raw input string from the prompt. Example (illustrative
+  ids: F03 rotate left 1, F07 +1, F25 add):
+
+```text
+Q:F25(F03(abcdefgh),F07(ijklmnop))=
+F03(abcdefgh)=bcdefgha;F07(ijklmnop)=jklmnopq;F25(bcdefgha,jklmnopq)=kmoqsuwq;
+A:kmoqsuwq<eos>
+```
+
+**Structure variables** (recorded for every problem, so comparisons stay interpretable):
+
+| variable | definition | chain value |
+| --- | --- | --- |
+| `n_ops` | number of operations = CoT steps | = depth |
+| `tree_depth` | operations on the longest leaf-to-root path | = depth |
+| `n_bin` | binary nodes (leaves = n_bin + 1) | 0 |
+| `dep_dist` | largest number of steps between a node and the step that produced its left operand (leaf operands not counted) | 1 |
+| `prompt_len`, `target_len` | tokens | as v1 |
+
+For example `F25(F11(F03(x)),F07(y))` has n_ops 4, tree_depth 3, n_bin 1, dep_dist 2. Trees let us change the number
+of operations at a fixed depth (`F25(F03(x),F07(y))` vs `F03(F07(x))`) or the depth at a fixed number of operations
+(`F11(F03(F07(x)))` vs `F25(F03(x),F07(y))`).
+
+**Length budget.** A unary step at length 10 is 27 tokens, a binary step 38. An 8-operation tree with 3 binary nodes
+needs ~263 target tokens, above the v1 limit of 256, so `eval.max_new_tokens` and `rl.max_new_tokens` go to 320. With a
+~90-token prompt and the 128-position offset, 512 positions still suffice.
+
+### Data structures and functions
 
 ```python
 @dataclass(frozen=True)
 class Problem:
-    pid: str            # 由 funcs + x 哈希得到，全局唯一
-    funcs: tuple[int]   # 函数编号，最内层在前
-    x: str              # 输入串
-    depth: int          # = len(funcs)
-    steps: list[str]    # 每一步的中间结果
+    pid: str            # hash of the serialised expression (v1 chains keep their v1 pid)
+    expr: Node          # v2: tree of (fid, children); a chain is a tree with n_bin = 0
+    leaves: tuple[str]  # input strings, left to right
+    steps: list[str]    # result of each step, in post-order
     answer: str
+    # derived: n_ops, tree_depth, n_bin, dep_dist, group, str_len
 
-sample_problem(depth, func_pool, rng, str_len=None) -> Problem   # str_len=None 表示在 6–10 中均匀采样
+sample_problem(shape, func_pool, rng, str_len=None) -> Problem   # str_len=None: uniform in 6-10
 format_prompt(p) -> str        # "Q:...=\n"
-format_target(p) -> str        # 中间步骤 + "A:...<eos>"
+format_target(p) -> str        # steps + "A:...<eos>"
 parse_answer(text) -> str | None
-reward(text, p) -> float       # 1.0 完全正确，否则 0.0；不给格式分
+reward(text, p) -> float       # 1.0 if exactly right, else 0.0; no format reward
 ```
 
-**分词器：** 字符级，词表约 50：`a`–`z`、`F`、`0`–`9`、`( ) = ; :`、`Q`、`A`、换行，以及 `<pad>`、`<bos>`、`<eos>`，共 48 个。分词器在第 1 周冻结。
+v1 code: `rlvr/task.py` (`Problem.funcs` is a tuple, innermost first). v2 replaces `funcs` with the tree and keeps a
+chain helper so v1 configs still build.
 
-**数据划分（防止泄漏）：** 按 `pid` 哈希分成预训练池（90%）、RL 池（5%）、评测池（5%），三者严格不重叠。另外留出**函数组合**只在评测池出现，用来测组合泛化：24 个函数共 576 个有序相邻对，按 HH/HL/LH/LL 各留 6 个，共 24 个。流式生成时用拒绝采样保证这些约束（见下文「预训练数据生成」）。
+**Tokenizer:** character level: `a`–`z`, `F`, `0`–`9`, `( ) = ; :`, `Q`, `A`, newline, `<pad>`, `<bos>`, `<eos>` (48
+tokens); v2 adds `,` (49). Every checkpoint carries its own `tokenizer.json`, and `CharTokenizer.load` must accept both
+vocabularies so v2 code still loads v1 checkpoints.
 
-## 变量清单与代码映射
+**Splits (no leakage):** problems are split by `pid` hash into pretraining (90%), RL (5%) and evaluation (5%) pools,
+strictly disjoint. Some **function pairs** appear only in the evaluation pool, to test compositional generalisation:
+of the 576 ordered parent → child pairs of unary functions, 6 per HH/HL/LH/LL are held out (24). In v2 a held-out pair
+is any parent → child edge between two unary functions anywhere in the tree. Streaming uses rejection sampling to keep
+these constraints.
 
-每个变量都对应 YAML 配置里的一个键，所有实验只通过改配置运行，不改代码。优先级：★ 核心变量，主动改变；○ 时间够再做；— 冻结为默认值。
+## Variables and config keys
 
-### 预训练（P）
+Every variable is a key in the YAML config; experiments only change configs, not code. Defaults live in
+`rlvr/params.py`. Priority: ★ core, varied on purpose; ○ if time allows; — frozen at the default. Keys marked (v2) are
+proposed and not implemented yet.
 
-| 编号 | 变量 | 配置键 | 默认值（v1） | 取值水平 | 优先级 |
+### Pretraining (P)
+
+| id | variable | config key | default | levels | priority |
 | --- | --- | --- | --- | --- | --- |
-| P1 | 模型规模 | `model.n_layer`, `model.d_model`, `model.n_head`, `model.d_ff` | 12 层, 768, 12, 2048 | S（6 层/384）只用于调试；M 为主模型；L（24 层/1024，约 300M）可选，用来抽查规模 | — |
-| P2 | 位置编码 | `model.pos` | RoPE | — | — |
-| P2b | 随机位置偏移 | `pretrain.pos_offset_max` | 128 | 0 / 128 | ○ |
-| P3 | 原子技能覆盖 | `pretrain.atom_frac` | 补足剩余份额 | — | — |
-| P4 | 组合示例占比（模型水平） | `pretrain.comp_frac` | mid 的值由试点确定 | weak / mid / strong，对数间隔 | ★ |
-| P5 | 预训练组合深度分布 | `pretrain.comp_depth_mix` | {2: 0.6, 3: 0.35, 4: 0.05} | 有 / 无深度 4 | ○ |
-| P5b | 深度 4 只用 H 组 | `pretrain.deep_h_only` | true | — | — |
-| P6 | 函数曝光度不均 | `task.h_group`, `pretrain.h_ratio` | 12 个 H 函数, 0.9 | 0.5 / 0.9 | ★ |
-| P7 | CoT 格式 | `task.cot` | 开 | — | — |
-| P8 | 输入多样性 | `task.str_len_range`, `task.alphabet` | [6, 10], a–z | — | — |
-| P9 | 预训练步数 / checkpoint | `pretrain.save_at` | 25% / 50% / 100% | 早期 / 末期 | ○ |
-| P10 | 示例噪声比例 | `pretrain.noise_frac` | 0 | 0 / 0.1 | ○ |
-| P11 | 种子 | `seed` | 0 | 0 / 1 / 2（只在 mid 上重复） | 重复 |
+| P1 | model size | `model.n_layer`, `model.d_model`, `model.n_head`, `model.d_ff` | 12, 768, 12, 2048 | S (6/384) for debugging; M main; L (24/1024, ~300M) optional spot check | — |
+| P2 | position encoding | `model.pos` | RoPE | — | — |
+| P2b | random position offset | `pretrain.pos_offset_max` | 128 | 0 / 128 | ○ |
+| P3 | atomic coverage | `pretrain.atom_frac` | fills the rest | — | — |
+| P4 | share of composition examples (model level) | `pretrain.comp_frac` | set by sweeps | weak / mid / strong | ★ |
+| P5 | chain depth mix | `pretrain.comp_depth_mix` | {2: 0.6, 3: 0.35, 4: 0.05} | with / without depth 4 | ○ |
+| P5b | depth 4 H-only | `pretrain.h_only_depths` | [4] | — | — |
+| P6 | uneven function exposure | `task.h_group`, `pretrain.h_ratio` | 12 H functions, 0.9 | 0.5 / 0.9 | ★ |
+| P7 | CoT format | `task.cot` | on | — | — |
+| P8 | input diversity | `task.str_len`, `task.alphabet` | [6, 10], a–z | — | — |
+| P9 | pretraining steps / checkpoints | `pretrain.save_at` | 25% / 50% / 100% | early / final | ○ |
+| P10 | noisy examples | `pretrain.noise_frac` | 0 | 0 / 0.1 | ○ |
+| P11 | seed | `seed` | 0 | 0 / 1 / 2 (mid only) | repeat |
+| P12 | binary operators (v2) | `task.binary_functions` | 4 operators, fixed after stage A | — | — |
+| P13 | share of trees among compositions (v2) | `pretrain.tree_frac` | 0.5 (pilot start) | set by the pilot | ★ |
+| P14 | tree shape mix (v2) | `pretrain.tree_shape_mix` | n_ops {2: 0.6, 3: 0.35, 4: 0.05}, P(n_bin = 2) = 0.3 | — | ○ |
 
-### RL 数据（D）
+### RL data (D)
 
-| 编号 | 变量 | 配置键 | 默认值 | 取值水平 | 优先级 |
+| id | variable | config key | default | levels | priority |
 | --- | --- | --- | --- | --- | --- |
-| D1 | 数据量 | `data.n` | 500 | 100 / 500 / 2000 | ★ |
-| D2 | 结构难度构成（主目标） | `data.depth_mix` | 均匀 1–5 | 只深度 1/2/3/4/5, 混合 | ★ |
-| D3 | 模型相对难度 | `data.p_bins` | 不限 | 各 p 分箱，或 p≈0.5 | ★ |
-| D4 | 多样性 | `data.n_unique_combos` | 不限 | 少 / 多 | ★ |
-| D5 | 与评测集的重叠 | `data.eval_overlap` | 0 | 0 / 部分 | ○ |
-| D6 | 字符串长度、推理长度 | — | 记录 | 作为协变量（v1 串长可变，需要匹配） | — |
-| D7 | 顺序 | `data.order` | 随机打乱 | 随机 / 由浅到深 | ○ |
-| D8 | 每题重复次数 | 由 N 和总步数决定 | — | 记录 | — |
-| D9 | 在线过滤 / 重放 | `data.online_filter` | 关 | 关 / 只保留 0\<p<1 | ○ |
-| D10 | 标注采样次数 K | `label.k` | 32 | — | — |
+| D1 | amount of data | `data.n` | 500 | 100 / 500 / 2000 | ★ |
+| D2 | structural make-up (main goal) | `data.depth_mix` (v2: over n_ops and shape) | uniform 1–5 | single depth 1/2/3/4/5, mixed | ★ |
+| D3 | model-relative difficulty | `data.p_bins` | any | each p bin, or p ≈ 0.5 | ★ |
+| D4 | diversity | `data.n_unique_combos` | any | few / many | ★ |
+| D5 | overlap with eval | `data.eval_overlap` | 0 | 0 / partial | ○ |
+| D6 | string and reasoning length | — | recorded | covariate (lengths vary, must be matched) | — |
+| D7 | order | `data.order` | shuffled | shuffled / shallow to deep | ○ |
+| D8 | repeats per problem | set by N and total steps | — | recorded | — |
+| D9 | online filter / replay | `data.sampler` | static | static / keep only 0 < p < 1 | ○ |
+| D10 | labelling samples K | `label.k` | 32 | — | — |
 
-### GRPO（R）
+### GRPO (R)
 
-| 编号 | 变量 | 配置键 | 默认值 | 取值水平 | 优先级 |
+| id | variable | config key | default | levels | priority |
 | --- | --- | --- | --- | --- | --- |
-| R1 | 组大小 G | `rl.group_size` | 8 | 4 / 8 / 32 | ★ |
-| R2 | 每步题数 B | `rl.prompts_per_step` | 64 | — | — |
-| R3 | 学习率 | `rl.lr` | 1e-5（模型变大后下调） | 3e-6 / 3e-5 | ○ |
-| R4 | 总 rollout 预算 | `rl.total_rollouts` | 固定 | — | — |
-| R5 | 采样温度 | `rl.temperature` | 1.0 | 0.7 / 1.0 | ○ |
-| R6 | 最大生成长度 | `rl.max_new_tokens` | 256（够写完深度 8、串长 10） | — | — |
-| R7 | 是否除以组内标准差 | `rl.adv_std_norm` | 是 | 是 / 否（Dr.GRPO） | ○ |
-| R8 | 损失聚合 | `rl.loss_agg` | token 平均 | — | — |
-| R9 | KL 系数 | `rl.kl_coef` | 0 | — | — |
-| R10 | clip、每批更新次数 | `rl.clip_eps`, `rl.ppo_epochs` | 0.2, 1 | — | — |
-| R11 | 熵奖励 | `rl.entropy_coef` | 0 | — | — |
-| R12 | 奖励形式 | `rl.reward` | binary | binary / partial | ○ |
-| R13 | 种子 | `seed` | 0 | 0 / 1 / 2 | 重复 |
+| R1 | group size G | `rl.group_size` | 8 | 4 / 8 / 32 | ★ |
+| R2 | prompts per step B | `rl.prompts_per_step` | 64 | — | — |
+| R3 | learning rate | `rl.lr` | 1e-5 | 3e-6 / 3e-5 | ○ |
+| R4 | total rollout budget | `rl.steps` | fixed | — | — |
+| R5 | sampling temperature | `rl.temperature` | 1.0 | 0.7 / 1.0 | ○ |
+| R6 | max generation length | `rl.max_new_tokens` | 256 (v2: 320) | — | — |
+| R7 | divide by group std | `rl.adv_std_norm` | yes | yes / no (Dr.GRPO) | ○ |
+| R8 | loss aggregation | `rl.loss_agg` | token mean | — | — |
+| R9 | KL coefficient | `rl.kl_coef` | 0 | — | — |
+| R10 | clip, updates per batch | `rl.clip_eps`, `rl.ppo_epochs` | 0.2, 1 | — | — |
+| R11 | entropy bonus | `rl.entropy_coef` | 0 | — | — |
+| R12 | reward form | `rl.reward` | binary | binary / partial | ○ |
+| R13 | seed | `seed` | 0 | 0 / 1 / 2 | repeat |
 
-### 只测量的变量
+### Measured only
 
-- **中介变量（M）：** 初始成功率分布、有信号组的比例、熵、回答长度、梯度范数、与基础模型的 KL、单题学习速度、是否崩溃。不作为因果输入，只用来解释机制。
-- **结果变量（Y）：** 同分布准确率、更深题准确率、新组合准确率、pass@k，以及整条训练曲线拟合出的 A（上限）、B（效率）、C\_mid。
+- **Mediators (M):** initial success-rate distribution, share of groups with signal, entropy, answer length, gradient
+  norm, KL to the base model, per-problem learning speed, collapse. Not causal inputs; used to explain mechanisms.
+- **Outcomes (Y):** in-distribution accuracy, deeper-problem accuracy, new-combination accuracy, pass@k, step score,
+  and A (ceiling), B (efficiency) and C_mid fitted to the whole training curve.
 
-## 预训练实现（pretrain.py）
+## Pretraining (`scripts/pretrain.py`)
 
-预训练产出 4 个基础模型：weak / mid / strong 只改变组合示例占比（P4），mid-bal 在 mid 的基础上把 `h_ratio` 改为 0.5（P6）。四个模型的结构、步数、token 总数完全相同。
+Pretraining produces four base models: weak / mid / strong change only the composition share (P4); midbal is mid with
+`h_ratio` = 0.5 (P6). All four have the same architecture, steps and token totals.
 
-### 模型
+### Model
 
-Hugging Face `LlamaForCausalLM`，用小 config：
+Hugging Face `LlamaForCausalLM` with a small config:
 
-| 项 | 值 |
+| item | value |
 | --- | --- |
-| 层数 / hidden / 头数 | 12 / 768 / 12（head_dim 64） |
-| FFN | SwiGLU，intermediate 2048 |
-| 词表 | 48 |
-| 最大长度 | 512（最长样本约 290 token，加上随机位置偏移 ≤ 128） |
-| 参数量 | 约 85M（不含嵌入层） |
-| 位置编码 | RoPE，θ = 10000 |
-| 注意力实现 | `sdpa`（环境里没有 flash-attn；按长度分桶后不需要 varlen） |
+| layers / hidden / heads | 12 / 768 / 12 (head_dim 64) |
+| FFN | SwiGLU, intermediate 2048 |
+| vocabulary | 48 (v2: 49) |
+| max length | 512 (longest v1 sample ~290 tokens plus a random offset ≤ 128) |
+| parameters | ~85M (non-embedding) |
+| position encoding | RoPE, θ = 10000 |
+| attention | `sdpa` (no flash-attn in the env; length bucketing removes the need for varlen) |
 
-为什么选 12 层：
+Why 12 layers: every CoT step has to find in context which function to apply next (the k-th from inside in the nested
+expression) and the previous result, then apply it position by position. Depth limits how many such "locate +
+compute" hops are possible; the 4-layer v0 model hit a cliff at depth 3, possibly partly for this reason. 85M
+parameters on 4 A100s for 1 hour is ~2.6B tokens, ~1.5× the Chinchilla-optimal ~1.7B, so not badly undertrained and
+still small enough for RL.
 
-- 每个 CoT 步骤都要在上下文里找到「当前该执行哪个函数」（嵌套表达式中由内向外的第 k 个）和「上一步的结果」，然后逐位执行。层数决定了这种「定位 + 计算」能走多少跳。v0 的 4 层模型在深度 3 出现断崖，层数不够可能是原因之一。
-- 85M 在 4 张 A100 上跑 1 小时约 2.6B token，大约是 Chinchilla 最优 token 数（约 1.7B）的 1.5 倍，不至于严重欠训，也不会大到 RL 阶段跑不动。
+### Compute
 
-### 算力预算
-
-| 项 | 值 |
+| item | value |
 | --- | --- |
-| 硬件 | 每个模型 4×A100-40GB，DDP |
-| 精度 | bf16 autocast，参数和优化器状态用 fp32；逐层 `torch.compile`（整模型编译会生成 CPU kernel，需要 C++20 编译器，RHEL 8 的 g++ 8.5 不支持） |
-| 每 token FLOPs | 约 6N = 5.1×10⁸（序列短，注意力部分可以忽略） |
-| 实测吞吐 | 空闲 A100：每卡约 18.4 万 token/s（MFU 约 30%），4 卡约 74 万 token/s，每卡显存约 10–12 GB |
-| 总 token | 约 2.6B（含 prompt；约 70% 是监督 token） |
-| 全局 batch | 19.2 万监督 token/步（约 27 万 token）；每卡每个 micro-batch 1.2 万监督 token，4 卡时梯度累积 4 次 |
-| 步数 | 9,500（4 卡约 0.40 秒/步） |
-| 单模型时间 | 约 63 分钟训练 + 约 5 次贪心评测（4 卡） |
-| 4 个模型 | 8 卡分两轮，每轮并行跑 2 个 4 卡任务，约 2 小时 |
+| hardware | Perlmutter (NERSC), one node = 4×A100-40GB per model, DDP; cap 50 GPU node-hours |
+| precision | bf16 autocast, fp32 parameters and optimiser state; per-layer `torch.compile` (whole-model compile needs a C++20 compiler that RHEL 8's g++ 8.5 lacks) |
+| FLOPs per token | ~6N = 5.1×10⁸ (short sequences, attention negligible) |
+| throughput | ~184k tokens/s per GPU (~30% MFU), ~740k on 4 GPUs, ~10–12 GB memory per GPU |
+| total tokens | ~2.6B (incl. prompts; ~70% supervised) |
+| global batch | 192k supervised tokens per step (~270k tokens) |
+| steps | 9,500 (~0.40 s/step on 4 GPUs) |
+| time per model | ~70 min on one node including start-up and evaluation; full calibration ~35–50 min more |
 
-**按实测吞吐确定步数：** 上表来自空闲 GPU 上的实测。机器是共享的，正式训练前先用 `pretrain.py --bench 100` 在要用的 4 张卡上重测，它会按 `pretrain.target_minutes`（默认 60）给出步数。
+### Training details
 
-### 训练细节
+- Next-token prediction, cross-entropy, **loss on the answer only**: the `Q:...=\n` prompt gets label -100.
+- **Length bucketing instead of packing:** every 20k examples are sorted by length and cut into micro-batches of
+  ≥ 12k supervised tokens, then shuffled. Lengths within a batch are nearly equal, padding is ~10%. Padding is always
+  after real tokens, so a causal mask suffices. Every micro-batch has the same number of supervised tokens and the loss
+  is "token sum ÷ fixed budget", so every supervised token has the same weight at every level.
+- **Random position offset (P2b):** each example starts at a random position in [0, 128], so the model sees all
+  absolute positions and deeper (longer) answers do not shift the position distribution.
+- AdamW (β = 0.9, 0.95), peak lr 6e-4, 2% warmup, cosine decay to 10% of peak, weight decay 0.1, gradient clip 1.0.
+- Greedy evaluation on E1–E4 and the probe set every 2000 steps; checkpoints at 25% / 50% / 100% (P9). Early
+  checkpoints can serve as "less trained" weak models for comparison.
+- Logged per run: loss by depth and group, throughput, MFU, tokens consumed per data component.
 
-- 下一个 token 预测，交叉熵。**只在答案部分算 loss**：`Q:...=\n` 这一段的 label 设为 -100。
-- **按长度分桶（代替打包）：** 每 2 万条样本按长度排序，切成每份 ≥ 1.2 万监督 token 的 micro-batch，再打乱顺序。同一 batch 内长度几乎相同，padding 约 10%（主要来自把长度补齐到 8 的倍数）。padding 都在真实 token 之后，只用因果 mask 即可，不需要 flash-attn。每份 micro-batch 的监督 token 数相同，loss 用「token 求和 ÷ 固定预算」，所以各水平每个监督 token 的权重一致。
-- **随机位置偏移（P2b）：** 每条样本的起始 position 在 [0, 128] 中随机取。目的是让模型见过所有绝对位置，减轻深题回答变长后的位置分布偏移。v0 的深度断崖可能有一部分来自这里；试点时做开 / 关对照。
-- AdamW（β = 0.9, 0.95），峰值学习率 6e-4，预热 2%，余弦衰减到峰值的 10%，weight decay 0.1，梯度裁剪 1.0。
-- 每 1000 步在 E1–E4 和探针集上用贪心解码评测一次；在 25% / 50% / 100% 处保存 checkpoint（P9），早期 checkpoint 可以直接当作「训练更少的弱模型」做对照。
-- 每次运行记录：loss（按深度和组分开）、吞吐、MFU、各数据成分实际消耗的 token 数。
+### Streamed pretraining data
 
-### 预训练数据生成（v1 新增）
+v1 needs ~2.6B tokens, ~52M examples, so the corpus is **generated online**, never repeated, reproducible and
+leak-free (`rlvr/stream.py`, `PretrainStream`):
 
-v0 预先生成 246 万条样本存进 parquet，按 `count` 重复。v1 要约 2.6B token、约 5200 万条样本，改为**流式在线生成**，不重复，同时保证可复现、无泄漏。
+1. **Deterministic seeds:** each worker's RNG derives from `(seed, rank, worker_id)`. With the same GPU and worker
+   counts, a config always produces the same stream. No resume (a failed ~1 h run is simply rerun).
+2. **Component sampling:** each example first picks a component by token share (table below), then a depth/shape,
+   functions and inputs (length uniform in 6–10).
+3. **Rejection sampling for splits:** only problems whose `hash(pid)` falls in the pretraining pool are kept; any
+   example with a held-out pair is dropped (~10% rejected).
+4. **Eval dedup:** pids of E1–E4, the probe set and the calibration set are loaded at start-up and dropped (the RL
+   pool is already excluded by the hash split).
+5. **Online statistics:** each worker counts examples and tokens per component / depth / group / function, merged
+   into `stats.json` at the end to check the actual composition.
+6. **Noisy examples (P10):** one step's result is replaced by a random string and the later steps are recomputed.
 
-**生成器 `PretrainStream`（`IterableDataset`）：**
+**Corpus recipe (share of supervised tokens):**
 
-1. **确定性种子：** 每个 worker 的随机数生成器由 `(seed, rank, worker_id)` 派生。卡数和 worker 数相同时，同一个配置生成完全相同的样本流。暂不支持断点续训（每次训练约 1 小时，失败就重跑）。
-2. **按成分采样：** 每条样本先按下表的 token 占比选成分，再在成分内采样深度、函数组合和输入串（串长在 6–10 中均匀采样）。
-3. **拒绝采样保证划分：** 只保留 `hash(pid)` 落在预训练池里的题；凡是含有留出相邻函数对的样本都丢弃。被拒比例大约 10%，开销可以忽略。
-4. **评测去重：** 启动时加载 E1–E4、探针集和校准集的 `pid` 集合，命中的样本直接丢弃（RL 池已经由哈希划分排除）。
-5. **在线统计：** 每个 worker 累计各成分 / 深度 / 组 / 函数的样本数和 token 数，训练结束时汇总写入 `stats.json`，用来核对实际构成是否符合配置。
-6. **噪声样本（P10）：** 选中的样本把某一步的结果换成随机串，并重新算出后续步骤（与 v0 的 `corrupt` 相同）。
-
-**语料配方（按监督 token 占比）：**
-
-| 成分 | 内容 | weak | mid | strong | mid-bal |
+| component | content | weak | mid | strong | midbal |
 | --- | --- | --- | --- | --- | --- |
-| 原子题 | 深度 1，24 个函数均匀覆盖 | 补足剩余 | 补足剩余 | 补足剩余 | 补足剩余 |
-| 组合示例（带 CoT） | 深度 2 : 3 : 4 = 0.6 : 0.35 : 0.05；深度 4 只用 H 组 | `comp_frac` 低 | `comp_frac` 中 | `comp_frac` 高 | 同 mid |
-| H/L 曝光度 | 深度 2–3 的组合中，`h_ratio` 比例只用 H 组，其余至少含 1 个 L 函数 | 0.9 | 0.9 | 0.9 | **0.5** |
+| atoms | one operation; v1: 24 unary functions uniform; v2: 24 unary + 4 binary uniform | rest | rest | rest | rest |
+| chains (with CoT) | depth 2 : 3 : 4 = 0.6 : 0.35 : 0.05; depth 4 H-only | `comp_frac` × (1 − `tree_frac`) | " | " | " |
+| trees (v2, with CoT) | n_ops 2–4, n_bin 1–2 (P14); n_ops 4 H-only | `comp_frac` × `tree_frac` | " | " | " |
+| H/L exposure | of the other compositions, `h_ratio` are H-only, the rest contain at least one L function | 0.9 | 0.9 | 0.9 | **0.5** |
 
-`comp_frac` 的初始候选是 weak 0.1%、mid 1%、strong 10%（按对数间隔）。即使 0.1%，也有约 220 万监督 token、约 3 万条组合示例，已经超过 v0 strong 的「质量」。由于 v0 的 2k 条组合示例就足以让深度 2 H 组达到 p = 0.99，**最终取值必须由下面的试点扫描决定**，不能拍脑袋。
+v1 comp_frac: weak 1.25e-4, mid 3.2e-4, strong 8.3e-4, midbal 3.2e-4 (set by full-length sweeps; see
+[v1 results summary](#v1-results-summary)). v2 comp_frac must be swept again, because trees also teach composition.
 
-**这样设计配方的原因：**
+**Why this recipe:**
 
-- **深度 2–3 为主：** 解决 v0 的深度断崖。模型至少要见过「连续写 3 步」的格式，深度 3–5 才会出现 0 < p < 1 的题。
-- **少量只用 H 组的深度 4：** 这样「深度 4、H 组」的题处在模型见过但不熟的状态，p 有望落在 0.4–0.6；而「深度 2、L 组」因为 L 组曝光少，也落在中间区域。这两格正是解耦实验需要的匹配格。
-- **深度 5 不进预训练：** RL 数据中的深度 5 是「结构上超出预训练」的题，E3（深度 6–8）是彻底的分布外。
+- **Mainly depth 2–3:** fixes the v0 cliff. The model needs to have seen the format "write 3 steps in a row" before
+  depth 3–5 problems can have 0 < p < 1.
+- **A little H-only depth 4:** puts "depth 4, H" in the seen-but-not-mastered state, so p can land in 0.4–0.6, while
+  "depth 2, L" lands in the middle because L has low exposure. In v1 these were the two matched cells.
+- **No depth 5 in pretraining:** RL depth 5 is structurally beyond pretraining, and E3 (depth 6–8) is fully OOD.
 
-**必须控制的混淆：** 四个模型的训练步数、token 总数、监督 token 总数都相同；`comp_frac` 小的模型用更多原子题补足。否则「弱模型」只是训练得少，而不是组合技能少。
+**Confound control:** all four models have the same steps, total tokens and supervised tokens; a model with a smaller
+`comp_frac` gets more atoms. Otherwise "weak" would just mean "trained less", not "fewer composition skills".
 
-### 试点扫描（第 1 周，确定 comp_frac）
+### Deliverables
 
-正式训练前，用缩小版做一次扫描，代价约 20 分钟（8 卡并行）：
+1. `checkpoints/pt-{level}-s{seed}/` in `save_pretrained` format with `tokenizer.json`, `run_config.yaml`; per run
+   `stats.json`; intermediate checkpoints at 25% / 50%. Uploaded to Hugging Face with `scripts/push_hf.py`, one folder
+   per run, with the run's `calib/` files and optionally the RL-pool labels.
+2. **Calibration heatmap:** success rate per (depth 1–8 × H/L/mixed) cell (T = 1.0, 200 problems per cell, 32 samples
+   each); v2 adds the tree cells.
+3. **Gate check** (`scripts/calibrate.py`, rules in `rlvr/gate.py`). Checks in `gate.hard_checks` fail the gate and
+   lead to retraining with another `comp_frac` or `h_ratio`; the others are warnings in `gate.json`. Hard checks: the
+   first three for mid; the first two for midbal (decision 3); only the first for weak and strong, whose other checks
+   are judged against the design targets by hand.
+   - Depth-1 greedy accuracy ≥ 98%: overall as a point estimate, and per function (50 problems each) by its Wilson
+     upper bound (≤ 2 errors in 50 pass). v2: covers the binary operators too.
+   - Spread: at each of depths 2–4 (decision 2; v2: n_ops 2–4, chains and trees), ≥ 20% of calibration problems have
+     0 < p̂ < 1.
+   - Matched cells: each of the two cells chosen for D and E ([Matched cells](#matched-cells-v2)) has ≥ 300 problems
+     with p in 0.4–0.6 (from the second labelling), with enough per input length for D and E to share one length mix
+     (decision 6). v1: d2-L and d4-H, ≥ 120 per length.
+   - Composition loss not near 0: `loss_d3` ≥ 1e-3 (warning). Total loss is dominated by atoms and falls below 1e-4
+     once atom accuracy is ~99.7%; it reflects `comp_frac`, not whether the task is too easy.
+   - Design targets (warning, `gate.target`): weak d3 mean p 0.05–0.2, mid d3 0.35–0.55, strong d4 0.4–0.6.
 
-- 模型和 M 相同，单卡 400 步，约 10 分钟（约 1 亿 token，即正式预算的 4%）。
-- `comp_frac` ∈ {0.03%, 0.1%, 0.3%, 1%, 3%, 10%}，`pos_offset_max` ∈ {0, 128}，共 12 个运行。
-- 每个运行在校准集上测（深度 1–6 × H/L）的平均 p，画出「comp_frac → 各深度平均 p」的曲线。
-- 选取规则：weak 的 d3 平均 p 约 0.1，mid 的 d3 约 0.4–0.5，strong 的 d4 约 0.5，且三者在 d2–5 上都不全是 0 或 1。正式训练的 token 是试点的 25 倍，曲线会往左移，所以选点时要往小的方向留余量；必要时用 25% checkpoint 再确认一次。
+## v2 pilot
 
-### 交付物
+Goal: decide by **Sun Nov 22** whether v2 (trees) replaces v1 for the main experiments. Lessons from v1: the pilot
+runs at the full training length, and it measures the per-problem p distribution, not only cell means.
 
-1. `checkpoints/pt-{weak,mid,strong,midbal}-s{seed}/`，使用 `save_pretrained` 格式，附带 tokenizer、`run_config.yaml`、`stats.json`；另有 25% / 50% 的中间 checkpoint。
-2. **校准热力图：** 每个模型在（深度 1–8 × H/L/mixed）上的成功率（温度 1.0，每格 200 题，每题 32 次采样）。
-3. **门槛检查（`calibrate.py`，实现见 `rlvr/gate.py`）：** `gate.hard_checks` 里的检查不通过就调 `comp_frac` 或 `h_ratio` 重训，其余检查只作为警告写进 `gate.json`。mid 和 midbal 的硬性检查是前三项。weak 和 strong 不用于匹配数据集，按设计在匹配格和 spread 上就可能不达标，所以只有第一项是硬性的，其余几项结合设计目标人工判断，不要因为它们而重训。
-   - 深度 1 的贪心准确率 ≥ 98%。总体看点估计；每个函数只有 50 题，按 Wilson 上界判断，上界低于 98% 才算不通过（相当于 50 题最多错 2 题）。
-   - 深度 2–5 的成功率分散在 0–1 之间：每个深度上 0 < p̂ < 1 的题 ≥ 20%。
-   - 深度 2 L 组和深度 4 H 组中，p 在 0.4–0.6 的题各至少 300 道，并且每个串长（6–10）各至少 120 道。匹配数据集按串长分层抽样，n=500 时每个串长需要 100 道。这里的 p 用下文的二次独立标注。这是解耦实验能否进行的前提。
-   - 组合样本的训练 loss 不能接近 0：看深度 3 的 `loss_d3` ≥ 1e-3（默认只作警告）。总体 loss 主要由原子样本决定，原子正确率到 99.7% 左右就会低于 1e-4，它反映的是 `comp_frac` 的大小，而不是任务是否太容易，所以不再用它判断。
-   - 设计目标（警告）：weak 的 d3 平均 p 在 0.05–0.2，mid 的 d3 在 0.35–0.55，strong 的 d4 在 0.4–0.6（`gate.target`）。
+**Stage A: can each binary operator be learned?**
 
-## 难度标注与 RL 数据集构建（label.py, build\_dataset.py）
+- One node, atoms only (24 unary + candidate binary operators), ~2000 steps (~15 min). In v1, E1 was already .996 at
+  step 2000.
+- Pass: every binary operator ≥ 98% greedy on 50 problems (same Wilson rule as the gate). An operator that fails is
+  replaced by a backup (sub, min).
 
-每道题有两个难度标签：结构难度（深度 d、函数组）由生成器直接给出；模型相对难度（成功率 p）必须针对每个基础模型实际采样测量。
+**Stage B: do trees give enough p ≈ 0.5 problems?**
 
-### 模型相对难度 p 的计算
+- Three full-length runs (9500 steps), mid recipe with trees (`tree_frac` 0.5), at comp_frac around v1 mid (e.g.
+  2e-4 / 3.2e-4 / 5e-4), in parallel, one node each.
+- Each run: calibration over all (n_ops 1–8 × shape × group) cells and labelling of a tree candidate pool, with the
+  second labelling on the cells near 0.5.
+- Report per cell: mean p, share of problems with p in [0.4, 0.6] (v1: ≤ 12.5%), signal_frac, and the four structure
+  variables.
 
-1. 为每个基础模型从 RL 池生成约 3 万道候选题，覆盖深度 1–8、H/L/mixed，另外对两个匹配格多采样。
-2. 每题用 `generate(do_sample=True, temperature=1.0, num_return_sequences=32)` 采样，用 `reward()` 判分，得到 p̂ = 正确数 / 32。
-3. 同时记录 Wilson 95% 置信区间。K=32 时 p̂ 的标准误最大约 0.09，分箱时要考虑这个噪声。
-4. 输出 `labels/{model_id}.parquet`，列为：`pid, depth, funcs, group(H/L/mixed), str_len, n_correct, k, p_hat, ci_lo, ci_hi, model_id`；做过二次标注的题另有 `n_correct_relabel, k_relabel, p_hat_relabel, ci_lo_relabel, ci_hi_relabel`，其余为空。
-5. 代价：每个模型约 100 万次生成，85M 模型配 KV cache、batch 1024，单卡约 20–30 分钟；4 个模型在 8 卡上可以并行完成。
+**Go criterion (proposed).** For one of the stage-B runs there are two cells, a simple one for D and a complex one
+for E (E has at least two more operations than D, as in v1's 2 vs 4), each with ≥ 500 problems with relabelled p in
+[0.4, 0.6] from ≤ 10,000 candidates, after removing skippable problems and with a shared length mix. The binary
+operators also pass stage A.
 
-```python
-def label_pass_rates(model, problems, k=32, temperature=1.0, batch_size=1024) -> pd.DataFrame:
-    # 批量采样 + 判分；纯推理，torch.no_grad()
-    ...
-```
+**If no-go:** keep the v1 models and use Jay's plan: expand the v1 RL pool (d4-H to ~34,000 and d2-L to ~11,000
+candidates, ~2–2.5 node-hours of labelling), remove skippable problems and give D and E the same length mix.
 
-**二次独立标注（减小赢家诅咒）：** 只凭 32 次采样的 p̂ 挑 p≈0.5 的题，会系统性地挑中「运气好」的题。格子里多数题 p 偏低时，挑出来的题真实 p 偏低；多数题 p 偏高时则偏高。按 Beta 先验粗算，d2-L 均值 0.2、d4-H 均值 0.8 时，两组选中题的真实均值约为 0.44 和 0.56，约 40% 的题真实 p 不在 0.4–0.6。因此对 `label.relabel_cells`（d2-L、d4-H、d5-H）中首轮 p̂ 在 0.3–0.7 的题，再独立采样 64 次（`label.relabel_k`），匹配数据集（规格里 `p_label: relabel`）按第二次估计选题，串长比例仍按整个题池。同样的粗算下，两组真实均值变为约 0.47 和 0.53，区间外的比例降到约 23%。第二次估计本身仍有少量选择偏差，所以报告中同时给出两组的两次估计（`meta.json` 里的 `mean_p` 和 `mean_p_relabel`）。额外代价取决于有多少题落在 0.3–0.7，按每格 1000–2000 道估计，约为首轮标注的 20–35%。
+**Compute (node-hours):** stage A ~0.3; stage B ~6 (3 × ~2 incl. calibration and labelling); final four v2 models
+with full calibration ~8.5 (one stage-B run can become mid if it is on target). Total ~15, i.e. ~36 of 50 if nothing
+else was used after 2026-11-08. The same cap also has to cover RL (see [Risks](#risks)).
 
-**训练中的在线 p：** p 会随 RL 训练变化。不必额外采样，直接从 rollout 日志按题汇总，每一步得到该题的组内正确率，再做指数滑动平均，得到每道题的 p(t) 曲线。
+## Difficulty labels and RL datasets (`scripts/calibrate.py`, `scripts/build_dataset.py`)
 
-**为什么 p 和 G 要一起看：** 一组 G 个回答中有对有错（也就是产生梯度）的概率是
+Each problem has two difficulty labels: structural difficulty (depth or the v2 structure variables, function group),
+given by the generator, and model-relative difficulty (success rate p), measured by sampling each base model.
+
+### Computing p
+
+1. For each base model, label the RL candidate pool (`data/rl_pool/candidates.jsonl`; v1: 35,000 problems, depths 1–8 ×
+   H/L/mixed, 1,000 per cell plus 4,000 extra in each of d2-L, d4-H and d5-H).
+2. Each problem: `generate(do_sample=True, temperature=1.0, num_return_sequences=32)`, scored with `reward()`;
+   p̂ = correct / 32.
+3. Also record the Wilson 95% interval. With K = 32 the standard error of p̂ is up to ~0.09; binning has to allow for
+   this noise.
+4. Output `data/labels/{model_id}.parquet` with columns `pid, depth, funcs, group, str_len, n_correct, k, p_hat,
+   ci_lo, ci_hi, model_id` (v2 adds the structure variables); relabelled problems also have `n_correct_relabel,
+   k_relabel, p_hat_relabel, ci_lo_relabel, ci_hi_relabel`.
+5. Cost (measured in v1): ~730 sequences/s on 4 GPUs; calibration, pool labelling and relabelling take ~35–50 min per
+   model.
+
+**Second, independent labelling (against the winner's curse):** choosing p ≈ 0.5 problems from a 32-sample p̂
+systematically picks "lucky" problems: where most problems have low p, the chosen ones are truly lower, and vice
+versa. A rough Beta-prior estimate for d2-L with mean 0.2 and d4-H with mean 0.8 gives true means of ~0.44 and ~0.56
+for the chosen problems, with ~40% truly outside 0.4–0.6. So problems in `label.relabel_cells` whose first p̂ is in
+0.3–0.7 get 64 more independent samples (`label.relabel_k`), and the matched datasets (`p_label: relabel`) select on
+the second estimate. In v1, problems first selected for mid and midbal had a mean relabelled p of .47–.52, and
+55–57% stayed in range. Both estimates are reported (`mean_p` and `mean_p_relabel` in `meta.json`).
+
+**Online p during training:** p changes during RL. No extra sampling is needed: per-problem group accuracy from the
+rollout log, smoothed with an EMA, gives each problem's p(t).
+
+**Why p and G go together:** the chance that a group of G answers has both right and wrong ones (and so a gradient) is
 
 ```latex
 P_{\text{sig}}(p, G) = 1 - p^{G} - (1-p)^{G}
 ```
 
-p 很小时它约等于 G × p。所以分析时同时记录 p 和 G，不只看 p。
+For small p this is about G × p, so analyses record both p and G.
 
-### 分箱
+### Bins
 
-以 G=8 为默认，p 分为 7 个箱：`[0, 1/32)`、`[1/32, 0.2)`、`[0.2, 0.4)`、`[0.4, 0.6)`、`[0.6, 0.8)`、`[0.8, 31/32)`、`[31/32, 1]`。首尾两箱几乎不产生梯度，单独统计。
+With G = 8, p is split into 7 bins: `[0, 1/32)`, `[1/32, 0.2)`, `[0.2, 0.4)`, `[0.4, 0.6)`, `[0.6, 0.8)`,
+`[0.8, 31/32)`, `[31/32, 1]`. The two end bins give almost no gradient and are counted separately.
 
-### 数据集规格（YAML）
+### Dataset specs (YAML)
 
-每个 RL 数据集由一个规格文件定义，`build_dataset.py` 按（深度 × p 分箱 × 函数组）分层抽样，固定种子，输出 `datasets/{name}.jsonl`（每行一个 `pid`）。
+Each RL dataset is defined by a spec; `build_dataset.py` samples stratified by (depth × p bin × group) with a fixed
+seed and writes `data/datasets/{name}.jsonl` (one `pid` per line).
 
 ```yaml
 name: matched_p_deep
 model_id: pt-mid-s0
 n: 500
 seed: 0
-cells:            # 每格的占比，合计 1.0
+cells:            # share per cell, summing to 1.0
   - {depth: 4, p_bin: "0.4-0.6", group: H, frac: 1.0}
-match_covariates: [str_len]   # v1 串长可变，必须与对照组匹配
+match_covariates: [str_len]   # lengths vary, so match them to the control group
 ```
 
-### 要构建的数据集
+### Matched cells (v2)
 
-| 组 | 名称 | 规格 | 用途 |
+- **Choice of cells.** v1 used d2-L (D) and d4-H (E). In v2 the pair is chosen after the pilot among (n_ops,
+  tree_depth, n_bin, group) cells, as the pair with the largest supply of p ≈ 0.5 problems among pairs where E has at
+  least two more operations than D. tree_depth and dep_dist are reported for both. The v1 pair stays as a reference if
+  it is available.
+- **Skippable problems are excluded** (decision 6). A problem is skippable if removing any one unary node, or
+  replacing any binary node by one of its operands, gives the same answer. The share of excluded problems is reported
+  per cell (v1 RL pool: 31% of d4-H, 10.5% of d2-L).
+- **Length matching.** D and E use the same input-length mix, set by the scarcer cell, instead of a fixed 100 per
+  length. Token length is reported as a covariate, because trees are longer than chains at the same n_ops.
+
+### Datasets
+
+| group | name | spec | purpose |
 | --- | --- | --- | --- |
-| 复现 | easy\_N / mixed\_N | Easy = 深度 1–2；Mixed = 深度 1–5 均匀；N = 100 / 500 | 复现 Learning from Less |
-| 热力图 | depth\_k | 只用深度 k（k=1…5），以及均匀混合 | 主目标：难度构成 × 模型水平 |
-| A | uniform\_pool | 全 RL 池均匀采样 | 「全数据就好」的基线 |
-| B | online\_filter | 全池 + 训练时只保留当前 0\<p<1 的题 | 业界常用做法 |
-| C | learnability | 按 p(1−p) 加权采样（SFL 思路） | learnability 基线 |
-| D | matched\_p\_shallow | 深度 2、L 组、p ∈ \[0.4, 0.6\] | 解耦组 |
-| E | matched\_p\_deep | 深度 4、H 组、p ∈ \[0.4, 0.6\] | 解耦组 |
-| E′（可选） | matched\_p\_deeper | 深度 5、H 组、p ∈ \[0.4, 0.6\] | 结构上超出预训练的解耦组 |
+| replication | easy_N / mixed_N | Easy = depth 1–2; Mixed = depth 1–5 uniform; N = 100 / 500 | replicate Learning from Less |
+| heatmap | depth_k | only depth k (k = 1…5), and the uniform mix | main goal: make-up × model level |
+| A | uniform_pool | uniform over the whole RL pool | "all data is fine" baseline; also mid vs midbal (decision 3) |
+| B | online_filter | whole pool, keep only problems with 0 < p < 1 during training | common practice |
+| C | learnability | sample in proportion to p(1 − p) (SFL) | learnability baseline |
+| D | matched_p_shallow | simple cell, p ∈ [0.4, 0.6] (v1: depth 2, L) | decoupling |
+| E | matched_p_deep | complex cell, p ∈ [0.4, 0.6] (v1: depth 4, H) | decoupling |
+| F | predicted_p | whole pool weighted by p(1 − p) with p from a cheap regressor on problem features | can selection skip labelling? (from the proposal) |
+| G | curriculum | same problems as A, ordered easy → hard by p; optionally by depth | ordering by p vs by structure (from the proposal) |
+| ~~E′~~ | ~~matched_p_deeper~~ | ~~depth 5, H~~ | dropped (decision 2) |
 
-A–E 所有组的总 rollout 数相同。B 和 C 需要在训练循环里实现动态采样（见 GRPO 一节）。
+A–G all use the same total rollouts. B, C and G need dynamic sampling in the training loop.
 
-**可选干预（提示前缀）：** 把深度 4 题的前两步作为前缀给出，内容大致不变而 p 提高，作为反方向的对照。注意它改变了模型实际要完成的步数，报告里要说明。
+**Optional intervention (hint prefix):** give the first two steps of a depth-4 problem as a prefix, which raises p
+with roughly the same content, as a reverse control. It changes the number of steps the model has to do; say so in
+the report.
 
-## GRPO 实现（grpo.py）
+## GRPO (Hanzhong)
 
-GRPO 自己用 PyTorch 实现，核心约 150 行，所有变体通过配置开关控制。TRL 的 `GRPOTrainer` 只用来做一次对照，确认实现正确。
+GRPO is our own PyTorch implementation, ~150 lines at its core, with every variant behind a config switch. TRL's
+`GRPOTrainer` is used once as a cross-check. The code is developed on the v1 mid checkpoint (from Hugging Face) while
+the v2 pilot runs.
 
-### 每一步的流程
+### One step
 
-1. 从数据集采样 B 道题（B/C 组在这里做动态采样：B 只保留当前在线 p 在 (0,1) 的题，C 按 p(1−p) 加权）。
-2. 每题生成 G 个回答：左侧 padding，`do_sample=True`，温度 1.0，遇到 `<eos>` 停止。
-3. 用 `reward()` 判分，得到形状为 \[B, G\] 的奖励矩阵。
-4. 计算组内优势：减去组内均值；`adv_std_norm=True` 时再除以组内标准差加 1e-6。全对或全错的组优势为 0，记入「无信号组」。
-5. 只对回答部分的 token 计算 log 概率，问题部分和 padding 全部屏蔽。
-6. 损失 = −(优势 × log 概率)，按 `loss_agg` 做 token 平均或序列平均。`ppo_epochs=1` 时不需要重要性比率和 clip。
-7. 反向传播，梯度裁剪 1.0，AdamW 更新。
+1. Sample B problems from the dataset (B/C sample dynamically here: B keeps only problems with online p in (0, 1), C
+   weights by p(1 − p)).
+2. Generate G answers per problem: left padding, `do_sample=True`, T = 1.0, stop at `<eos>`.
+3. Score with `reward()` into a [B, G] reward matrix.
+4. Group advantages: subtract the group mean; with `adv_std_norm=True` divide by the group std + 1e-6. All-right or
+   all-wrong groups have zero advantage and are counted as "no-signal groups".
+5. Log-probs only for answer tokens; prompt and padding are masked.
+6. Loss = −(advantage × log-prob), token mean or sequence mean per `loss_agg`. With `ppo_epochs=1` no importance ratio
+   or clip is needed.
+7. Backward, gradient clip 1.0, AdamW step.
 
 ```python
 for step in range(cfg.rl.steps):
-    batch = sampler.sample(B)                         # 静态或动态采样
+    batch = sampler.sample(B)                          # static or dynamic sampling
     out = rollout(model, batch, G, cfg.rl.temperature) # tokens, masks
     r = rewards(out, batch).view(B, G)
     adv = r - r.mean(1, keepdim=True)
     if cfg.rl.adv_std_norm:
         adv = adv / (r.std(1, keepdim=True) + 1e-6)
-    logp = token_logprobs(model, out)                   # [B*G, T]，只含回答 token
+    logp = token_logprobs(model, out)                  # [B*G, T], answer tokens only
     loss = -(adv.flatten()[:, None] * logp * out.mask).sum() / out.mask.sum()
     loss.backward(); clip_grad_norm_(model.parameters(), 1.0)
     opt.step(); opt.zero_grad()
-    logger.log_step(step, batch, out, r, adv)           # 写 rollouts.jsonl 和 metrics
+    logger.log_step(step, batch, out, r, adv)          # rollouts.jsonl and metrics
 ```
 
-### 默认超参（起步值）
+### Default hyperparameters (starting values)
 
-| 参数 | 默认值 |
+| parameter | default |
 | --- | --- |
 | G | 8 |
-| 每步题数 B | 64 |
-| 学习率 | 1e-5，常数，预热 10 步 |
-| 训练步数 | 500（由总 rollout 预算决定） |
-| 最大生成长度 | 256 |
-| KL 系数 | 0 |
-| 熵奖励 | 0 |
-| 每批更新次数 | 1 |
+| prompts per step B | 64 |
+| learning rate | 1e-5, constant, 10 warmup steps |
+| training steps | 500 (set by the total rollout budget) |
+| max generation length | 256 (v2: 320) |
+| KL coefficient | 0 |
+| entropy bonus | 0 |
+| updates per batch | 1 |
 
-**RL 单次运行时间（需要在第 1 周实测）：** 每步 512 条回答、每条最多 256 token，85M 模型单卡生成约 2–4 秒，加上前向和反向，500 步约 20–30 分钟。135 次运行约 55 GPU 小时，8 卡并行约 7 小时，仍然可行。如果实测时间远超这个估计，先用 vLLM 或 HF 静态 KV cache 加速生成，再考虑缩小规模。
+**Time per RL run (to be measured):** 512 answers per step of at most 256 tokens; the 85M model needs ~2–4 s per step
+to generate on one GPU, plus forward and backward, so ~20–30 min for 500 steps. 135 runs are ~55 GPU-hours, ~14 node-
+hours. If it is much slower, speed up generation (vLLM or a static KV cache) before shrinking the plan.
 
-### 最容易出错的地方
+### Common pitfalls
 
-- `generate` 必须左侧 padding，否则 log 概率位置错位。
-- log 概率只算回答 token；问题部分算进去会让梯度方向完全错误。
-- 生成在 `<eos>` 后必须截断；没生成 `<eos>` 的回答直接判 0 分。
-- 验证时用 `reward()` 精确判分，不要复用训练时的任何辅助指标。
-- 每次运行开始前先在固定的 64 道题上评测一次，确认加载的是正确的 checkpoint。
-- 预训练用了随机位置偏移，RL 和推理的 position 从 0 开始。试点时确认两种情况下深度 1 的准确率一致（`pos_offset_max` = 0 / 128 对照）。
+- `generate` must left-pad, otherwise log-prob positions are misaligned.
+- Log-probs only on answer tokens; including the prompt points the gradient in a completely wrong direction.
+- Cut generation after `<eos>`; an answer without `<eos>` scores 0.
+- Validate with exact `reward()` scoring, never with a training-time helper metric.
+- Before each run, evaluate on a fixed set of 64 problems to confirm the right checkpoint is loaded.
+- Pretraining used a random position offset; RL and inference start positions at 0. Depth-1 accuracy is 1.000 for
+  every v1 model, so this is fine.
 
-### 正确性检查
+### Correctness checks
 
-- **冒烟测试：** 用 v0 模型跑 20 步，平均奖励应上升，日志字段完整。
-- **TRL 对照：** 同一模型、同一数据集、同样超参下，用 TRL `GRPOTrainer` 跑一次，两条奖励曲线应大致重合。
-- **过拟合测试：** 只用 8 道题训练，奖励应很快接近 1。
+- **Smoke test:** 20 steps; mean reward should rise and all log fields be present.
+- **TRL cross-check:** same model, dataset and hyperparameters with TRL `GRPOTrainer`; the two reward curves should
+  roughly agree.
+- **Overfitting test:** train on only 8 problems; reward should quickly approach 1.
 
-## 评测与日志（evaluate.py, analysis/）
+## Evaluation and logs (Jay)
 
-预训练模型和 RL 模型用同一个 `evaluate.py` 评测；所有图表由离线脚本从日志生成，画图出错时只需重画，不必重新训练。
+Pretrained and RL models use the same `rlvr/evaluate.py`; all figures come from offline scripts reading the logs, so a
+plotting bug never needs retraining.
 
-### 评测集（固定，带版本号 v2）
+### Evaluation sets (fixed and versioned; v1 sets are version v2, the tree sets will be v3)
 
-| 评测集 | 内容 | 题数 | 测什么 |
+| set | content | problems | measures |
 | --- | --- | --- | --- |
-| E1 原子 | 深度 1，24 个函数全覆盖（每个函数 50 道） | 1200 | 预训练是否合格 |
-| E2 同分布 | 深度 2–5，H/L/mixed 分开统计 | 1800 | 主要 RL 收益 |
-| E3 更深 | 深度 6–8 | 900 | 分布外泛化（H2） |
-| E4 新组合 | 含留出函数对，预训练和 RL 都没见过 | 800 | 组合泛化 |
-| 探针集 | 从不参与训练的固定题，覆盖各深度和组 | 600 | 训练中的迁移 |
+| E1 atomic | depth 1, all functions (50 each); v3 adds the binary operators | 1200 | pretraining quality |
+| E2 in-distribution | depth 2–5, H/L/mixed separately; v3 adds trees with n_ops 2–5 | 1800 | main RL gain |
+| E3 deeper | depth 6–8; v3 adds trees with n_ops 6–8 | 900 | OOD generalisation (H2) |
+| E4 new combinations | contains held-out pairs, never seen in pretraining or RL | 800 | compositional generalisation |
+| probe | fixed problems never used for training, all depths and groups | 600 | transfer during training |
 
-所有评测集按串长 6–10 分层，以便按串长报告结果。
+All sets are stratified over input lengths 6–10 so results can be reported per length.
 
-**指标：** 贪心解码准确率；pass@k（k = 1, 2, 4, 8, 16，温度 1.0，用无偏估计）；格式错误率；平均回答长度。评测每 50 步一次，探针集每 25 步一次。
+**Metrics:** greedy accuracy; pass@k (k = 1, 2, 4, 8, 16, T = 1.0, unbiased estimator); format error rate; mean answer
+length. Depth-5 accuracy is reported on its own (decision 7). **Step score** (decision 7): the number of correct steps
+before the first mistake, also divided by n_ops; on trees, steps are counted in post-order. It is the main E3 metric,
+because E3 accuracy is ~0 for every v1 model. Evaluation every 50 steps, probe every 25.
 
-### 日志格式
+### Log format
 
-每次运行一个目录 `runs/{run_name}/`，命名规则：`pt-{level}-s{seed}`（预训练）、`rl-{model}-{dataset}-G{G}-s{seed}`（RL）。
+One directory per run, `runs/{run_name}/`, named `pt-{level}-s{seed}` (pretraining) or
+`rl-{model}-{dataset}-G{G}-s{seed}` (RL).
 
-| 文件 | 每行内容 |
+| file | content per line |
 | --- | --- |
-| `run_config.yaml` | 完整配置 + git commit hash |
-| `stats.json`（预训练） | 各成分 / 深度 / 组 / 函数实际消耗的样本数和 token 数 |
-| `rollouts.jsonl` | `step, pid, depth, group, str_len, sample_idx, completion, reward, len` |
-| `metrics.jsonl` | `step, mean_reward, signal_frac, entropy, mean_len, grad_norm, kl_to_base, lr`（预训练另记 `tok_per_s, mfu`，并按深度分开记 loss） |
-| `eval.jsonl` | `step, eval_set, depth, group, greedy_acc, pass@k…, format_err` |
+| `run_config.yaml` | full config + git commit |
+| `stats.json` (pretraining) | examples and tokens actually consumed per component / depth / group / function |
+| `rollouts.jsonl` | `step, pid, depth, group, str_len, sample_idx, completion, reward, len` (v2: + structure variables) |
+| `metrics.jsonl` | `step, mean_reward, signal_frac, entropy, mean_len, grad_norm, kl_to_base, lr` (pretraining also `tok_per_s, mfu` and loss per depth) |
+| `eval.jsonl` | `step, eval_set, depth, group, greedy_acc, pass@k…, step_score, format_err` |
 
-### 离线分析脚本
+### Offline analysis
 
-1. **曲线参数化：** 对每次运行的 E2/E3 准确率随 rollout 数 C 的曲线，拟合 ScaleRL 风格的 S 形曲线，得到上限 A、效率 B 和中点 C\_mid（R0 为起点准确率）：
+1. **Curve parameterisation:** fit each run's E2/E3 accuracy against rollouts C with a ScaleRL-style sigmoid, giving
+   ceiling A, efficiency B and midpoint C_mid (R0 is the starting accuracy):
 
 ```latex
 R(C) = R_0 + \frac{A - R_0}{1 + (C_{\text{mid}} / C)^{B}}
 ```
 
-2. **单题学习速度：** 从 `rollouts.jsonl` 汇总每道题的 p(t)，拟合 logistic 曲线，得到每题的学习速度 k\_i，用于检验它是否依赖深度：
+2. **Per-problem learning speed:** from `rollouts.jsonl`, fit each problem's p(t) with a logistic curve to get its
+   learning speed k_i, and test whether it depends on depth:
 
 ```latex
 p_i(t) = \sigma\left(k_i\, t + \operatorname{logit}(p_{i,0})\right)
 ```
 
-3. **筛选回归：** 以配置变量为输入，A、B 和最终准确率为输出，拟合带交互项的线性回归或树模型，输出变量重要性排序。
-4. **预测验证：** 对新配置先用拟合好的公式预测，再训练，画「预测 vs 实际」散点图。
+3. **Screening regression:** config variables in, A, B and final accuracy out; linear regression with interactions
+   or a tree model; output a variable-importance ranking.
+4. **Prediction check:** predict new configs with the fitted formula first, then train, and plot predicted vs actual.
 
-## 实验阶段计划
+## Experiment phases and timeline
 
-实验分 5 个阶段，总计约 135 次 RL 短运行，加上 1 轮预训练试点（12 个短运行）和 4 次正式预训练（每次 4×A100 ≥ 1 小时）。
+Five phases, ~135 short RL runs in total, plus pretraining.
 
-| 阶段 | 内容 | 运行次数（约） | 进入下一阶段的条件 |
+| phase | content | runs (approx.) | condition to move on |
 | --- | --- | --- | --- |
-| P. 预训练 | 试点扫描（约 20 分钟）→ 两轮正式预训练（约 2 小时）→ 校准 + 门槛检查（约 30 分钟） | 12 + 4 | 4 个模型都通过门槛检查 |
-| 0. 噪声测量 | 默认配置跑 5 个种子 | 5 | 得到种子间标准差，作为最小可检测效应 |
-| 1. 复现 + 筛选 | 复现 Easy/Mixed × N；6–8 个 ★ 变量各取两个水平，随机或部分因子设计 | 50 | 找出影响最大、且与难度构成有交互的 2–3 个变量 |
-| 2. 主实验 + 曲线参数化 | 热力图（模型水平 × 难度构成 × 3 种子）；A–E 五组；每次运行拟合 A、B、C\_mid | 60 | A、B 的变化规律清楚，单题 p(t) 数据完整 |
-| 3. 归纳公式 | 写出候选函数形式，用留出配置比较预测误差；对 4–6 个新配置先预测再训练 | 20 | 预测与实际的误差在种子噪声范围内 |
-| 4. 其他目标（可选） | 多样性（pass@k）、迁移、训练崩溃条件、最优数据量；G = 4/8/32 对照；mid 的预训练种子 1/2；L 规模抽查 | 视时间 | — |
+| P. pretraining | v1 done; v2 pilot (stages A, B) → four v2 models → calibration + gate | 4 + 4 | four models pass the gate |
+| 0. noise | default config, 5 seeds | 5 | seed std known, used as the minimum detectable effect |
+| 1. replication + screening | Easy/Mixed × N; 6–8 ★ variables at two levels each, random or fractional design | 50 | the 2–3 variables with the largest effect and interaction with make-up |
+| 2. main experiment + curves | heatmap (model level × make-up × 3 seeds); groups A–G; A, B, C_mid per run | 60 | clear patterns in A and B, complete per-problem p(t) data |
+| 3. formulas | candidate functional forms compared on held-out configs; predict 4–6 new configs, then train | 20 | prediction error within seed noise |
+| 4. other goals (optional) | diversity (pass@k), transfer, collapse conditions, optimal data size; G = 4/8/32; mid seeds 1/2; L-size spot check | as time allows | — |
 
-**正式预训练排期（8×A100）：**
+**Schedule** (week 1 = Nov 2–8, from the proposal):
 
-| 轮次 | GPU 0–3 | GPU 4–7 |
+| week | pretraining (Yupeng) | RL (Hanzhong) | evaluation (Jay) |
+| --- | --- | --- | --- |
+| 3 (Nov 16–22) | v2 task code, v3 eval sets and tree pool, stage A, stage B; go/no-go on Sun Nov 22 | GRPO on v1 mid: smoke, TRL and overfitting checks; time one run | d5 accuracy and step score in `evaluate.py` |
+| 4 (Nov 23–29) | four v2 models (or v1 pool expansion if no-go), calibration, D/E datasets | phase 0 (noise), phase 1 | pre-RL step-level baseline on the labelling samples |
+| 5 (Nov 30–Dec 6) | mid seeds 1/2 if budget allows | phase 2 | F and G, analysis |
+| 6 (Dec 7–13) | write-up | phase 3 (reduced), write-up | write-up |
+
+**Decision rules (fixed in advance, to avoid picking conclusions afterwards):**
+
+- An effect smaller than 2× the phase-0 seed std counts as "no difference".
+- H1 holds: on E2, D (simple, p ≈ 0.5) and E (complex, p ≈ 0.5) do not differ, and B or C is not worse than the other
+  groups.
+- H2 holds: on E3 (accuracy and step score), E is significantly better than D.
+- H3 holds: when the make-up changes, B changes significantly and A does not.
+
+**Fallback result:** even without the decoupling sets, "replication of Learning from Less in the toy setting +
+heatmap of model level × make-up + A/B parameterisation" is a complete course project.
+
+## Code and roles
+
+The repo layout is in the README: library code in `rlvr/`, entry points in `scripts/` (Perlmutter jobs in
+`scripts/slurm/`), configs in `configs/`, small results in `results/`, docs in `docs/`. `runs/`, `checkpoints/` and
+`data/labels/` are on scratch and not in git; checkpoints are shared through Hugging Face.
+
+Base models are both the objects of p labelling and the initial weights for GRPO; the evaluation code serves both
+stages. Pipeline: task → streamed corpus → pretraining → calibration and gate → p labels → datasets → GRPO → evaluation
+→ analysis.
+
+| part | Yupeng (pretraining) | Hanzhong (RL and laws) | Jay (evaluation and analysis) |
+| --- | --- | --- | --- |
+| task, tokenizer, model (`rlvr/task.py`, `tokenizer.py`, `model.py`) | writes | reviews | reviews |
+| splits, log format | agreed together | agreed together | agreed together |
+| streamed corpus, DDP training, sweeps | writes | — | — |
+| calibration, gate, labelling | writes | reviews | — |
+| datasets, samplers | — | writes | — |
+| GRPO and TRL cross-check | — | writes | — |
+| evaluation sets and `evaluate.py`, step-level metrics | reviews | reviews | writes |
+| baselines F and G | — | reviews | writes |
+| analysis | pretraining part | curves and formulas | step-level and RL evaluation |
+
+**v2 code changes:** `rlvr/task.py` (tree `Problem`, sampling, formatting, `parse_steps`), `rlvr/atoms.py` (binary
+operator registry), `rlvr/tokenizer.py` (`,`, loading both vocabularies), `rlvr/splits.py` (held-out edges in trees),
+`rlvr/stream.py` (tree component), `rlvr/sets.py` and `scripts/make_eval_sets.py` (structure cells, eval v3),
+`scripts/make_rl_pool.py`, `rlvr/gate.py` and `scripts/calibrate.py` (new cells and rules), `scripts/diag_steps.py`,
+`rlvr/rewards.py` (partial reward on trees).
+
+## Risks
+
+The main risk is still that simple and complex problems do not both have enough p ≈ 0.5 problems. v0 failed on this
+(deep p ≈ 0); v1 got the levels on target but p stayed bimodal; v2 and its pilot target it directly.
+
+| risk | consequence | response |
 | --- | --- | --- |
-| 第 1 轮（约 1 小时） | pt-weak-s0 | pt-strong-s0 |
-| 第 2 轮（约 1 小时） | pt-mid-s0 | pt-midbal-s0 |
+| trees are just as bimodal as chains | v2 does not add matched problems | go criterion; fall back to v1 + pool expansion |
+| a binary operator is not learned | depth-1 gate fails | stage A; replace with a backup |
+| operator shortcuts (splice ignores half of each input, max saturates) | some steps do not matter, structure is overstated | skippable filter; report the excluded share |
+| longer sequences | slower RL generation, length confounds structure | max_new_tokens 320; report token length; match lengths |
+| v2 retraining delays RL | fewer phase-2/3 runs | RL code developed on v1 mid now; no-go fallback on Nov 22; phase 3 reduced |
+| compute cap (50 node-hours) shared with RL | not enough for everything | v2 ~15 node-hours, RL ~14 at the design estimate; reuse a stage-B run as mid; check NERSC_LOG before each submission |
+| all levels share seed 0's data luck | levels are paired, not independent | mid seeds 1/2 (P11); interpret level comparisons as paired |
+| deeper problems stay at 0 after RL | H2 untestable on accuracy | step score on E3 (decision 7) |
+| the 85M model solves every depth | no medium difficulty | smaller comp_frac; 25% checkpoint |
+| some functions unlearnable | depth-1 gate fails | replace the function |
+| seed noise too large | effects indistinguishable | more seeds; per-problem statistics |
+| deeper answers are longer, lengths differ | structure and token count confounded | report length-normalised results once; match lengths in datasets |
+| toy results do not generalise | the report is questioned | discuss in limitations; if time allows, spot-check one result on Qwen2.5-0.5B with the same task |
 
-先跑 weak 和 strong 两端，第 1 轮结束后立刻校准。如果两端没有拉开差距，在第 2 轮开始前调整 mid 的 `comp_frac`，不浪费第 2 轮的算力。
+### Open items
 
-**判读规则（事先写好，避免事后挑结论）：**
-
-- 效应小于阶段 0 测得的种子标准差的 2 倍，一律视为「无差异」。
-- H1 成立：在 E2 上，D 组（浅、p≈0.5）与 E 组（深、p≈0.5）无差异，且 B 或 C 组不差于其他组。
-- H2 成立：在 E3 上，E 组显著好于 D 组。
-- H3 成立：难度构成改变时，B 的变化显著而 A 的变化不显著。
-
-**保底结果：** 即使解耦组没做出来，「玩具设定下复现 Learning from Less + 模型水平 × 难度构成的热力图 + A/B 参数化」也足以构成完整的课程项目。
-
-## 代码仓库结构、分工与时间线
-
-队友负责预训练，你负责后训练；两人共用 `common/` 下的接口，第 1 周冻结后不再随意修改。
-
-&#91;embedded content: 实验流水线 · 预训练 4 步，后训练与分析 5 步\]
-
-基础模型既是成功率标注的对象，也是 GRPO 的初始权重；评测脚本同时用于两个阶段。
-
-```text
-rlvr-difficulty/
-├── common/
-│   ├── task.py          # 题目生成、格式化、解析、判分（队友写，你审）
-│   ├── tokenizer.py     # 字符级分词器（第 1 周冻结）
-│   ├── splits.py        # 按 pid 哈希划分预训练 / RL / 评测池
-│   ├── model.py         # load_model(), generate()（队友写）
-│   └── logging.py       # JSONL 日志格式（一起定）
-├── pretrain/            # v1 实际位置：rlvr/stream.py 与 scripts/ 下的脚本
-│   ├── stream.py        # Mixture + PretrainStream：成分采样、拒绝采样、按长度分桶、随机位置偏移
-│   ├── preview.py       # 语料预览与全量投影（scripts/preview_stream.py）
-│   ├── pretrain.py      # DDP（torchrun --nproc_per_node=4）、bf16、逐层 compile、--bench
-│   └── sweep.py         # comp_frac × pos_offset_max 试点扫描与选点
-├── rl/
-│   ├── label.py         # 成功率标注
-│   ├── build_dataset.py # 按 YAML 规格分层抽样
-│   ├── sampler.py       # 静态 / 在线过滤 / learnability 采样
-│   └── grpo.py
-├── eval/
-│   ├── eval_sets.py     # 生成并冻结 E1–E4 和探针集（v2）
-│   └── evaluate.py      # 两个阶段共用（你写，队友审）
-├── analysis/            # 曲线拟合、回归、所有画图脚本
-├── configs/             # 所有实验的 YAML 配置
-└── runs/                # 日志与 checkpoint（不进 git）
-```
-
-### 分工
-
-| 模块 | 队友（预训练） | 你（后训练） |
-| --- | --- | --- |
-| `common/task.py`、`tokenizer.py`、`model.py` | 主写 | 审核 |
-| `common/splits.py`、`logging.py` | 一起定 | 一起定 |
-| 流式生成器、分桶、DDP 训练 | 主写 | 审核 |
-| 试点扫描、校准热力图、门槛检查 | 主写 | 审核 |
-| `eval/` | 审核 | 主写 |
-| 成功率标注、数据集构建、采样器 | — | 主写 |
-| GRPO 与 TRL 对照 | — | 主写 |
-| `analysis/` | 预训练部分 | RL 部分 |
-
-### 时间线（以周计）
-
-1. **第 1 周：** 队友把任务扩展到 v1（24 个函数、a–z、串长 6–10、深度 1–8），写好流式生成器、分桶和 DDP，测吞吐并完成试点扫描；你在 v0 模型上跑通 GRPO 并计时，同时生成 v2 评测集。周末冻结 `common/` 接口。
-2. **第 2 周：** 两轮正式预训练（约 2 小时）+ 校准；你完成标注、数据集构建器和评测脚本。**门槛检查**不通过就调整 `comp_frac` / `h_ratio`，重训代价是每个模型 1 小时。
-3. **第 3 周：** 阶段 0（噪声）和阶段 1（复现 + 筛选）。
-4. **第 4 周：** 阶段 2（热力图、A–E 五组、曲线参数化）。
-5. **第 5 周：** 阶段 3（归纳公式、先预测后验证）；时间够做阶段 4。
-6. **第 6 周：** 写报告和展示。
-
-## 风险与待定事项
-
-最大的风险是解耦实验所需的「浅题和深题都有足够多 p≈0.5 的题」做不出来。v0 已经在这一点上失败了（深题 p≈0），v1 的配方和试点扫描就是针对它设计的；第 2 周的门槛检查继续盯这一点。
-
-| 风险 | 后果 | 应对 |
-| --- | --- | --- |
-| 85M 模型 + 2.6B token 把所有深度都解掉（p 全接近 1） | 没有中间难度的题 | 试点扫描往小的 `comp_frac` 方向扩展；改用 25% checkpoint；新增函数提高单步难度 |
-| 深度断崖仍然存在（d4 以上 p≈0） | 深题匹配格做不出来 | 提高深度 4（H 组）的占比；打开随机位置偏移；放宽到 p ∈ \[0.3, 0.7\] |
-| 共享机器上吞吐达不到实测值 | 1 小时训不完 2.6B token | 先排查数据加载和 padding；按实测吞吐把步数定为 ≥ 1 小时，接受较少的 token |
-| 单次 RL 运行远超 30 分钟 | 135 次运行做不完 | 用 vLLM / 静态 KV cache 加速生成；缩小 B 或总步数；减少筛选阶段的变量数 |
-| 某些原子函数学不会 | 深度 1 不合格 | 第 1 周替换该函数 |
-| 种子噪声太大 | 效应无法区分 | 增加种子；以题目为单位统计，提高样本量 |
-| 深题回答更长、串长不同 | 结构难度和 token 数混在一起 | 按 token 数归一化报告一次；数据集按串长匹配 |
-| 玩具结论不能推广 | 报告受质疑 | 局限性中说明；时间够用 Qwen2.5-0.5B 在同一任务上抽查一个结论 |
-
-### 待定事项
-
-- [x] 确认 GPU 资源：8×A100-40GB
-- [ ] 第 1 周试点后确定 `comp_frac` 三个水平、`pos_offset_max`、24 个函数的最终版本
-- [x] 实测吞吐：空闲 A100 每卡约 18.4 万 token/s，默认 9,500 步（4 卡约 63 分钟）；正式训练前用 `--bench` 再测一次
-- [ ] 确定第 4 个基础模型：默认 mid-bal（h_ratio 0.5）；备选 strong-d4（P5，深度 4 占比更高）
-- [ ] 确定 RL 的总 rollout 预算（决定每次运行的步数）
-- [ ] 再做一次文献检索，确认解耦问题无人做过
-- [ ] 和 Sofija（老师选择）或 Omar（环境分配）讨论是否合并
+- [x] GPUs: Perlmutter, 4×A100-40GB per node, 50 node-hours
+- [x] Throughput measured: ~184k tokens/s per A100; 9,500 steps per model
+- [x] v1 comp_frac levels, pos_offset_max 128, 24 unary functions
+- [x] Fourth base model: midbal (h_ratio 0.5)
+- [x] Spread depths, midbal matched cells, strong comp_frac (decisions 2–4)
+- [ ] Upload the v1 checkpoints to Hugging Face and put the repo name in [Status](#status-2026-11-16)
+- [ ] v2: final binary operators (stage A)
+- [ ] v2: `tree_frac`, shape mix and comp_frac levels (stage B)
+- [ ] v2 go/no-go (Sun Nov 22) and the D/E cell pair
+- [ ] RL role of midbal (proposed: mid vs midbal on A)
+- [ ] Total RL rollout budget (sets the steps per run)
+- [ ] Repeat the literature search to confirm nobody has done the decoupling
