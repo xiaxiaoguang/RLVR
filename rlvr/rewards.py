@@ -22,9 +22,10 @@ def partial():
     def fn(task, text, p):
         if EOS not in text:
             return 0.0
+        n_steps = len(p.steps)
         got = task.parse_steps(text)
         ans = task.parse_answer(text)
         if ans is not None:
-            got = got[:p.depth - 1] + [ans] if p.depth > 1 else [ans]
-        return sum(g == s for g, s in zip(got, p.steps)) / p.depth
+            got = got[:n_steps - 1] + [ans] if n_steps > 1 else [ans]
+        return sum(g == s for g, s in zip(got, p.steps)) / n_steps
     return fn

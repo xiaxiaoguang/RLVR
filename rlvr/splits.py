@@ -49,10 +49,13 @@ class Splits:
     def has_heldout_pair(self, funcs: Sequence[int]) -> bool:
         return any((funcs[i], funcs[i + 1]) in self.heldout_pairs for i in range(len(funcs) - 1))
 
+    def has_heldout(self, p):
+        return self.has_heldout_pair(p.funcs)
+
     def admissible(self, p: Problem, pool: str, novel: bool = False) -> bool:
         """novel=False: in the pool and free of held-out pairs.
         novel=True: in the pool and containing at least one held-out pair."""
-        return self.pool_of(p.pid) == pool and self.has_heldout_pair(p.funcs) == novel
+        return self.pool_of(p.pid) == pool and self.has_heldout(p) == novel
 
     def sample(self, pool: str, depth: int, rng: random.Random, group: str | None = None,
                novel: bool = False, exclude: set | None = None, max_tries: int = 100_000,

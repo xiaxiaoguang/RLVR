@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from rlvr.config import load_config, resolve, task_and_splits  # noqa: E402
-from rlvr.io import problems_to_rows, write_jsonl  # noqa: E402
+from rlvr.io import check_task_directory, problems_to_rows, write_jsonl  # noqa: E402
 from rlvr.sets import stratified_set  # noqa: E402
 
 
@@ -24,6 +24,7 @@ def main():
     args = ap.parse_args()
     cfg = load_config(args.config, args.overrides)
     task, splits = task_and_splits(cfg)
+    check_task_directory(task, resolve(cfg["paths"]["data"]))
     rcfg = cfg["rl_pool"]
     rng = random.Random(rcfg["seed"])
     seen: set = set()
@@ -36,7 +37,7 @@ def main():
                                                       extra["n"], rng, seen), origin="extra")
     out = resolve(cfg["paths"]["data"]) / "rl_pool"
     n = write_jsonl(out / "candidates.jsonl", rows)
-    (out / "manifest.json").write_text(json.dumps({"n": n, **rcfg}, indent=1))
+    (out / "manifest.json").write_text(json.dumps({"n": n, "task_fingerprint": getattr(task, "fingerprint", None), **rcfg}, indent=1))
     print(f"{n} candidates -> {out / 'candidates.jsonl'}")
 
 

@@ -27,9 +27,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import yaml  # noqa: E402
 
 from rlvr.config import load_config, resolve, task_and_splits  # noqa: E402
-from rlvr.io import write_jsonl  # noqa: E402
+from rlvr.io import check_task_directory, write_jsonl  # noqa: E402
 from rlvr.stream import Mixture  # noqa: E402
-from rlvr.tokenizer import CharTokenizer  # noqa: E402
 
 
 def main():
@@ -40,7 +39,8 @@ def main():
     args = ap.parse_args()
     cfg = load_config(args.config, args.overrides)
     task, splits = task_and_splits(cfg)
-    tok = CharTokenizer(task.alphabet)
+    check_task_directory(task, resolve(cfg["paths"]["data"]))
+    tok = task.tokenizer()
     pc, seed = cfg["pretrain"], cfg["seed"]
     run_name = f"pt-{pc['level']}-s{seed}"
     out = resolve(cfg["paths"]["data"]) / "pretrain" / run_name
@@ -48,9 +48,11 @@ def main():
     rng = random.Random(f"{seed}-preview")
 
     rows, tgt, tot = [], Counter(), Counter()
-    funcs = Counter()
+    funcs, structures = Counter(), Counter()
     for _ in range(args.n):
         kind, p, steps = mix.sample(rng)
+        if hasattr(p, "n_ops"):
+            structures[f"d{p.depth}|ops{p.n_ops}|b{p.n_binary}|t{p.n_ternary}|{p.shape_id}"] += 1
         n_tgt = len(tok.encode(mix.target(p, steps)))
         n_tot = n_tgt + len(tok.encode(task.format_prompt(p), add_bos=True))
         rows.append({**p.to_dict(), "kind": kind, "noisy": steps is not None})
@@ -72,6 +74,8 @@ def main():
         "target_over_total": tgt["all"] / tot["all"],
         "full_run": {"steps": pc["steps"], "target_tokens": full_tgt, "tokens": round(tot["all"] * scale),
                      "examples": round(args.n * scale), "comp_examples": round(kinds["comp"] * scale)},
+        "structures": dict(structures),
+        "task_fingerprint": getattr(task, "fingerprint", None),
         "comp_func_exposure": dict(sorted(funcs.items())),
         "rejects_per_example": {k: v / args.n for k, v in mix.rejects.items()},
     }

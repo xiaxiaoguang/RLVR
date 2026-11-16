@@ -32,15 +32,21 @@ def greedy_eval(model, tok, task: Task, sets: dict[str, Sequence[Problem]], step
     for name, probs in sets.items():
         outs = generate(model, tok, [task.format_prompt(p) for p in probs], max_new_tokens,
                         temperature=0.0, batch_size=batch_size)
-        cells, funcs = defaultdict(list), defaultdict(list)
+        cells, funcs, structures = defaultdict(list), defaultdict(list), defaultdict(list)
         for p, o in zip(probs, outs):
             rec = (task.reward(o, p), task.parse_answer(o) is None, len(tok.encode(o)))
             cells[(p.depth, p.group)].append(rec)
+            if hasattr(p, "n_ops"):
+                structures[(p.depth, p.n_ops, p.n_binary, p.n_ternary)].append(rec)
             cells[("all", "all")].append(rec)
             if p.depth == 1:
                 funcs[p.funcs[0]].append(rec)
         for (d, g), recs in sorted(cells.items(), key=lambda kv: str(kv[0])):
             rows.append(_summarise(step, name, {"depth": d, "group": g}, recs))
+        for (depth, n_ops, n_binary, n_ternary), recs in sorted(structures.items()):
+            rows.append(_summarise(step, name, {"depth": depth, "group": "all", "n_ops": n_ops,
+                                                "n_binary": n_binary, "n_ternary": n_ternary,
+                                                "aggregation": "structure"}, recs))
         if name == "E1":
             for f, recs in sorted(funcs.items()):
                 key = {"depth": 1, "group": "H" if f in task.H else "L",
@@ -61,7 +67,9 @@ def label_pass_rates(model, tok, task: Task, problems: Sequence[Problem], k: int
     for i, p in enumerate(problems):
         n = int(sum(task.reward(o, p) for o in outs[i * k:(i + 1) * k]))
         lo, hi = wilson(n, k)
-        rows.append({"pid": p.pid, "depth": p.depth, "funcs": list(p.funcs), "group": p.group,
+        structural = {key: getattr(p, key) for key in ("n_ops", "n_binary", "n_ternary", "shape_id",
+                       "max_live_values", "task_fingerprint") if hasattr(p, key)}
+        rows.append({**structural, "pid": p.pid, "depth": p.depth, "funcs": list(p.funcs), "group": p.group,
                      "str_len": len(p.x), "n_correct": n, "k": k, "p_hat": n / k,
                      "ci_lo": lo, "ci_hi": hi, "model_id": model_id})
     df = pd.DataFrame(rows)

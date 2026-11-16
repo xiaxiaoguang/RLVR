@@ -1,0 +1,2 @@
+base: ../../tasks/tree_v1.yaml
+# Sweep pretrain.comp_frac=0 / 0.001 / 0.01 / 0.1 before selecting full runs.

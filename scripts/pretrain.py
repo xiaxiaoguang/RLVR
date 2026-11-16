@@ -27,7 +27,6 @@ import datetime
 import json
 import math
 import os
-import subprocess
 import sys
 import time
 from collections import Counter
@@ -42,25 +41,15 @@ import torch.nn.functional as F  # noqa: E402
 import yaml  # noqa: E402
 from torch.nn.parallel import DistributedDataParallel as DDP  # noqa: E402
 
-from rlvr.config import ROOT, load_config, resolve  # noqa: E402
+from rlvr.config import git_commit, load_config, resolve  # noqa: E402
 from rlvr.evaluate import greedy_eval  # noqa: E402
 from rlvr.io import load_problems, read_jsonl  # noqa: E402
 from rlvr.model import build_model, n_params, save_model  # noqa: E402
 from rlvr.stream import GROUP_IDS, KINDS, REJECT_KINDS, PretrainStream  # noqa: E402
-from rlvr.task import Task  # noqa: E402
-from rlvr.tokenizer import IGNORE_INDEX, CharTokenizer  # noqa: E402
+from rlvr.task import make_task  # noqa: E402
+from rlvr.tokenizer import IGNORE_INDEX  # noqa: E402
 
 A100_BF16_FLOPS = 312e12
-
-
-def git_commit() -> str:
-    try:
-        sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-        dirty = subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=no"],
-                                        cwd=ROOT, text=True).strip()
-        return sha + ("-dirty" if dirty else "")
-    except Exception:
-        return "unknown"
 
 
 def lr_lambda(warmup: int, total: int, min_frac: float):
@@ -89,6 +78,7 @@ class Stats:
         self.examples, self.target_tokens = Counter(), Counter()
         self.func_counts = torch.zeros(n_funcs, dtype=torch.long)
         self.rejects = torch.zeros(len(REJECT_KINDS), dtype=torch.long)
+        self.structure = Counter()
         self.noisy = 0
         self.tokens = self.padded_tokens = 0
 
@@ -98,6 +88,9 @@ class Stats:
             key = f"{KINDS[k]}|d{d}|{groups[g]}"
             self.examples[key] += 1
             self.target_tokens[key] += n
+        for key in zip(b["depth"].tolist(), b["n_ops"].tolist(),
+                       b["n_binary"].tolist(), b["n_ternary"].tolist()):
+            self.structure["|".join(map(str, key))] += 1
         self.func_counts += b["func_counts"]
         self.rejects += b["rejects"]
         self.noisy += int(b["noisy"].sum())
@@ -105,10 +98,11 @@ class Stats:
         self.padded_tokens += b["input_ids"].numel()
 
     def merge(self, others: list["Stats"]) -> dict:
-        ex, tt = Counter(), Counter()
+        ex, tt, structure = Counter(), Counter(), Counter()
         funcs, rej = torch.zeros_like(self.func_counts), torch.zeros_like(self.rejects)
         noisy = tokens = padded = 0
         for s in others:
+            structure.update(s.structure)
             ex.update(s.examples)
             tt.update(s.target_tokens)
             funcs += s.func_counts
@@ -127,6 +121,7 @@ class Stats:
             out[f"by_{name}"] = {k: {"examples": agg_ex[k], "target_tokens": agg_tt[k],
                                      "target_token_frac": agg_tt[k] / max(1, total_tgt)} for k in sorted(agg_ex)}
         out["by_cell"] = {k: {"examples": ex[k], "target_tokens": tt[k]} for k in sorted(tt)}
+        out["by_structure_depth_ops_binary_ternary"] = dict(structure)
         out["comp_func_exposure"] = funcs.tolist()
         return out
 
@@ -173,8 +168,10 @@ def main():
     accum = max(1, round(pc["target_tokens_per_step"] / (pc["micro_target_tokens"] * world)))
     steps = args.bench or pc["steps"]
     torch.manual_seed(seed)
-    task = Task(cfg["task"])
-    tok = CharTokenizer(task.alphabet)
+    task = make_task(cfg["task"])
+    if hasattr(task, "validate_lengths"):
+        task.validate_lengths(cfg)
+    tok = task.tokenizer()
     raw = build_model(cfg["model"], tok).to(device)
     n_nonemb = n_params(raw, embeddings=False)
     if pc["compile"]:
@@ -192,7 +189,10 @@ def main():
               f"world {world}, accum {accum}, ~{accum * world * pc['micro_target_tokens'] / 1e3:.0f}k "
               f"supervised tokens/step, {steps} steps", flush=True)
 
-    eval_pids = frozenset(r["pid"] for f in sorted(eval_dir.glob("*.jsonl")) for r in read_jsonl(f))
+    eval_rows = [r for f in sorted(eval_dir.glob("*.jsonl")) for r in read_jsonl(f)]
+    for row in eval_rows:
+        task.from_dict(row)  # reject mismatched tree fingerprints before training
+    eval_pids = frozenset(r["pid"] for r in eval_rows)
     loader = torch.utils.data.DataLoader(
         PretrainStream(cfg, rank, eval_pids), batch_size=None, num_workers=pc["num_workers"],
         pin_memory=True, persistent_workers=pc["num_workers"] > 0,

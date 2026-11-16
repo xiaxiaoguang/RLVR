@@ -37,10 +37,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from rlvr.config import load_config, load_yaml, resolve  # noqa: E402
+from rlvr.config import load_config, load_yaml, resolve, task_and_splits  # noqa: E402
 from rlvr.difficulty import WEIGHTS, in_p_range, p_bin  # noqa: E402
 from rlvr.gate import RELABEL_COLS  # noqa: E402
-from rlvr.io import load_frame, write_jsonl  # noqa: E402
+from rlvr.io import combination_keys, load_frame, write_jsonl  # noqa: E402
 
 
 class SpecError(RuntimeError):
@@ -49,7 +49,7 @@ class SpecError(RuntimeError):
 
 SPEC_KEYS = {"name", "n", "seed", "model_id", "cells", "match_covariates", "n_unique_combos",
              "weight", "sampler", "pool_origin", "p_label"}
-CELL_KEYS = {"frac", "depth", "group", "p_bin", "p_range"}
+CELL_KEYS = {"frac", "depth", "group", "p_bin", "p_range", "n_ops", "n_binary", "n_ternary", "shape_id", "max_live_values"}
 LABEL_COLS = ["pid", "p_hat", "n_correct", "k", "ci_lo", "ci_hi"]
 P_LABELS = {"first": "p_hat", "relabel": "p_hat_relabel"}
 
@@ -94,6 +94,11 @@ def allocate(n: int, fracs: list[float]) -> list[int]:
 
 def cell_mask(df: pd.DataFrame, cell: dict, p_col: str = "p_hat") -> np.ndarray:
     m = np.ones(len(df), dtype=bool)
+    for key in ("n_ops", "n_binary", "n_ternary", "shape_id", "max_live_values"):
+        if key in cell:
+            if key not in df:
+                raise SpecError(f"pool has no structural field {key}")
+            m &= df[key].isin(_as_list(cell[key])).to_numpy()
     if "depth" in cell:
         m &= df.depth.isin(_as_list(cell["depth"])).to_numpy()
     if "group" in cell:
@@ -149,7 +154,7 @@ def build(spec: dict, pool: pd.DataFrame, labels: pd.DataFrame | None) -> pd.Dat
         sub = df[cell_mask(df, cell, p_col) & eligible]
         if spec.get("n_unique_combos"):
             n_combo = max(1, round(spec["n_unique_combos"] * cell["frac"]))
-            combos = sub.funcs.map(tuple)
+            combos = combination_keys(sub)
             uniq = combos.drop_duplicates().to_numpy()
             if len(uniq) < n_combo:
                 raise SpecError(f"cell {ci}: only {len(uniq)} combos < {n_combo}")
@@ -188,7 +193,7 @@ def summarize(out: pd.DataFrame) -> dict:
          "by_depth": {int(k): int(v) for k, v in out.depth.value_counts().sort_index().items()},
          "by_group": {k: int(v) for k, v in out.group.value_counts().items()},
          "by_str_len": {int(k): int(v) for k, v in out.str_len.value_counts().sort_index().items()},
-         "unique_combos": int(out.funcs.map(tuple).nunique())}
+         "unique_combos": int(combination_keys(out).nunique())}
     if "p_hat" in out:
         s["by_p_bin"] = out.p_hat.map(p_bin).value_counts().to_dict()
         s["mean_p"] = float(out.p_hat.mean())
@@ -211,6 +216,9 @@ def main():
     base = load_config(args.config)
     data = resolve(base["paths"]["data"])
     pool = load_frame(args.pool or data / "rl_pool" / "candidates.jsonl")
+    task, _ = task_and_splits(base)
+    for row in pool.to_dict("records"):
+        task.from_dict(row)
     labels_dir = Path(args.labels_dir) if args.labels_dir else data / "labels"
 
     failed = []

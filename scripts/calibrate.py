@@ -57,17 +57,8 @@ from rlvr import gate as G  # noqa: E402
 from rlvr.config import load_config, resolve  # noqa: E402
 from rlvr.evaluate import greedy_eval, label_pass_rates  # noqa: E402
 from rlvr.io import load_problems, read_jsonl  # noqa: E402
-from rlvr.model import load_model  # noqa: E402
-from rlvr.task import GROUPS, Task  # noqa: E402
-
-
-def ids_for(ckpt: Path) -> tuple[str, str, int | None]:
-    """(model_id, run_name, step): checkpoints/pt-mid-s0 -> (pt-mid-s0, pt-mid-s0, None);
-    runs/pt-mid-s0/ckpt/step-3000 -> (pt-mid-s0-step-3000, pt-mid-s0, 3000)."""
-    if ckpt.parent.name == "ckpt":
-        run = ckpt.parent.parent.name
-        return f"{run}-{ckpt.name}", run, int(ckpt.name.split("-")[-1])
-    return ckpt.name, ckpt.name, None
+from rlvr.model import checkpoint_ids as ids_for, load_model  # noqa: E402
+from rlvr.task import GROUPS, make_task  # noqa: E402
 
 
 def heatmap(df: pd.DataFrame, title: str, path: Path) -> None:
@@ -128,7 +119,7 @@ def main():
     cfg = load_config(ckpt / "run_config.yaml", args.overrides)
     lc, gc, ec = cfg["label"], cfg["gate"], cfg["eval"]
     G.check_config(gc, lc)
-    task = Task(cfg["task"])
+    task = make_task(cfg["task"])
     torch.manual_seed(1000 * cfg["seed"] + rank)  # independent sampling per rank
     model, tok = load_model(ckpt, device)
     data = resolve(cfg["paths"]["data"])

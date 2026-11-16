@@ -51,7 +51,6 @@ class Task:
 
     def __init__(self, cfg: dict | None = None):
         """cfg: the `task` section of a resolved config (defaults: rlvr.params)."""
-        from .atoms import ATOMS
         from .params import PARAMS_DEFAULTS
         cfg = {**PARAMS_DEFAULTS["task"], **(cfg or {})}
         self.cfg = cfg
@@ -73,7 +72,7 @@ class Task:
         self.id2name: list[str] = [labels[perm[k]] for k in range(len(labels))]
         self.name2id = {n: k for k, n in enumerate(self.id2name)}
         self.specs = [specs[n] for n in self.id2name]
-        self._fns = [ATOMS.build(sp) for sp in self.specs]
+        self._fns = self._build_functions()
         self.n_funcs = len(labels)
         unknown = set(cfg["h_group"]) - set(labels)
         assert not unknown, f"h_group labels not in task.functions: {unknown}"
@@ -86,6 +85,14 @@ class Task:
         self._ans_re = re.compile(rf"(?:^|\n)A:([{ab}]+)$")
         self._step_re = re.compile(rf"F\d\d\([{ab}]*\)=([{ab}]*);")
         self._reward_cache: dict = {}
+
+    def _build_functions(self):
+        from .atoms import ATOMS
+        return [ATOMS.build(sp) for sp in self.specs]
+
+    def tokenizer(self):
+        from .tokenizer import CharTokenizer
+        return CharTokenizer(self.alphabet)
 
     def _check_length_preserving(self):
         rng = random.Random(0)
@@ -122,6 +129,8 @@ class Task:
                        steps[-1], self.group_of(funcs))
 
     def from_dict(self, d: dict) -> Problem:
+        if "expr" in d or d.get("schema_version", "chain-v1") != "chain-v1":
+            raise ValueError("tree data requires the matching tree task config")
         return self.make_problem(d["funcs"], d["x"])
 
     # ---- sampling --------------------------------------------------------
@@ -216,3 +225,14 @@ class Task:
         return [{"id": k, "name": self.fname(k), "function": self.id2name[k],
                  "spec": self.specs[k], "group": "H" if self._is_h[k] else "L"}
                 for k in range(self.n_funcs)]
+
+
+def make_task(cfg: dict | None = None) -> Task:
+    """Version-aware factory; Task remains the legacy chain implementation."""
+    kind = (cfg or {}).get("kind", "chain")
+    if kind == "tree":
+        from .tree_task import TreeTask
+        return TreeTask(cfg)
+    if kind != "chain":
+        raise ValueError(f"unknown task kind: {kind}")
+    return Task(cfg)

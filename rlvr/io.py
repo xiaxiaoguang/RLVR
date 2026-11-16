@@ -39,3 +39,28 @@ def load_frame(path: str | Path) -> pd.DataFrame:
     if path.suffix == ".parquet":
         return pd.read_parquet(path)
     return pd.DataFrame(read_jsonl(path))
+
+
+def combination_keys(frame: pd.DataFrame) -> pd.Series:
+    """Operator composition identity, including tree topology but excluding leaf values."""
+    if "shape_id" in frame:
+        return pd.Series(list(zip(frame.shape_id, frame.funcs.map(tuple))), index=frame.index)
+    return frame.funcs.map(tuple)
+
+
+def check_task_directory(task: Task, data: str | Path) -> None:
+    """Refuse to mix a different task with metadata already in a data root."""
+    import yaml
+    from .task import make_task
+    path = Path(data) / "meta" / "task_config.yaml"
+    if not path.exists():
+        return
+    fingerprint_file = path.parent / "task_fingerprint.json"
+    if fingerprint_file.exists():
+        expected = json.loads(fingerprint_file.read_text())["task_fingerprint"]
+        if expected != getattr(task, "fingerprint", None):
+            raise ValueError("data directory task fingerprint changed; select a new paths.data namespace")
+    old = make_task(yaml.safe_load(path.read_text())["task"])
+    if (getattr(old, "fingerprint", "chain-v1") != getattr(task, "fingerprint", "chain-v1")
+            or old.describe() != task.describe() or old.tokenizer().vocab != task.tokenizer().vocab):
+        raise ValueError("data directory contains a different task; select a new paths.data namespace")

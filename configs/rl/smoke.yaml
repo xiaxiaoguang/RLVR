@@ -1,0 +1,10 @@
+# Quick end-to-end check of the RL pipeline (~3 min on one A100): 20 steps, small evals.
+#   python scripts/grpo.py --config configs/rl/smoke.yaml --base checkpoints/pt-weak-s0 --dataset mixed_500
+rl:
+  steps: 20
+  eval_every: 10
+  probe_every: 10
+  eval_sets: [E2]
+  kl_every: 5
+  save_final: false
+  tag: smoke

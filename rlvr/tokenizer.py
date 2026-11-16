@@ -14,10 +14,12 @@ IGNORE_INDEX = -100
 
 
 class CharTokenizer:
-    def __init__(self, alphabet: str = "abcdefghijklmnopqrstuvwxyz"):
+    def __init__(self, alphabet: str = "abcdefghijklmnopqrstuvwxyz", extra_chars: str = ""):
         chars = list(alphabet) + ["F"] + list("0123456789") + list("()=;:") + ["Q", "A", "\n"]
+        chars += list(extra_chars)
         assert len(set(chars)) == len(chars), "alphabet clashes with syntax chars"
         self.alphabet = alphabet
+        self.extra_chars = extra_chars
         self.vocab: list[str] = SPECIALS + chars
         self.tok2id = {t: i for i, t in enumerate(self.vocab)}
         self.pad_id, self.bos_id, self.eos_id = 0, 1, 2
@@ -46,11 +48,11 @@ class CharTokenizer:
         return p + t, [IGNORE_INDEX] * len(p) + t
 
     def save(self, path: str | Path) -> None:
-        Path(path).write_text(json.dumps({"alphabet": self.alphabet, "vocab": self.vocab}, indent=1))
+        Path(path).write_text(json.dumps({"alphabet": self.alphabet, "vocab": self.vocab, "extra_chars": self.extra_chars}, indent=1))
 
     @classmethod
     def load(cls, path: str | Path) -> "CharTokenizer":
         d = json.loads(Path(path).read_text())
-        tok = cls(d["alphabet"])
+        tok = cls(d["alphabet"], d.get("extra_chars", ""))
         assert tok.vocab == d["vocab"], "saved vocab does not match current tokenizer"
         return tok

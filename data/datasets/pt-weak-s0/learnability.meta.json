@@ -1,0 +1,54 @@
+{
+ "spec": {
+  "name": "learnability",
+  "model_id": "pt-weak-s0",
+  "n": 500,
+  "seed": 0,
+  "weight": "learnability",
+  "sampler": "learnability",
+  "cells": [
+   {
+    "depth": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ],
+    "frac": 1.0
+   }
+  ]
+ },
+ "source": "configs/datasets/learnability.yaml",
+ "summary": {
+  "n": 500,
+  "by_depth": {
+   "2": 43,
+   "3": 100,
+   "4": 296,
+   "5": 61
+  },
+  "by_group": {
+   "L": 233,
+   "mixed": 185,
+   "H": 82
+  },
+  "by_str_len": {
+   "6": 83,
+   "7": 114,
+   "8": 94,
+   "9": 103,
+   "10": 106
+  },
+  "unique_combos": 498,
+  "by_p_bin": {
+   "0.8-0.97": 136,
+   "0.4-0.6": 101,
+   "0.6-0.8": 92,
+   "0.2-0.4": 66,
+   "0.03-0.2": 59,
+   "0.97-1": 46
+  },
+  "mean_p": 0.6125625
+ }
+}

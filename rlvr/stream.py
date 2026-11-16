@@ -1,4 +1,4 @@
-"""Streamed pretraining corpus: examples are generated on the fly and never repeated.
+"""Streamed pretraining corpus: examples are generated on the fly, without fixed epochs.
 
     mix = Mixture(task, splits, cfg["pretrain"], seed)        # one example at a time
     ds = PretrainStream(cfg, rank=0, exclude_pids=eval_pids)  # length-bucketed micro-batches
@@ -37,7 +37,7 @@ import torch
 
 from .splits import Splits
 from .task import Problem, Task
-from .tokenizer import IGNORE_INDEX, CharTokenizer
+from .tokenizer import IGNORE_INDEX
 
 KINDS = ("atom", "comp")
 GROUP_IDS = {"H": 0, "L": 1, "mixed": 2}
@@ -47,6 +47,8 @@ REJECT_KINDS = ("pool", "heldout", "eval_dup")
 def corrupt(task: Task, p: Problem, rng: random.Random) -> list[str]:
     """Replace one step's output with a random different string and recompute
     the downstream steps from it (an internally consistent wrong chain)."""
+    if hasattr(task, "corrupt_steps"):
+        return task.corrupt_steps(p, rng)
     i = rng.randrange(p.depth)
     steps = list(p.steps)
     while True:
@@ -72,7 +74,7 @@ class Mixture:
         f = pc["comp_frac"]
         assert 0.0 <= f <= 1.0
         # Mean target tokens per component -> per-example composition probability.
-        tok, est = CharTokenizer(task.alphabet), random.Random(f"{seed}-estimate")
+        tok, est = task.tokenizer(), random.Random(f"{seed}-estimate")
         self.mean_target = {k: sum(len(tok.encode(self.target(*self._sample(k, est))))
                                    for _ in range(n_estimate)) / n_estimate for k in KINDS}
         if f in (0.0, 1.0):
@@ -83,16 +85,17 @@ class Mixture:
 
     def _draw(self, depth: int, rng: random.Random, **kw) -> Problem:
         task, splits = self.task, self.splits
-        while True:
+        for _ in range(task.cfg.get("sample_max_tries", 1000)):
             p = task.sample_problem(depth, rng, **kw)
             if splits.pool_of(p.pid) != "pretrain":
                 self.rejects["pool"] += 1
-            elif depth > 1 and splits.has_heldout_pair(p.funcs):
+            elif depth > 1 and splits.has_heldout(p):
                 self.rejects["heldout"] += 1
             elif p.pid in self.exclude:
                 self.rejects["eval_dup"] += 1
             else:
                 return p
+        raise RuntimeError(f"could not sample admissible pretraining problem at depth {depth}")
 
     def _sample(self, kind: str, rng: random.Random) -> tuple[Problem, list[str] | None]:
         if kind == "atom":
@@ -128,7 +131,7 @@ class PretrainStream(torch.utils.data.IterableDataset):
     def _setup(self, worker: int):
         from .config import task_and_splits
         task, splits = task_and_splits(self.cfg)
-        self.task, self.tok = task, CharTokenizer(task.alphabet)
+        self.task, self.tok = task, task.tokenizer()
         self.mix = Mixture(task, splits, self.pc, self.cfg["seed"], self.exclude)
         self.rng = random.Random(f"{self.cfg['seed']}-{self.rank}-{worker}")
 
@@ -137,7 +140,9 @@ class PretrainStream(torch.utils.data.IterableDataset):
         assert len(ids) <= self.max_len, f"example of {len(ids)} tokens > model.max_len"
         return {"ids": ids, "labels": labels, "n_target": sum(t != IGNORE_INDEX for t in labels),
                 "kind": KINDS.index(kind), "depth": p.depth, "group": GROUP_IDS[p.group],
-                "funcs": p.funcs, "noisy": steps is not None}
+                "funcs": p.funcs, "noisy": steps is not None,
+                "n_ops": len(p.steps), "n_binary": getattr(p, "n_binary", 0),
+                "n_ternary": getattr(p, "n_ternary", 0)}
 
     def collate(self, rows: list[dict]) -> dict:
         T = max(len(r["ids"]) for r in rows)
@@ -159,7 +164,7 @@ class PretrainStream(torch.utils.data.IterableDataset):
                 for f in r["funcs"]:
                     func_counts[f] += 1
         rejects = torch.tensor([self.mix.rejects.pop(k, 0) for k in REJECT_KINDS])
-        meta = {k: torch.tensor([r[k] for r in rows]) for k in ("kind", "depth", "group", "n_target", "noisy")}
+        meta = {k: torch.tensor([r[k] for r in rows]) for k in ("kind", "depth", "group", "n_target", "noisy", "n_ops", "n_binary", "n_ternary")}
         return {"input_ids": ids, "labels": labels, "position_ids": pos, **meta,
                 "func_counts": func_counts, "rejects": rejects}
 

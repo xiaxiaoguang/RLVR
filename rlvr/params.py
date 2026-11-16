@@ -83,6 +83,9 @@ param("paths.checkpoints", "checkpoints", "root of final base-model checkpoints"
 # =============================================================================
 # Task (frozen after week 1: changing these changes pids, pools and names)
 # =============================================================================
+param("task.kind", "chain", "versioned task implementation", choices=("chain", "tree"))
+param("task.tree_max_ops", 10, "maximum operator nodes in a tree problem (up to 12)")
+param("task.sample_max_tries", 1000, "bounded retries for tree sampling constraints")
 param("task.alphabet", "abcdefghijklmnopqrstuvwxyz", "input alphabet", code="P8", priority=FROZEN)
 param("task.str_len", [6, 7, 8, 9, 10], "input length, or list of lengths sampled uniformly", code="P8",
       priority=FROZEN, types=(int, list))
@@ -249,11 +252,19 @@ param("label.relabel_cells", [{"depth": 2, "group": "L"}, {"depth": 4, "group": 
 # RL data (D) - dataset composition itself lives in configs/datasets/*.yaml
 # =============================================================================
 param("data.dataset", None, "dataset name under data/datasets (D1-D4 are set in its spec)", types=(str,))
-param("data.sampler", "static", "per-step problem sampler (B: online_filter, C: learnability)",
-      code="D9", priority=OPTIONAL, choices=("static", "online_filter", "learnability"))
-param("data.order", "shuffle", "problem order", code="D7", priority=OPTIONAL,
-      choices=("shuffle", "shallow_to_deep"))
+param("data.sampler", "auto", "per-step problem sampler (B: online_filter, C: learnability); "
+      "auto = the `sampler` of the dataset spec, else static",
+      code="D9", priority=OPTIONAL, choices=("auto", "static", "online_filter", "learnability"))
+param("data.order", "shuffle", "static sampler: shuffled epochs, or the same draws sorted by depth over the run",
+      code="D7", priority=OPTIONAL, choices=("shuffle", "shallow_to_deep"))
 param("data.p_ema", 0.9, "EMA factor of the online per-problem p(t)")
+param("data.p_init_labels", True,
+      "start the online p(t) from the base model's pass-rate labels (dataset p_hat column, else "
+      "<data>/labels/{model_id}.parquet) when they exist; otherwise p is unknown until first sampled")
+param("data.p_edge", 1 / 32,
+      "online_filter keeps problems with p_edge <= p(t) <= 1 - p_edge or unknown p (edge p bins carry no signal)")
+param("data.explore_frac", 0.0,
+      "dynamic samplers: share of each batch drawn uniformly from the whole dataset (lets filtered problems return)")
 
 # =============================================================================
 # GRPO (R)
@@ -274,8 +285,25 @@ param("rl.clip_eps", 0.2, "PPO clip (unused when ppo_epochs=1)", code="R10", pri
 param("rl.ppo_epochs", 1, "updates per rollout batch", code="R10", priority=FROZEN)
 param("rl.entropy_coef", 0.0, "entropy bonus", code="R11", priority=FROZEN)
 param("rl.grad_clip", 1.0, "gradient-norm clip")
-param("rl.eval_every", 50, "E1-E4 eval interval (steps)")
+param("rl.weight_decay", 0.0, "AdamW weight decay during RL")
+param("rl.eval_every", 50, "eval interval for rl.eval_sets (steps; step 0 and the last step always)")
 param("rl.probe_every", 25, "probe-set eval interval (steps)")
+param("rl.eval_sets", ["E1", "E2", "E3", "E4"], "eval sets scored every rl.eval_every steps")
+param("rl.probe_set", "probe", "eval set scored every rl.probe_every steps (null = none)", types=(str,))
+# Run plumbing (scripts/grpo.py). Task, model, splits and paths always come from the base checkpoint.
+param("rl.base", None, "base checkpoint dir, e.g. checkpoints/pt-mid-s0 or runs/pt-mid-s0/ckpt/step-2375",
+      types=(str,))
+param("rl.tag", "", "suffix of the run name rl-{model}-{dataset}-G{G}-s{seed}[-{tag}] for hyperparameter variants")
+param("rl.gen_batch_size", 64, "prompts per rollout generate() batch (x group_size sequences; memory knob)")
+param("rl.micro_batch_tokens", 16_000,
+      "padded tokens per backward micro-batch; gradients are accumulated over the whole rollout batch, "
+      "so this is a memory knob that does not change the update")
+param("rl.kl_every", 10, "log kl_to_base on the rollout tokens every N steps (0 = never; every step if kl_coef > 0)")
+param("rl.log_every", 10, "print interval (steps); metrics.jsonl gets every step")
+param("rl.log_completions", True, "store the sampled completions in rollouts.jsonl (rewards are always stored)")
+param("rl.save_at", [], "fractions of training with a checkpoint in runs/{run}/ckpt/step-{N}")
+param("rl.save_final", True, "save the final model to runs/{run}/ckpt/step-{steps} (~340 MB)")
+param("rl.compile", False, "torch.compile the decoder layers for the policy-gradient forward/backward")
 
 
 def _reward_choices():
