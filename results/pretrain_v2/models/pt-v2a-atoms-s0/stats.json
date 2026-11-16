@@ -1,0 +1,102 @@
+{
+ "run_name": "pt-v2a-atoms-s0",
+ "world_size": 4,
+ "steps": 2000,
+ "examples": 10665267,
+ "target_tokens": 387045962,
+ "tokens": 592768469,
+ "pad_frac": 0.07806173352028567,
+ "noisy_examples": 0,
+ "rejects": {
+  "pool": 1222308,
+  "heldout": 3712,
+  "eval_dup": 0
+ },
+ "by_kind": {
+  "atom": {
+   "examples": 10665267,
+   "target_tokens": 387045962,
+   "target_token_frac": 1.0
+  }
+ },
+ "by_depth": {
+  "d1": {
+   "examples": 10665267,
+   "target_tokens": 387045962,
+   "target_token_frac": 1.0
+  }
+ },
+ "by_group": {
+  "H": {
+   "examples": 4573424,
+   "target_tokens": 160083298,
+   "target_token_frac": 0.41360281133742977
+  },
+  "L": {
+   "examples": 4565040,
+   "target_tokens": 159785268,
+   "target_token_frac": 0.4128327994286115
+  },
+  "bin": {
+   "examples": 1526803,
+   "target_tokens": 67177396,
+   "target_token_frac": 0.17356438923395873
+  }
+ },
+ "by_n_bin": {
+  "b0": {
+   "examples": 9138464,
+   "target_tokens": 319868566,
+   "target_token_frac": 0.8264356107660412
+  },
+  "b1": {
+   "examples": 1526803,
+   "target_tokens": 67177396,
+   "target_token_frac": 0.17356438923395873
+  }
+ },
+ "by_cell": {
+  "atom|d1|H": {
+   "examples": 4573424,
+   "target_tokens": 160083298
+  },
+  "atom|d1|L": {
+   "examples": 4565040,
+   "target_tokens": 159785268
+  },
+  "atom|d1|bin|b1": {
+   "examples": 1526803,
+   "target_tokens": 67177396
+  }
+ },
+ "comp_func_exposure": {
+  "F00": 0,
+  "F01": 0,
+  "F02": 0,
+  "F03": 0,
+  "F04": 0,
+  "F05": 0,
+  "F06": 0,
+  "F07": 0,
+  "F08": 0,
+  "F09": 0,
+  "F10": 0,
+  "F11": 0,
+  "F12": 0,
+  "F13": 0,
+  "F14": 0,
+  "F15": 0,
+  "F16": 0,
+  "F17": 0,
+  "F18": 0,
+  "F19": 0,
+  "F20": 0,
+  "F21": 0,
+  "F22": 0,
+  "F23": 0,
+  "F24": 0,
+  "F25": 0,
+  "F26": 0,
+  "F27": 0
+ }
+}

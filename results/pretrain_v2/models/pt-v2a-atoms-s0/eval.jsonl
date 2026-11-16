@@ -1,0 +1,64 @@
+{"step": 1000, "eval_set": "E1", "depth": "all", "n_bin": "all", "group": "all", "n": 1400, "greedy_acc": 0.9985714285714286, "format_err": 0.0, "mean_len": 36.285714285714285}
+{"step": 1000, "eval_set": "E1", "depth": 1, "n_bin": 0, "group": "H", "n": 600, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "n_bin": 0, "group": "L", "n": 600, "greedy_acc": 0.9983333333333333, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "n_bin": 1, "group": "bin", "n": 200, "greedy_acc": 0.995, "format_err": 0.0, "mean_len": 44.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F00", "label": "max_to_front", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F01", "label": "mirror_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F02", "label": "sort_desc", "n": 50, "greedy_acc": 0.98, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F03", "label": "rotl2", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F04", "label": "odd_pos_m1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F05", "label": "rotl3", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F06", "label": "shift_p1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F07", "label": "sort_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F08", "label": "complement", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F09", "label": "rotr1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F10", "label": "riffle", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F11", "label": "swap_adjacent", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F12", "label": "shift_p5", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F13", "label": "reverse_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F14", "label": "rotl1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F15", "label": "shift_by_pos", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F16", "label": "swap_ends", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F17", "label": "min_to_back", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F18", "label": "shift_m1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F19", "label": "swap_halves", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F20", "label": "sort_asc", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F21", "label": "shift_p3", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F22", "label": "reverse", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F23", "label": "even_pos_p1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "bin", "func": "F24", "label": "add", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 44.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "bin", "func": "F25", "label": "alternate", "n": 50, "greedy_acc": 0.98, "format_err": 0.0, "mean_len": 44.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "bin", "func": "F26", "label": "splice", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 44.0}
+{"step": 1000, "eval_set": "E1", "depth": 1, "group": "bin", "func": "F27", "label": "max", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 44.0}
+{"step": 2000, "eval_set": "E1", "depth": "all", "n_bin": "all", "group": "all", "n": 1400, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 36.285714285714285}
+{"step": 2000, "eval_set": "E1", "depth": 1, "n_bin": 0, "group": "H", "n": 600, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "n_bin": 0, "group": "L", "n": 600, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "n_bin": 1, "group": "bin", "n": 200, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 44.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F00", "label": "max_to_front", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F01", "label": "mirror_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F02", "label": "sort_desc", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F03", "label": "rotl2", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F04", "label": "odd_pos_m1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F05", "label": "rotl3", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F06", "label": "shift_p1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F07", "label": "sort_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F08", "label": "complement", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F09", "label": "rotr1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F10", "label": "riffle", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F11", "label": "swap_adjacent", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F12", "label": "shift_p5", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F13", "label": "reverse_first_half", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F14", "label": "rotl1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F15", "label": "shift_by_pos", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F16", "label": "swap_ends", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F17", "label": "min_to_back", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F18", "label": "shift_m1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F19", "label": "swap_halves", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F20", "label": "sort_asc", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "L", "func": "F21", "label": "shift_p3", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F22", "label": "reverse", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "H", "func": "F23", "label": "even_pos_p1", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 35.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "bin", "func": "F24", "label": "add", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 44.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "bin", "func": "F25", "label": "alternate", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 44.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "bin", "func": "F26", "label": "splice", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 44.0}
+{"step": 2000, "eval_set": "E1", "depth": 1, "group": "bin", "func": "F27", "label": "max", "n": 50, "greedy_acc": 1.0, "format_err": 0.0, "mean_len": 44.0}

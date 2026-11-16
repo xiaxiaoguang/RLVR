@@ -20,9 +20,10 @@ Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Les
 - **v2:** on 2026-11-15 we decided to add binary operators, so problems become trees instead of chains
   ([v2 revision](#v2-revision-tree-problems)). This week the task change gets implemented and piloted; the go/no-go
   decision is on Sun Nov 22 ([v2 pilot](#v2-pilot)). The v2 code and eval v3 are implemented (2026-11-15;
-  configs in `configs/v2/`, choices the design left open in [Implementation](#implementation-2026-11-15)); stage A is
-  next.
-- **Compute:** 21.09 of 50 NERSC GPU node-hours used as of 2026-11-08.
+  configs in `configs/v2/`, choices the design left open in [Implementation](#implementation-2026-11-15)). **Stage A
+  passed** on 2026-11-15: add, alternate, splice and max are each at 50/50 on E1, so the operator set is fixed;
+  stage B is next. Results: [`pretrain_v2_results.md`](pretrain_v2_results.md).
+- **Compute:** 21.48 of 50 NERSC GPU node-hours used as of 2026-11-15.
 
 ## Decision log
 

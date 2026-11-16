@@ -1,0 +1,32 @@
+{
+ "model_id": "pt-v2a-atoms-s0",
+ "hard_checks": [
+  "depth1_greedy"
+ ],
+ "checks": {
+  "depth1_greedy": {
+   "value": 1.0,
+   "min": 0.98,
+   "func_z": 1.96,
+   "funcs_below_min": {},
+   "worst_funcs": {
+    "F00": 1.0,
+    "F01": 1.0,
+    "F02": 1.0
+   },
+   "pass": true,
+   "hard": true
+  },
+  "final_loss": {
+   "step": 2000,
+   "value": 1.7989874322665855e-05,
+   "by_depth": {},
+   "min": 0.001,
+   "pass": true,
+   "hard": false
+  }
+ },
+ "pass": true,
+ "warnings": [],
+ "not_run": []
+}
