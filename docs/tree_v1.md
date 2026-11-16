@@ -31,12 +31,16 @@ Retained unary operators: `swap_adjacent`, `swap_halves`, `even_pos_p1`,
 | gather | 2 | out[i] = x[y[i] mod n] |
 | gather_add | 2 | out[i] = x[y[i] mod n] + y[i] |
 | scatter_add | 2 | Start with zeros; add each x[i] into out[y[i] mod n] |
-| rotate_by_sum | 2 | Rotate x left by sum(y) mod n |
+| rotate_by_first | 2 | Rotate x left by y[0] mod n |
 | prefix_add | 2 | out[i] = x[i] + sum(y[0:i+1]) |
 | zip_add3 | 3 | out[i] = x[i] + y[i] + z[i] |
 | zip_mul_add | 3 | out[i] = x[i] * y[i] + z[i] |
 | gather_mix | 3 | out[i] = x[y[i] mod n] + z[i] |
 | select_parity | 3 | out[i] = x[i] if z[i] is even, otherwise y[i] |
+
+rotate_by_first replaced rotate_by_sum (rotate x left by sum(y) mod n) on 2026-11-16: in pilot
+stage A the model did not learn rotate_by_sum (E1 greedy .12 after 2000 atom-only steps; design.md
+decision 12). rotate_by_sum stays in `rlvr/tree_ops.py` for loading the first recipe.
 
 These operators have declared arities of one, two, or three; arbitrary unbounded
 argument counts are not supported. Addition provides a simple baseline; it may

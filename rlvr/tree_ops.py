@@ -32,7 +32,8 @@ MULTI = {
     "gather": Operator(2, lambda a, A: [a[0][y % len(a[0])] for y in a[1]]),
     "gather_add": Operator(2, lambda a, A: [(a[0][y % len(a[0])] + y) % A for y in a[1]]),
     "scatter_add": Operator(2, lambda a, A: _scatter_add(a, A)),
-    "rotate_by_sum": Operator(2, lambda a, A: _rotate_by_sum(a)),
+    "rotate_by_sum": Operator(2, lambda a, A: _rotate_by_sum(a)),  # not learned in stage A; kept for old configs
+    "rotate_by_first": Operator(2, lambda a, A: _rotate_by_first(a)),
     "prefix_add": Operator(2, lambda a, A: _prefix_add(a, A)),
     "zip_add3": Operator(3, lambda a, A: [(x + y + z) % A for x, y, z in zip(*a)]),
     "zip_mul_add": Operator(3, lambda a, A: [(x * y + z) % A for x, y, z in zip(*a)]),
@@ -50,6 +51,11 @@ def _scatter_add(a, A):
 
 def _rotate_by_sum(a):
     offset = sum(a[1]) % len(a[0])
+    return a[0][offset:] + a[0][:offset]
+
+
+def _rotate_by_first(a):
+    offset = a[1][0] % len(a[0])
     return a[0][offset:] + a[0][:offset]
 
 

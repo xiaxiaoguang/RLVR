@@ -13,7 +13,8 @@ v2 base models. Since 2026-11-16 the v2 task is Hanzhong's **tree-v1** ([`tree_v
 
 | step | run | result | status |
 |---|---|---|---|
-| tree-v1 stage A: atomic skills of the 24 operators | pt-tree-a-atoms-s0 | 23 of 24 pass; rotate_by_sum E1 .12 | **FAIL** on one operator: replace it (team decision) |
+| tree-v1 stage A: atomic skills of the 24 operators | pt-tree-a-atoms-s0 | 23 of 24 pass; rotate_by_sum E1 .12 | **FAIL** on one operator; replaced by rotate_by_first (decision 12) |
+| tree-v1 stage A, revised table | pt-tree-a2-atoms-s0 | — | running |
 | tree-v1 stage B: p ≈ 0.5 supply | — | — | after stage A passes (3 nodes) |
 | go/no-go | — | — | Sun Nov 22 |
 
@@ -34,7 +35,9 @@ v2 base models. Since 2026-11-16 the v2 task is Hanzhong's **tree-v1** ([`tree_v
 E1 overall .960 (H .927, L .993). rotate_by_sum (rotate x left by sum(y) mod n) shows no progress between steps 1000
 and 2000; its output depends on a sum over the whole second operand mod n (6–10), a parity-like reduction that
 transformers learn poorly from examples. scatter_add and prefix_add, which also aggregate over positions, were learned
-late. By the design rule the failing operator is replaced (or dropped) before stage B.
+late. By the design rule the failing operator is replaced before stage B: rotate_by_first (rotate x left by y[0] mod
+n) keeps the rotation set by the other operand without the global sum (design.md decision 12), and stage A is re-run.
+The first recipe's eval sets are kept in `data/tree-v1-rotate_by_sum/`.
 
 Training: 15 min on one node (0.82M tokens/s, final loss .0047). Eval sets for tree-v1 (`data/tree-v1/eval/v1/`:
 E1 1200, E2 1800, E3 900, E4 800, probe 575, calib 4600) were generated on the node in 33 s.

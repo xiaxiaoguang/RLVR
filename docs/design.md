@@ -25,8 +25,9 @@ Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Les
   stage B); go/no-go on Sun Nov 22.
 - **RL:** GRPO (`scripts/grpo.py`) and the sweep runner (`scripts/rl_sweep.py`) are implemented and smoke-tested on
   the v1 round-1 checkpoints ([GRPO](#grpo-hanzhong)); no RL experiment of the design has been run yet.
-- **Tree-v1 stage A (2026-11-16):** 23 of 24 operators pass; rotate_by_sum is not learned (E1 .12), so it has to be
-  replaced or dropped before stage B ([`pretrain_v2_results.md`](pretrain_v2_results.md)).
+- **Tree-v1 stage A (2026-11-16):** 23 of 24 operators pass; rotate_by_sum is not learned (E1 .12) and is replaced by
+  rotate_by_first (decision 12); stage A is re-run on the revised table
+  ([`pretrain_v2_results.md`](pretrain_v2_results.md)).
 - **Compute:** 23.58 of 50 NERSC GPU node-hours used as of 2026-11-16.
 
 ## Decision log
@@ -35,6 +36,7 @@ Newest first. "Proposed by" is who raised it in the team discussion.
 
 | # | date | question | decision | proposed by |
 | --- | --- | --- | --- | --- |
+| 12 | 2026-11-16 | rotate_by_sum is not learned in tree-v1 stage A (E1 .12, no progress from step 1000 to 2000) | Replace it with **rotate_by_first** (rotate x left by y[0] mod n): still a rotation set by the other operand, but it reads one symbol instead of a sum over the whole string mod n (a parity-like reduction). It keeps id F10 and its place in H, so H and L keep 6 / 4 / 2 operators. Stage A is re-run on the revised table; the first recipe's generated data is kept in `data/tree-v1-rotate_by_sum/`. | Yupeng |
 | 11 | 2026-11-16 | How are the D/E cells defined in tree-v1, where depth and n_ops differ? | Fixed before stage B, applied to its data ([Matched cells](#matched-cells-v2)): a cell is (depth, group) as in the calib set; D/E pairs need E.depth ≥ D.depth + 2 within RL depths 1–5; pairs are ranked by the smaller of the two cells' calib shares of non-skippable problems with p̂ in [0.4, 0.6]. Depth is the axis because H2 is tested on E3 (depth 6–8); n_ops, n_binary, n_ternary, max_live_values and token length are reported for D and E as covariates, and input length is matched. | Yupeng |
 | 10 | 2026-11-16 | Which operator set and code for the tree task? | Hanzhong's **tree-v1** ([`tree_v1.md`](tree_v1.md)): 12 unary + 8 binary + 4 ternary operators reshuffled to F00–F23, depth = dependency depth, held-out (parent, slot, child) edges, data under `data/tree-v1/`. It replaces the pretrain-branch variant (24 unary + add / alternate / splice / max), whose stage A passed and whose stage B was cancelled after 36 min (1.81 node-hours). The pilot plan (stages A and B, go criterion) is unchanged. | Hanzhong (chosen by Yupeng) |
 | 9 | 2026-11-15 | Where do checkpoints go? | Hugging Face model repo, one folder per run in `save_model` format (`scripts/push_hf.py`); too large for git. | Yupeng |
@@ -256,7 +258,7 @@ Summary:
 | gather | 2 | out[i] = x[y[i] mod n] |
 | gather_add | 2 | out[i] = x[y[i] mod n] + y[i] |
 | scatter_add | 2 | start with zeros; add each x[i] into out[y[i] mod n] |
-| rotate_by_sum | 2 | rotate x left by sum(y) mod n |
+| rotate_by_first | 2 | rotate x left by y[0] mod n (replaced rotate_by_sum, decision 12) |
 | prefix_add | 2 | out[i] = x[i] + sum(y[0:i+1]) |
 | zip_add3 | 3 | out[i] = x[i] + y[i] + z[i] |
 | zip_mul_add | 3 | out[i] = x[i] · y[i] + z[i] |

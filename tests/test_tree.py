@@ -9,6 +9,7 @@ import pytest
 from rlvr.config import load_config, task_and_splits
 from rlvr.task import Task
 from rlvr.tokenizer import CharTokenizer, IGNORE_INDEX
+from rlvr.tree_ops import build_operator
 from rlvr.tree_sampling import count, sample_shape
 
 
@@ -33,6 +34,7 @@ def call(task, name, *args):
         ("gather_add", ("abcdef", "fedcba"), "kigeca"),
         ("scatter_add", ("abcdef", "aaaaaa"), "paaaaa"),
         ("rotate_by_sum", ("abcdef", "baaaaa"), "bcdefa"),
+        ("rotate_by_first", ("abcdef", "caaaaa"), "cdefab"),
         ("prefix_add", ("aaaaaa", "bbbbbb"), "bcdefg"),
         ("zip_add3", ("zzzzzz", "bbbbbb", "bbbbbb"), "bbbbbb"),
         ("zip_mul_add", ("bbbbbb", "cccccc", "dddddd"), "ffffff"),
@@ -42,7 +44,10 @@ def call(task, name, *args):
 )
 def test_known_multi_operator_results(setup, name, args, want):
     _, task, _ = setup
-    assert task.apply(task.name2id[name], *args) == want
+    vals = [[task._c2i[c] for c in x] for x in args]
+    assert "".join(task.alphabet[c] for c in build_operator(name)(vals, task.A)) == want
+    if name in task.name2id:  # rotate_by_sum is no longer in the recipe (design.md decision 12)
+        assert task.apply(task.name2id[name], *args) == want
 
 
 def test_operator_replacement_and_groups(setup):

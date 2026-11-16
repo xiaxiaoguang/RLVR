@@ -1,5 +1,5 @@
 # Generated artifacts (regenerate or copy separately; see README)
-data/tree-v1/
+data/tree-v1*/
 data/pretrain/
 data/labels/
 runs/

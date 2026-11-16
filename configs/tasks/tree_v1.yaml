@@ -28,7 +28,7 @@ task:
     gather: gather
     gather_add: gather_add
     scatter_add: scatter_add
-    rotate_by_sum: rotate_by_sum
+    rotate_by_first: rotate_by_first  # replaces rotate_by_sum, not learned in pilot stage A (design.md decision 12)
     prefix_add: prefix_add
     # Ternary operators (4).
     zip_add3: zip_add3
@@ -37,7 +37,7 @@ task:
     select_parity: select_parity
   # Both groups contain 6 unary, 4 binary, and 2 ternary operators.
   h_group: [swap_adjacent, even_pos_p1, max_to_front, mirror_first_half, riffle, sort_first_half,
-            zip_add, zip_mul, gather_add, rotate_by_sum, zip_add3, gather_mix]
+            zip_add, zip_mul, gather_add, rotate_by_first, zip_add3, gather_mix]
 splits:
   salt: rlvr-tree-v1
   heldout_pairs_per_group_pair: 1  # per parent/child arity and H/L cell: 36 directed edges
