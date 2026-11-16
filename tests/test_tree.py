@@ -195,6 +195,31 @@ def test_pilot_logic():
     assert rep["pairs"][0]["shared_mix_supply"] == 2 and rep["go"]
 
 
+def test_diag_first_error_on_trees():
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from diag_steps import first_error, parse_cell
+    assert parse_cell("4-H") == (4, 0, "H") and parse_cell("4b1-mixed") == (4, 1, "mixed")
+    u1, u2, u3 = F["rotl1"], F["shift_p1"], F["reverse"]
+    p = TASK.make_tree((u1, u2, u3, F["add"]), ((-1,), (0,), (-2,), (1, 2)), ("abcdefgh", "ijklmnop"))
+    t, s, n = TASK.format_target(p), p.steps, TASK.fname
+    assert first_error(TASK, p, t) == ("ok", None, {})
+    # second operand of the binary step copied wrong (step 3 reads step 2's output)
+    bad = t.replace(f"{n(F['add'])}({s[1]},{s[2]})", f"{n(F['add'])}({s[1]},{s[2][::-1]})")
+    err = first_error(TASK, p, bad)
+    assert err[:2] == ("copy", 3) and err[2]["operand"] == 1 and not err[2]["from_leaf"]
+    # leaf operand copied wrong in step 2
+    err = first_error(TASK, p, t.replace(f"{n(u3)}(ijklmnop)", f"{n(u3)}(ijklmnoo)"))
+    assert err[:2] == ("copy", 2) and err[2]["from_leaf"]
+    assert first_error(TASK, p, t.replace(f"={s[2]};", "=aaaaaaaa;", 1))[:2] == ("apply", 2)
+    assert first_error(TASK, p, t.replace(f"{n(F['add'])}({s[1]},", f"{n(F['add'])}("))[:2] == ("copy", 3)
+    assert first_error(TASK, p, t.replace(f"A:{p.answer}", "A:aaaaaaaa"))[:2] == ("answer_copy", 4)
+    # chains as in v1
+    c = TASK.make_problem((u1, u2), "abcdefgh")
+    assert first_error(TASK, c, TASK.format_target(c)) == ("ok", None, {})
+    assert first_error(TASK, c, TASK.format_target(c).replace(f"{n(u2)}({c.steps[0]})", f"{n(u2)}(abcdefgh)"))[:2] \
+        == ("copy", 1)
+
+
 if __name__ == "__main__":
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]
     for fn in fns:

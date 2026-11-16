@@ -1,18 +1,22 @@
 """Where do compositions break? Step-level diagnosis of a base model, by input length.
 
-    gen      sample completions on RL-pool cells (one GPU), save them with the problems
+    gen      sample completions on RL-pool cells (one GPU), save them with the problems; cells are
+             n_ops-group (chains) or n_ops b n_bin-group (trees, e.g. 4b1-H); --pool defaults to the
+             run's rl_pool.path (v2: runs/<model>/calib/pilot_candidates.jsonl)
              python scripts/diag_steps.py gen checkpoints/pt-mid-s0 --out runs/diag/mid [--cells 4-H,3-H]
     replay   replay a run's pretraining stream on the exact rng path of pretrain.py (ranks x workers,
-             round-robin micro-batches) and count composition examples per (depth, group, str_len);
-             the totals are checked against the run's stats.json
+             round-robin micro-batches) and count composition examples per (depth, group, str_len)
+             (trees also per n_bin); the totals are checked against the run's stats.json
              python scripts/diag_steps.py replay runs/pt-mid-s0 [runs/...] --out runs/diag/replay
     analyze  first wrong step and its type for every completion, tabulated by str_len
              python scripts/diag_steps.py analyze runs/diag/mid [runs/diag/...]
 
 Error types (the first one in step order): missing_step, wrong_func (the step names another Fxx),
-copy (the step's input is not the previous step's output), apply (wrong output for the right
-function and input), extra_step, format (no parsable answer / no <eos>), answer_copy (answer differs
-from the last step). Steps before the first error are correct, so "previous output" is the truth.
+copy (an operand of the step is not the output or leaf it refers to: for chains the previous
+step's output), apply (wrong output for the right function and operands), extra_step, format (no
+parsable answer / no <eos>), answer_copy (answer differs from the last step). Steps before the
+first error are correct, so the referenced outputs are the truth. Trees are checked in post-order
+against the problem's operand refs, the same order as the target CoT.
 """
 from __future__ import annotations
 
@@ -30,8 +34,16 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from rlvr.config import load_config, resolve  # noqa: E402
+from rlvr.gate import cell_name  # noqa: E402
 from rlvr.io import read_jsonl  # noqa: E402
 from rlvr.task import EOS, Task  # noqa: E402
+
+
+def parse_cell(c: str) -> tuple[int, int, str]:
+    """'4-H' -> (4, 0, 'H'); '4b1-H' -> (4, 1, 'H')."""
+    ops, g = c.split("-", 1)
+    d, _, nb = ops.partition("b")
+    return int(d), int(nb or 0), g
 
 # ---- gen -----------------------------------------------------------------------------------------
 
@@ -44,12 +56,15 @@ def cmd_gen(a):
     task = Task(cfg["task"])
     torch.manual_seed(a.seed)
     model, tok = load_model(ckpt, a.device)
-    cells = {(int(c.split("-")[0]), c.split("-")[1]) for c in a.cells.split(",")}
-    rows = read_jsonl(resolve(cfg["paths"]["data"]) / "rl_pool" / "candidates.jsonl")
+    cells = {parse_cell(c) for c in a.cells.split(",")}
+    pool = resolve(a.pool) if a.pool else (resolve(cfg["paths"]["data"])
+                                           / cfg.get("rl_pool", {}).get("path", "rl_pool/candidates.jsonl"))
+    rows = read_jsonl(pool)
     per, probs = Counter(), []
     for r in rows:
-        key = (r["depth"], r["group"], r["str_len"])
-        if (r["depth"], r["group"]) in cells and per[key] < a.per_len:
+        cell = (r["depth"], r.get("n_bin", 0), r["group"])
+        key = (*cell, r["str_len"])
+        if cell in cells and per[key] < a.per_len:
             per[key] += 1
             probs.append(task.from_dict(r))
     prompts = [task.format_prompt(p) for p in probs]
@@ -61,14 +76,15 @@ def cmd_gen(a):
     secs = time.time() - t
     recs = []
     for i, p in enumerate(probs):
-        base = {"pid": p.pid, "depth": p.depth, "group": p.group, "str_len": len(p.x),
-                "funcs": list(p.funcs), "x": p.x}
+        base = {"pid": p.pid, "depth": p.depth, "n_bin": p.n_bin, "group": p.group, "str_len": len(p.x),
+                "funcs": list(p.funcs), "x": p.x, "problem": json.dumps(p.to_dict())}
         recs += [{**base, "sample": j, "completion": sampled[i * a.k + j]} for j in range(a.k)]
         recs.append({**base, "sample": -1, "completion": greedy[i]})
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(recs).to_parquet(out / "completions.parquet", index=False)
-    (out / "gen.json").write_text(json.dumps({"ckpt": str(ckpt), "model_id": ckpt.name, "cells": sorted(cells),
+    (out / "gen.json").write_text(json.dumps({"ckpt": str(ckpt), "model_id": ckpt.name, "pool": str(pool),
+                                              "task": cfg["task"], "cells": sorted(cells),
                                               "n_problems": len(probs), "k": a.k, "temperature": a.temperature,
                                               "seconds": round(secs)}, indent=1))
     print(f"{ckpt.name}: {len(probs)} problems x ({a.k} sampled + greedy) in {secs:.0f}s -> {out}", flush=True)
@@ -90,7 +106,7 @@ def _replay_one(job):
 
         def collate(self, rows):
             super().collate(rows)  # same rng calls (position offsets) as in training
-            return len(rows), [(r["depth"], r["G"], r["L"]) for r in rows if r["kind"] == 1]
+            return len(rows), [(r["kind"], r["depth"], r["n_bin"], r["G"], r["L"]) for r in rows if r["kind"] in (1, 2)]
 
     s = Replay(cfg, rank, eval_pids)
     s._setup(worker)
@@ -131,15 +147,20 @@ def cmd_replay(a):
             if rn == name:
                 n_ex += n
                 cnt.update(c)
-        by = defaultdict(dict)
-        for (d, g, L), v in sorted(cnt.items()):
-            by[f"d{d}-{g}"][L] = v
+        by = defaultdict(dict)  # chains d{n}-{group} (v1 keys), trees tree-d{n}b{n_bin}-{group}
+        for (k, d, nb, g, L), v in sorted(cnt.items()):
+            by[f"d{d}-{g}" if k == 1 else f"tree-d{d}b{nb}-{g}"][L] = v
         stats_p = run_dirs[name] / "stats.json"
         check = {}
         if stats_p.exists() and not a.limit:
             st = json.loads(stats_p.read_text())
-            want = {k.split("|", 1)[1].replace("|", "-"): v["examples"] for k, v in st["by_cell"].items()
-                    if k.startswith("comp|")}
+            want = {}
+            for k, v in st["by_cell"].items():  # comp|d3|H, tree|d4|H|b1
+                kind, d, g, *nb = k.split("|")
+                if kind == "comp":
+                    want[f"{d}-{g}"] = v["examples"]
+                elif kind == "tree":
+                    want[f"tree-{d}{nb[0] if nb else 'b0'}-{g}"] = v["examples"]
             got = {k: sum(v.values()) for k, v in by.items()}
             check = {"examples": [n_ex, st["examples"]], "comp_cells": {k: [got.get(k, 0), want.get(k, 0)]
                                                                           for k in sorted(set(want) | set(got))}}
@@ -155,59 +176,70 @@ def cmd_replay(a):
 
 # ---- analyze -------------------------------------------------------------------------------------
 
-def first_error(task: Task, funcs, x: str, text: str):
-    """(type, step index or None, detail dict) for one completion."""
+def first_error(task: Task, p, text: str):
+    """(type, step index or None, detail dict) for one completion of problem p (chain or tree)."""
     if EOS not in text:
         return "format", None, {"why": "no_eos"}
     body = text.split(EOS, 1)[0]
     pre = body.split("A:", 1)[0]
     ab = re.escape(task.alphabet)
-    steps = re.findall(rf"F(\d\d)\(([{ab}]*)\)=([{ab}]*);", pre)
-    prev = x
-    for j, f in enumerate(funcs):
+    steps = re.findall(rf"F(\d\d)\(([{ab}]*(?:,[{ab}]*)*)\)=([{ab}]*);", pre)
+    outs: list[str] = []  # true step outputs (= the model's, up to the first error)
+    for j, (f, refs) in enumerate(zip(p.funcs, p.operands())):
         if j >= len(steps):
             return "missing_step", j, {}
-        fid, arg, out = int(steps[j][0]), steps[j][1], steps[j][2]
+        fid, got, out = int(steps[j][0]), steps[j][1].split(","), steps[j][2]
         if fid != f:
-            return "wrong_func", j, {"want": task.id2name[f], "got": task.id2name[fid] if fid < task.n_funcs else fid}
-        if arg != prev:
-            return "copy", j, {"len_diff": len(arg) - len(prev),
-                               "n_wrong": sum(u != v for u, v in zip(arg, prev)) + abs(len(arg) - len(prev))}
-        want = task.apply(f, arg)
+            return "wrong_func", j, {"want": task.id2name[f],
+                                     "got": task.id2name[fid] if fid < len(task.id2name) else fid}
+        want_in = [p.inputs[-r - 1] if r < 0 else outs[r] for r in refs]
+        if len(got) != len(want_in):
+            return "copy", j, {"operand": None, "n_args": len(got)}
+        for i, (arg, prev) in enumerate(zip(got, want_in)):
+            if arg != prev:
+                return "copy", j, {"operand": i, "from_leaf": refs[i] < 0, "len_diff": len(arg) - len(prev),
+                                   "n_wrong": sum(u != v for u, v in zip(arg, prev)) + abs(len(arg) - len(prev))}
+        want = task.apply(f, *want_in)
         if out != want:
             pos = [i for i, (u, v) in enumerate(zip(out, want)) if u != v]
             return "apply", j, {"func": task.id2name[f], "len_diff": len(out) - len(want), "n_wrong": len(pos),
                                 "first_pos": pos[0] if pos else min(len(out), len(want))}
-        prev = out
-    if len(steps) > len(funcs):
-        return "extra_step", len(funcs), {}
+        outs.append(out)
+    if len(steps) > len(p.funcs):
+        return "extra_step", len(p.funcs), {}
     ans = task.parse_answer(text)
     if ans is None:
-        return "format", len(funcs), {"why": "answer"}
-    if ans != prev:
-        return "answer_copy", len(funcs), {}
+        return "format", len(p.funcs), {"why": "answer"}
+    if ans != outs[-1]:
+        return "answer_copy", len(p.funcs), {}
     return "ok", None, {}
 
 
 def cmd_analyze(a):
-    task = Task(load_config()["task"])
     summary = {}
     for d in a.dirs:
         d = Path(d)
         df = pd.read_parquet(d / "completions.parquet")
         meta = json.loads((d / "gen.json").read_text())
-        res = [first_error(task, f, x, c) for f, x, c in zip(df.funcs, df.x, df.completion)]
+        task = Task(meta.get("task") or load_config()["task"])  # v1 gen.json has no task config
+        if "problem" in df:
+            probs = [task.from_dict(json.loads(r)) for r in df.problem]
+        else:
+            probs = [task.make_problem(f, x) for f, x in zip(df.funcs, df.x)]
+        if "n_bin" not in df:
+            df["n_bin"] = 0
+        res = [first_error(task, p, c) for p, c in zip(probs, df.completion)]
         df["err"], df["err_step"] = [r[0] for r in res], [r[1] for r in res]
         df["detail"] = [json.dumps(r[2]) for r in res]
-        rew = [task.reward(c, task.make_problem(f, x)) for f, x, c in zip(df.funcs, df.x, df.completion)]
+        rew = [task.reward(c, p) for p, c in zip(probs, df.completion)]
         mismatch = int(((df.err == "ok") != (pd.Series(rew) == 1.0)).sum())
-        df.drop(columns=["completion"]).to_parquet(d / "errors.parquet", index=False)
+        df.drop(columns=["completion", "problem"], errors="ignore").to_parquet(d / "errors.parquet", index=False)
         name = meta["model_id"]
         print(f"\n===== {name} ({meta['n_problems']} problems, k={meta['k']} + greedy); "
               f"classifier vs reward mismatches: {mismatch}")
         rep = {}
-        for (dep, g), s in df.groupby(["depth", "group"]):
-            cell = f"d{dep}-{g}"
+        for (dep, nb, g), s in df.groupby(["depth", "n_bin", "group"]):
+            cell = cell_name(dep, g, nb)
             smp, grd = s[s["sample"] >= 0], s[s["sample"] < 0]
             acc = smp.groupby("str_len").err.apply(lambda e: round(float((e == "ok").mean()), 3))
             gacc = grd.groupby("str_len").err.apply(lambda e: round(float((e == "ok").mean()), 3))
@@ -233,7 +265,7 @@ def cmd_analyze(a):
             for L, sl in smp.groupby("str_len"):
                 for j in range(dep):
                     reached = sl[(sl.err == "ok") | (sl.err_step.fillna(99) >= j)]
-                    f_at = reached.funcs.apply(lambda fs, j=j: task.id2name[fs[j]])
+                    f_at = reached.funcs.apply(lambda fs, j=j, t=task: t.id2name[fs[j]])
                     bad = (reached.err == "apply") & (reached.err_step == j)
                     for fn, n in f_at.value_counts().items():
                         ap.setdefault(fn, {}).setdefault(int(L), [0, 0])
@@ -254,7 +286,9 @@ def main():
     g = sub.add_parser("gen")
     g.add_argument("ckpt")
     g.add_argument("--out", required=True)
-    g.add_argument("--cells", default="4-H,3-H,4-mixed", help="depth-group cells of the RL pool")
+    g.add_argument("--cells", default="4-H,3-H,4-mixed",
+                   help="cells of the pool: n_ops-group (chains) or n_ops b n_bin-group (trees), e.g. 4b1-H")
+    g.add_argument("--pool", default=None, help="problems jsonl (default: the run's rl_pool.path)")
     g.add_argument("--per-len", type=int, default=400, help="problems per (cell, str_len)")
     g.add_argument("--k", type=int, default=8)
     g.add_argument("--temperature", type=float, default=1.0)

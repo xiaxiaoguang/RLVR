@@ -817,9 +817,12 @@ stages. Pipeline: task → streamed corpus → pretraining → calibration and g
 operator registry), `rlvr/tokenizer.py` (`,`, loading both vocabularies), `rlvr/splits.py` (held-out edges in trees),
 `rlvr/stream.py` (tree component), `rlvr/sets.py` and `scripts/make_eval_sets.py` (structure cells, eval v3),
 `scripts/make_rl_pool.py`, `rlvr/gate.py` and `scripts/calibrate.py` (new cells and rules), `scripts/diag_steps.py`,
-`rlvr/rewards.py` (partial reward on trees). Done on 2026-11-15 except `scripts/diag_steps.py` (step diagnosis on
-trees, needed only for analysis); the partial reward needed no change (it scores the post-order steps). With the v1
-configs, eval v2, the v1 RL pool and the pretraining stream regenerate byte for byte (`tests/test_tree.py`).
+`rlvr/rewards.py` (partial reward on trees). Done on 2026-11-15; the partial reward needed no change (it scores the
+post-order steps). With the v1 configs, eval v2, the v1 RL pool and the pretraining stream regenerate byte for byte
+(`tests/test_tree.py`). `scripts/diag_steps.py` checks tree steps in post-order against the operand refs (a wrong
+operand is a `copy` error, with the operand index and whether it is a leaf), takes tree cells as `4b1-H` and any
+problems file (`--pool`, e.g. a model's `calib/pilot_candidates.jsonl`), and counts tree examples in `replay`; on
+the v1 diagnosis data it reproduces `analysis.json` byte for byte.
 
 ## Risks
 
