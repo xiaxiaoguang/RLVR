@@ -3,7 +3,8 @@
 **Status (see `docs/design.md` "Status"): the four v1 base models are trained, calibrated and on
 Hugging Face (`rlvr-cs291k/rlvr-pretrain-v1`; results in `docs/pretrain_v1_results.md`). v2 (binary
 operators, tree problems, eval v3) is implemented; pilot stage A passed (all four binary operators
-learned) and stage B runs next, before the base models are retrained (`docs/pretrain_v2_results.md`).** GRPO and RL-side analysis are not implemented yet.
+learned); stage B is on hold until the operator set is agreed with the tree-v1 task on master
+(`docs/pretrain_v2_results.md`).** GRPO and RL-side analysis are not implemented yet.
 
 ## Environment
 

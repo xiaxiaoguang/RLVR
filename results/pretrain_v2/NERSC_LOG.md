@@ -266,3 +266,12 @@ only edits / submits / checks (offline tests are the exception). Commit scripts 
   add, alternate, splice, max (backups sub / min not needed).
   release.sh scancelled 61385591 at 21:15:42 (elapsed 0:23:31 x 1 node = 0.39 node-h; total 21.48 of 50).
   Next: stage B (3 nodes, comp_frac 2e-4 / 3.2e-4 / 5e-4, configs/v2/mid.yaml), waiting for user approval.
+- 2026-11-16 10:17:55: **stage B** salloc 61417711 (interactive, 3 nodes, 3:00) granted; runs/v2-stage-b/launch.sh started model_pipeline.sh with configs/v2/mid.yaml:
+    nid001869 pt-v2mid-cf0.0002-s0 / nid001873 pt-v2mid-cf0.00032-s0 / nid002028 pt-v2mid-cf0.0005-s0
+  Logs runs/slurm/pipe-v2mid-cf*-61417711.out; release.sh scancels once all three print "done at". Expected ~2-2.3 h, ~6.5 node-h -> ~28 of 50.
+- 2026-11-16 10:53: **stage B cancelled** at the user's request: Hanzhong pushed a different tree task to master
+  (be60eb6, tree-v1: 12 unary + 8 binary + 4 ternary operators, reshuffled F00-F23), conflicting with design.md v2
+  (24 unary + add/alternate/splice/max). Re-run stage B once the team agrees on the operator set.
+  scancel 61417711 (elapsed 0:36:10 x 3 nodes = 1.81 node-h; total 23.29 of 50). Training was mid-way; no final
+  checkpoints (partial runs under runs/pt-v2mid-cf*-s0, not usable).
+  (Each run has an intermediate checkpoint runs/pt-v2mid-cf*-s0/ckpt/step-2375 from save_at; training reached step ~4300 of 9500.)

@@ -10,16 +10,22 @@ the implementation choices the design left open are in
 - Small per-run files (gate.json, pilot.json, relabel_report.json, stats.json, eval.jsonl, run_config.yaml, calib
   heatmap): `results/pretrain_v2/models/<run>/`, collected from scratch by `scripts/collect_results.sh`.
 
-## Status (2026-11-15)
+## Status (2026-11-16)
 
 | step | run | result | status |
 |---|---|---|---|
 | smoke run (pipeline check) | pt-v2-smoke-s0 | every stage runs on GPU, incl. the pilot pool | done |
 | stage A: binary operators | pt-v2a-atoms-s0 | E1 1.000 for all 24 unary + 4 binary operators | **PASS**, operator set fixed |
-| stage B: p ≈ 0.5 supply | pt-v2mid-cf{0.0002,0.00032,0.0005}-s0 | — | next (3 nodes) |
+| stage B: p ≈ 0.5 supply | pt-v2mid-cf{0.0002,0.00032,0.0005}-s0 | — | **on hold**: started 2026-11-16, cancelled after 36 min (see below) |
 | go/no-go | — | — | Sun Nov 22 |
 
 Operator set (fixed by stage A): **add, alternate, splice, max** (F24–F27). The backups (sub, min) are not needed.
+
+**Stage B on hold (2026-11-16).** Master now also has a separate tree task, tree-v1 (`docs/tree_v1.md`, commit
+be60eb6): 12 unary operators (12 of the 24 dropped) + 8 binary + 4 ternary, reshuffled to F00–F23. It differs from
+the v2 design here (24 unary + 4 binary as F24–F27) in the operator set, the depth definition, the held-out edges and
+the length limits. Stage B was cancelled so that the team can first agree on one operator set; it is re-run once
+that is decided. The three cancelled runs reached step ~4300 of 9500 and are not used.
 
 ## Smoke run (2026-11-15)
 
@@ -51,3 +57,4 @@ minutes; final training loss 1.8e-5.
 |---|---|---|---|---|
 | ≤ 2026-11-08 | — | v1 (see [`pretrain_v1_results.md`](pretrain_v1_results.md)) | 21.09 | 21.09 |
 | 2026-11-15 | 61385591 | smoke run + stage A (1 node, 0:23:31) | 0.39 | 21.48 |
+| 2026-11-16 | 61417711 | stage B, cancelled (3 nodes, 0:36:10) | 1.81 | 23.29 |

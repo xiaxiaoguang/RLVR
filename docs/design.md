@@ -22,8 +22,10 @@ Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Les
   decision is on Sun Nov 22 ([v2 pilot](#v2-pilot)). The v2 code and eval v3 are implemented (2026-11-15;
   configs in `configs/v2/`, choices the design left open in [Implementation](#implementation-2026-11-15)). **Stage A
   passed** on 2026-11-15: add, alternate, splice and max are each at 50/50 on E1, so the operator set is fixed;
-  stage B is next. Results: [`pretrain_v2_results.md`](pretrain_v2_results.md).
-- **Compute:** 21.48 of 50 NERSC GPU node-hours used as of 2026-11-15.
+  stage B is on hold until the team agrees on one operator set (master also has a separate tree task, tree-v1 in
+  `docs/tree_v1.md`, with 12 unary + 8 binary + 4 ternary operators). Results:
+  [`pretrain_v2_results.md`](pretrain_v2_results.md).
+- **Compute:** 23.29 of 50 NERSC GPU node-hours used as of 2026-11-16.
 
 ## Decision log
 
