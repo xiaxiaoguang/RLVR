@@ -122,6 +122,17 @@ class Task:
         h = [self._is_h[f] for f in funcs]
         return "H" if all(h) else ("L" if not any(h) else "mixed")
 
+    def is_skippable(self, p: Problem) -> bool:
+        """True if dropping any one step still gives the right answer (design.md decision 6)."""
+        for i in range(p.depth):
+            s = p.x
+            for j, f in enumerate(p.funcs):
+                if j != i:
+                    s = self.apply(f, s)
+            if s == p.answer:
+                return True
+        return False
+
     def make_problem(self, funcs: Sequence[int], x: str) -> Problem:
         funcs = tuple(int(f) for f in funcs)
         steps = self.run(funcs, x)

@@ -1,0 +1,20 @@
+# Tree-v1 pilot stage B (design.md "v2 pilot", decision 11): the tree-v1 recipe at the full length
+# (9500 steps); the three stage-B runs override pretrain.comp_frac. Calibration, then the pilot pool:
+# D/E (depth, group) cells chosen from the calib labels, 10,000 candidates per chosen cell, second
+# labelling, calib/pilot.json with the go criterion. A run on target can become the tree-v1 mid model.
+#   CONFIG=configs/pretrain/tree/mid.yaml TRAIN_ARGS=pretrain.comp_frac=<cf> \
+#       bash scripts/slurm/model_pipeline.sh tree-mid-cf<cf>
+base: ../../tasks/tree_v1.yaml
+pretrain:
+  level: tree-mid
+  steps: 9500
+  eval_every: 2000
+  target_minutes: 60
+rl_pool:
+  mode: pilot
+label:
+  relabel_cells: []
+gate:
+  matched_cells: []        # the D/E pair comes from the pilot (calib/pilot.json)
+  hard_checks: [depth1_greedy, spread]
+  target: {depth: 3, p_range: [0.35, 0.55]}   # mid d3 mean p (warning)

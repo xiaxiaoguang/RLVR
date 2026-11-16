@@ -301,6 +301,16 @@ class TreeTask(Task):
         *_, trace, _ = self._evaluate(p.expr, {tuple(p.trace[index]["path"]): bad})
         return [t["value"] for t in trace]
 
+    def is_skippable(self, p):
+        """True if replacing any one operator node by one of its operands (for a unary node:
+        removing it) still gives the right answer (design.md decision 6)."""
+        for t in p.trace:
+            path = tuple(t["path"])
+            for arg in t["args"]:
+                if self._evaluate(p.expr, {path: arg})[0] == p.answer:
+                    return True
+        return False
+
     def edges(self, p):
         """(parent operator, argument slot, child operator), never sibling pairs."""
         return self.expression_edges(p.expr)

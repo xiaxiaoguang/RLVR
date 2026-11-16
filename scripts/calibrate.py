@@ -55,10 +55,12 @@ import torch  # noqa: E402
 import torch.distributed as dist  # noqa: E402
 
 from rlvr import gate as G  # noqa: E402
-from rlvr.config import load_config, resolve  # noqa: E402
+from rlvr import pilot as PL  # noqa: E402
+from rlvr.config import load_config, resolve, task_and_splits  # noqa: E402
 from rlvr.evaluate import greedy_eval, label_pass_rates  # noqa: E402
-from rlvr.io import load_problems, read_jsonl  # noqa: E402
+from rlvr.io import load_problems, problems_to_rows, read_jsonl, write_jsonl  # noqa: E402
 from rlvr.model import checkpoint_ids as ids_for, load_model  # noqa: E402
+from rlvr.sets import cell_candidates  # noqa: E402
 from rlvr.task import GROUPS, make_task  # noqa: E402
 
 
@@ -203,7 +205,42 @@ def main():
             write_gate(dict(gate, checks=dict(gate["checks"])), final=False)
 
     # 3. RL-pool labels (+ independent second labelling of the screened matched cells) and matched-p cells
-    if not args.skip_pool:
+    rc = cfg["rl_pool"]
+    if not args.skip_pool and rc["mode"] == "pilot":
+        # v2 pilot stage B (design.md decision 11): D/E cells from the calib rates, 10,000 candidates
+        # per chosen cell, second labelling of the non-skippable ones in label.relabel_range
+        rates = PL.cell_rates(calib, rc["pilot_depths"], gc["p_range"])
+        cells, pairs = PL.choose_cells(rates, rc["pilot_min_gap"], rc["pilot_max_cells"])
+        _, splits = task_and_splits(cfg)
+        t = time.time()
+        problems = [p for d, g in cells for p in cell_candidates(splits, "rl", d, g, rc["pilot_per_cell"],
+                                                                 rc["pilot_seed"])]
+        if master:
+            print(f"{model_id}: pilot cells {[PL.cell_name(*c) for c in cells]}, {len(problems)} candidates "
+                  f"in {time.time() - t:.0f}s", flush=True)
+        if problems:
+            pool = label(problems, origin=["pilot"] * len(problems))
+            lo, hi = lc["relabel_range"]
+            mask = ((pool.p_hat >= lo) & (pool.p_hat <= hi) & ~pool.skippable.astype(bool)).to_numpy()
+            if lc["relabel_k"]:
+                again = label([p for p, m in zip(problems, mask) if m], k=lc["relabel_k"]) if mask.any() else None
+                pool = G.attach_relabel(pool, mask, again)
+        if master:
+            rep = {"model_id": model_id, "chosen_cells": [PL.cell_name(*c) for c in cells],
+                   "calib_rates": rates.round(4).to_dict(orient="records")}
+            if problems and lc["relabel_k"]:
+                (data / "labels").mkdir(parents=True, exist_ok=True)
+                pool.to_parquet(data / "labels" / f"{model_id}.parquet", index=False)
+                write_jsonl(out / "pilot_candidates.jsonl", problems_to_rows(task, problems, origin="pilot"))
+                rep.update(PL.report(pool, cells, pairs, gc["p_range"], rc["pilot_min_matched"]))
+            else:
+                rep.update(go=False, reason="no D/E cell pair with p ~ 0.5 calib problems" if not problems
+                           else "label.relabel_k is 0")
+            (out / "pilot.json").write_text(json.dumps(rep, indent=1))
+            best = rep["pairs"][0] if rep.get("pairs") else None
+            gate["pilot"] = {"go": rep["go"], "best_pair": best}
+            print(f"{model_id}: pilot go={rep['go']} best pair {best}", flush=True)
+    elif not args.skip_pool:
         pool_rows = read_jsonl(data / "rl_pool" / "candidates.jsonl")
         if args.pool_first:
             pool_rows = pool_rows[:args.pool_first]

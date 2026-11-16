@@ -155,6 +155,17 @@ param("rl_pool.per_cell", 1000, "candidates per (depth, group) cell")
 param("rl_pool.extra_cells", [{"depth": 2, "group": "L", "n": 4000}, {"depth": 4, "group": "H", "n": 4000},
                               {"depth": 5, "group": "H", "n": 4000}],
       "oversampled cells (origin=extra) for the matched-p datasets")
+param("rl_pool.mode", "file", "calibrate.py RL-pool step: 'file' labels data/rl_pool/candidates.jsonl; 'pilot' "
+      "(v2 stage B, design.md decision 11) picks D/E cells from the calib labels and labels per-cell candidates",
+      choices=("file", "pilot"))
+param("rl_pool.pilot_depths", [1, 2, 3, 4, 5], "pilot: depths of the candidate (depth, group) cells (the RL range)")
+param("rl_pool.pilot_min_gap", 2, "pilot: E needs a depth at least this much above D's")
+param("rl_pool.pilot_max_cells", 4, "pilot: cells that get candidates (best D/E pairs by calib p ~ 0.5 share)")
+param("rl_pool.pilot_per_cell", 10_000, "pilot: candidates per chosen cell (go criterion: from <= 10,000)")
+param("rl_pool.pilot_min_matched", 500, "pilot: go criterion, problems per cell with relabelled p in gate.p_range "
+      "after removing skippable ones, with a shared length mix")
+param("rl_pool.pilot_seed", 3003, "pilot: candidate seed; each cell has its own stream, so the first N candidates "
+      "of a cell do not depend on the other cells")
 
 # =============================================================================
 # Model (P)

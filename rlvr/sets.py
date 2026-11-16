@@ -12,6 +12,19 @@ def cells_for(depths, groups):
     return [(d, g) for d in depths for g in groups if not (d == 1 and g == "mixed")]
 
 
+def cell_candidates(splits: Splits, pool: str, depth: int, group: str, n: int, seed: int) -> list[Problem]:
+    """n unique problems of one (depth, group) cell from the cell's own random stream (seeded by
+    seed, depth and group), input lengths cycling through task.str_lens. The first m candidates of a
+    cell do not depend on n or on the other cells (v2 pilot stage B, design.md decision 11)."""
+    rng = random.Random(f"{seed}|{depth}|{group}")
+    lens, seen, out = splits.task.str_lens, set(), []
+    while len(out) < n:
+        p = splits.sample(pool, depth, rng, group=group, exclude=seen, str_len=lens[len(out) % len(lens)])
+        seen.add(p.pid)
+        out.append(p)
+    return out
+
+
 def stratified_set(splits: Splits, pool: str, depths, groups, per_cell: int,
                    rng: random.Random, exclude: set, novel: bool = False,
                    by_function: bool = False) -> list[Problem]:

@@ -69,6 +69,7 @@ def label_pass_rates(model, tok, task: Task, problems: Sequence[Problem], k: int
         lo, hi = wilson(n, k)
         structural = {key: getattr(p, key) for key in ("n_ops", "n_binary", "n_ternary", "shape_id",
                        "max_live_values", "task_fingerprint") if hasattr(p, key)}
+        structural["skippable"] = task.is_skippable(p)
         rows.append({**structural, "pid": p.pid, "depth": p.depth, "funcs": list(p.funcs), "group": p.group,
                      "str_len": len(p.x), "n_correct": n, "k": k, "p_hat": n / k,
                      "ci_lo": lo, "ci_hi": hi, "model_id": model_id})

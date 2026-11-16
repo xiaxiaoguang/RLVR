@@ -1,8 +1,10 @@
 """Winner's-curse check of the second labelling for one model's RL-pool labels.
 
     python scripts/relabel_report.py pt-mid-s0      # -> runs/pt-mid-s0/calib/relabel_report.json
+    python scripts/relabel_report.py pt-tree-mid-s0 --ckpt checkpoints/tree-v1/pt-tree-mid-s0
 
-For each label.relabel_cells cell (d2-L, d4-H, d5-H by default):
+For each label.relabel_cells cell (d2-L, d4-H, d5-H by default; with rl_pool.mode pilot, the cells
+chosen in calib/pilot.json, skippable problems excluded as in the pilot's relabelling):
   first_selected    problems with a first-pass p_hat in gate.p_range: their mean first-pass p_hat
                     and mean independent second estimate (p_hat_relabel), and the share whose
                     second estimate is still in range. A gap between the two means is the
@@ -28,12 +30,14 @@ def _mean(s: pd.Series) -> float | None:
     return round(float(s.mean()), 4) if len(s) else None
 
 
-def report(pool: pd.DataFrame, cells: list[dict], p_range: list[float]) -> dict:
+def report(pool: pd.DataFrame, cells: list[dict], p_range: list[float], drop_skippable: bool = False) -> dict:
     lo, hi = p_range
     lens = sorted(int(v) for v in pool.str_len.unique())
     out = {}
     for c in cells:
         sel = pool[(pool.depth == c["depth"]) & (pool.group == c["group"])]
+        if drop_skippable and "skippable" in sel:
+            sel = sel[~sel.skippable.astype(bool)]
         first = sel[(sel.p_hat >= lo) & (sel.p_hat <= hi)]
         again = sel[(sel.p_hat_relabel >= lo) & (sel.p_hat_relabel <= hi)]
         out[f"d{c['depth']}-{c['group']}"] = {
@@ -58,16 +62,25 @@ def report(pool: pd.DataFrame, cells: list[dict], p_range: list[float]) -> dict:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("model_id", help="e.g. pt-mid-s0 (reads data/labels/{model_id}.parquet)")
+    ap.add_argument("--ckpt", default=None, help="checkpoint dir with run_config.yaml (default checkpoints/{model_id})")
     args = ap.parse_args()
-    run_cfg = resolve("checkpoints") / args.model_id.split("-step-")[0] / "run_config.yaml"
+    ckpt = resolve(args.ckpt) if args.ckpt else resolve("checkpoints") / args.model_id.split("-step-")[0]
+    run_cfg = ckpt / "run_config.yaml"
     cfg = load_config(run_cfg if run_cfg.exists() else None)
     pool = pd.read_parquet(resolve(cfg["paths"]["data"]) / "labels" / f"{args.model_id}.parquet")
     if "p_hat_relabel" not in pool:
         raise SystemExit(f"{args.model_id}: no p_hat_relabel column (label.relabel_k = 0?)")
+    calib_dir = resolve(cfg["paths"]["runs"]) / args.model_id / "calib"
+    pilot = cfg["rl_pool"]["mode"] == "pilot"
+    if pilot:
+        chosen = json.loads((calib_dir / "pilot.json").read_text())["chosen_cells"]  # e.g. "d3-H"
+        cells = [{"depth": int(c.split("-")[0][1:]), "group": c.split("-", 1)[1]} for c in chosen]
+    else:
+        cells = cfg["label"]["relabel_cells"]
     res = {"model_id": args.model_id, "p_range": cfg["gate"]["p_range"],
            "relabel_range": cfg["label"]["relabel_range"], "relabel_k": cfg["label"]["relabel_k"],
-           "cells": report(pool, cfg["label"]["relabel_cells"], cfg["gate"]["p_range"])}
-    out = resolve(cfg["paths"]["runs"]) / args.model_id / "calib" / "relabel_report.json"
+           "cells": report(pool, cells, cfg["gate"]["p_range"], drop_skippable=pilot)}
+    out = calib_dir / "relabel_report.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(res, indent=1))
     print(json.dumps(res, indent=1))

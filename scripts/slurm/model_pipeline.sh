@@ -37,7 +37,7 @@ fi
 rc=0
 torchrun --standalone --nproc_per_node=4 scripts/calibrate.py "$CKPTS/$NAME" "${CALIB_EXTRA[@]}" || rc=$?
 if [ -f "$DATA/labels/$NAME.parquet" ]; then
-  python scripts/relabel_report.py "$NAME"
+  python scripts/relabel_report.py "$NAME" --ckpt "$CKPTS/$NAME"
 fi
 echo "== $NAME: done at $(date '+%F %T'), calibrate exit $rc (1 = gate FAIL or error)"
 exit $rc
