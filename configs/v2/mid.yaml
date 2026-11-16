@@ -1,8 +1,0 @@
-# v2 pilot stage B (design.md "v2 pilot"): mid recipe with trees at full length. The three runs
-# override comp_frac (2e-4 / 3.2e-4 / 5e-4); one on target can become the v2 mid model.
-base: base.yaml
-pretrain:
-  level: v2mid
-  comp_frac: 0.00032
-gate:
-  target: {depth: 3, p_range: [0.35, 0.55]}   # mid d3 (n_ops 3, chains and trees) mean p

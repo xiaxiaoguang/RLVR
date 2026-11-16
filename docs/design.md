@@ -33,6 +33,7 @@ Newest first. "Proposed by" is who raised it in the team discussion.
 
 | # | date | question | decision | proposed by |
 | --- | --- | --- | --- | --- |
+| 11 | 2026-11-16 | How are the D/E cells defined in tree-v1, where depth and n_ops differ? | Fixed before stage B, applied to its data ([Matched cells](#matched-cells-v2)): a cell is (depth, group) as in the calib set; D/E pairs need E.depth ≥ D.depth + 2 within RL depths 1–5; pairs are ranked by the smaller of the two cells' calib shares of non-skippable problems with p̂ in [0.4, 0.6]. Depth is the axis because H2 is tested on E3 (depth 6–8); n_ops, n_binary, n_ternary, max_live_values and token length are reported for D and E as covariates, and input length is matched. | Yupeng |
 | 10 | 2026-11-16 | Which operator set and code for the tree task? | Hanzhong's **tree-v1** ([`tree_v1.md`](tree_v1.md)): 12 unary + 8 binary + 4 ternary operators reshuffled to F00–F23, depth = dependency depth, held-out (parent, slot, child) edges, data under `data/tree-v1/`. It replaces the pretrain-branch variant (24 unary + add / alternate / splice / max), whose stage A passed and whose stage B was cancelled after 36 min (1.81 node-hours). The pilot plan (stages A and B, go criterion) is unchanged. | Hanzhong (chosen by Yupeng) |
 | 9 | 2026-11-15 | Where do checkpoints go? | Hugging Face model repo, one folder per run in `save_model` format (`scripts/push_hf.py`); too large for git. | Yupeng |
 | 8 | 2026-11-15 | Where do we record settings, results and decisions? | This file, in English, as the shared record for the paper. | Hanzhong |
@@ -539,13 +540,14 @@ cell means.
 
 - Three full-length runs (9500 steps) of the tree-v1 recipe, in parallel, one node each, at three comp_frac values
   set after stage A (the v1 values do not carry over).
-- Each run: calibration over (depth 1–8 × group) cells with the structure variables of every problem, and labelling of
-  a candidate pool in the cells nearest 0.5, with the second labelling.
+- Each run: calibration over (depth 1–8 × group) cells with the structure variables of every problem, then a
+  candidate pool for the best D/E pairs (decision 11): their cells (≤ 4) get 10,000 RL-pool candidates each, labelled
+  with k = 32, and the non-skippable ones with p̂ in [0.3, 0.7] are relabelled with k = 64.
 - Report per cell: mean p, share of problems with p in [0.4, 0.6] (v1: ≤ 12.5%), signal_frac, and the structure
   variables.
 
-**Go criterion.** For one of the stage-B runs there are two cells, a simple one for D and a complex one for E (E has
-at least two more operations than D, as in v1's 2 vs 4), each with ≥ 500 problems with relabelled p in [0.4, 0.6]
+**Go criterion.** For one of the stage-B runs there are two cells, a simple one for D and a complex one for E (E is at
+least two levels deeper than D, as in v1's 2 vs 4; decision 11), each with ≥ 500 problems with relabelled p in [0.4, 0.6]
 from ≤ 10,000 candidates, after removing skippable problems and with a shared length mix. All operators also pass
 stage A.
 
@@ -555,8 +557,7 @@ candidates, ~2–2.5 node-hours of labelling), remove skippable problems and giv
 **Implementation.** Data and training use the tree-v1 code (`configs/tasks/tree_v1.yaml`, `scripts/make_tree_data.sh`;
 the task config's `pretrain` block is a 400-step pilot recipe, so full runs override `pretrain.steps`). Still to add
 for the pilot (Yupeng): an E1-only calibration mode for stage A, the stage-B candidate pool and its report (D/E cells,
-shared length mix, go), and the skippable check for trees. The D/E cell definition (which structure variables define
-a cell) is agreed with Hanzhong before stage B.
+shared length mix, go), and the skippable check for trees. The D/E cells follow decision 11.
 
 **Compute (node-hours):** stage A ~0.4. Stage B and the final models are estimated after stage A and a `--bench`:
 tree-v1 sequences are up to ~2× longer than v1 chains, so labelling (k = 32 samples of up to 768 tokens) costs more than
@@ -624,10 +625,16 @@ match_covariates: [str_len]   # lengths vary, so match them to the control group
 
 ### Matched cells (v2)
 
-- **Choice of cells.** v1 used d2-L (D) and d4-H (E). In v2 the pair is chosen after the pilot among tree-v1
-  structure cells (built from depth, `n_ops`, `n_binary`, `n_ternary` and group; exact definition agreed before stage
-  B), as the pair with the largest supply of p ≈ 0.5 problems among pairs where E has at least two more operations
-  than D. The other structure variables are reported for both. The v1 pair stays as a reference if it is available.
+- **Choice of cells** (decision 11, fixed before the stage-B results). v1 used d2-L (D) and d4-H (E). In tree-v1 a
+  cell is (depth, group), the stratification of the calib set (200 problems per cell; finer cells by `n_ops` or arity
+  counts would hold only tens of calib problems each). Candidate pairs: D and E in RL depths 1–5 with
+  E.depth ≥ D.depth + 2. Score of a pair: the smaller of the two cells' calib shares of non-skippable problems with
+  p̂ in [0.4, 0.6]; ties go to the pair with smaller depths. The cells of the best pairs (≤ 4 cells) get the candidate
+  pool, and the pair with the largest supply after relabelling (shared length mix) is used. Depth is the axis because
+  H2 is tested on E3 (depth 6–8), as in v1 where depth equals the number of operations.
+- **Covariates.** `n_ops`, `n_binary`, `n_ternary`, `max_live_values` and token length are reported for D and E;
+  deeper cells also have more operations, as in v1. If the pool allows, a secondary contrast at equal depth and
+  different `n_ops` is reported separately. The v1 pair stays as a reference if it is available.
 - **Skippable problems are excluded** (decision 6). A problem is skippable if removing any one unary node, or
   replacing any multi-input node by one of its operands, gives the same answer. The share of excluded problems is
   reported per cell (v1 RL pool: 31% of d4-H, 10.5% of d2-L). Not yet implemented for tree-v1.
@@ -883,7 +890,8 @@ The main risk is still that simple and complex problems do not both have enough 
 - [x] Operator set and code for the tree task: tree-v1 (decision 10)
 - [ ] Check that the Hugging Face v1 checkpoints load with `load_model` after download
 - [ ] Tree-v1 stage A: every operator learnable
-- [ ] Tree-v1 stage B: comp_frac levels, D/E cell definition, candidate pool; skippable check for trees
+- [x] D/E cell definition for tree-v1 (decision 11)
+- [ ] Tree-v1 stage B: comp_frac levels, candidate pool code; skippable check for trees
 - [ ] v2 go/no-go (Sun Nov 22) and the D/E cell pair
 - [ ] RL role of midbal (proposed: mid vs midbal on A)
 - [ ] Total RL rollout budget (sets the steps per run)
