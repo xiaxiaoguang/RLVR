@@ -1,6 +1,9 @@
 """Generate the frozen evaluation sets (E1-E4, probe, calib) plus task metadata.
 
     python scripts/make_eval_sets.py [--config overrides.yaml] [key=value ...]
+    python scripts/make_eval_sets.py --config configs/v2/base.yaml     # v2: eval v3 (trees)
+
+Sets go to {paths.data}/eval/{eval.version}/, metadata to {paths.data}/{eval.meta_dir}/.
 """
 from __future__ import annotations
 
@@ -25,15 +28,19 @@ def write_meta(cfg, task, splits, out: Path):
     out.mkdir(parents=True, exist_ok=True)
     table = task.describe()
     x = "cajfb"[: task.str_lens[0]] if task.str_lens[0] <= 5 else task.alphabet[: task.str_lens[0]]
+    y = task.alphabet[::-1][: len(x)]
     for row in table:
-        row["example"] = f"{x} -> {task.apply(row['id'], x)}"
+        if task.is_binary(row["id"]):
+            row["example"] = f"{x},{y} -> {task.apply(row['id'], x, y)}"
+        else:
+            row["example"] = f"{x} -> {task.apply(row['id'], x)}"
     (out / "functions.json").write_text(json.dumps(table, indent=1))
     pairs = [{"inner": task.fname(a), "outer": task.fname(b),
               "inner_fn": task.id2name[a], "outer_fn": task.id2name[b],
               "groups": ("H" if a in task.H else "L") + ("H" if b in task.H else "L")}
              for a, b in sorted(splits.heldout_pairs)]
     (out / "heldout_pairs.json").write_text(json.dumps(pairs, indent=1))
-    CharTokenizer(task.alphabet).save(out / "tokenizer.json")
+    CharTokenizer.for_task(task).save(out / "tokenizer.json")
     (out / "task_config.yaml").write_text(yaml.safe_dump({"task": cfg["task"], "splits": cfg["splits"]},
                                                           sort_keys=False))
 
@@ -46,7 +53,7 @@ def main():
     cfg = load_config(args.config, args.overrides)
     task, splits = task_and_splits(cfg)
     data = resolve(cfg["paths"]["data"])
-    write_meta(cfg, task, splits, data / "meta")
+    write_meta(cfg, task, splits, data / cfg["eval"]["meta_dir"])
 
     ecfg = cfg["eval"]
     out = data / "eval" / ecfg["version"]
@@ -55,7 +62,8 @@ def main():
     manifest = {"version": ecfg["version"], "sets": {}}
     for name, s in ecfg["sets"].items():
         probs = stratified_set(splits, "eval", s["depths"], s["groups"], s["per_cell"], rng, seen,
-                               novel=s.get("novel", False), by_function=s.get("by_function", False))
+                               novel=s.get("novel", False), by_function=s.get("by_function", False),
+                               n_bins=s.get("n_bins", [0]))
         n = write_jsonl(out / f"{name}.jsonl", problems_to_rows(task, probs, eval_set=name))
         manifest["sets"][name] = {"n": n, **s}
         print(f"{name:6s} {n:5d} -> {out / f'{name}.jsonl'}")

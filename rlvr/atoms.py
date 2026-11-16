@@ -3,12 +3,17 @@
 Each factory returns f(s: list[int], A: int) -> list[int] over symbol indices in
 [0, A). Functions must preserve length (checked when a Task is built). The task
 config maps a label to a spec, e.g. `rotl2: {name: rotate, k: 2}`.
+
+Binary operators (v2, `task.binary_functions`) live in BINARY: each factory returns
+f(a: list[int], b: list[int], A: int) -> list[int] for two strings of the same length n,
+returning length n and depending on both inputs (both checked when a Task is built).
 """
 from __future__ import annotations
 
 from .registry import Registry
 
 ATOMS = Registry("atom")
+BINARY = Registry("binary")
 
 
 # ---- position transforms ---------------------------------------------------
@@ -146,3 +151,41 @@ def mirror_first_half():
         n, h = len(s), len(s) // 2
         return s[:n - h] + s[:h][::-1]
     return f
+
+
+# ---- binary operators (v2) ---------------------------------------------------
+
+@BINARY.register()
+def add():
+    """c_i = (a_i + b_i) mod A."""
+    return lambda a, b, A: [(x + y) % A for x, y in zip(a, b)]
+
+
+@BINARY.register()
+def sub():
+    """c_i = (a_i - b_i) mod A (backup operator)."""
+    return lambda a, b, A: [(x - y) % A for x, y in zip(a, b)]
+
+
+@BINARY.register()
+def alternate():
+    """c_i = a_i at even i, b_i at odd i."""
+    return lambda a, b, A: [x if i % 2 == 0 else y for i, (x, y) in enumerate(zip(a, b))]
+
+
+@BINARY.register()
+def splice():
+    """First floor(n/2) chars of a, the rest of b."""
+    return lambda a, b, A: list(a[:len(a) // 2]) + list(b[len(a) // 2:])
+
+
+@BINARY.register()
+def maximum():
+    """c_i = max(a_i, b_i)."""
+    return lambda a, b, A: [max(x, y) for x, y in zip(a, b)]
+
+
+@BINARY.register()
+def minimum():
+    """c_i = min(a_i, b_i) (backup operator)."""
+    return lambda a, b, A: [min(x, y) for x, y in zip(a, b)]

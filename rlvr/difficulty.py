@@ -7,7 +7,7 @@ import numpy as np
 
 from .registry import Registry
 
-# Default bins for G=8 (doc §分箱). Edge bins produce almost no gradient.
+# Default bins for G=8 (design.md "Bins"). Edge bins produce almost no gradient.
 P_BINS: list[tuple[str, float, float]] = [
     ("0-0.03", 0.0, 1 / 32),
     ("0.03-0.2", 1 / 32, 0.2),

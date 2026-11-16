@@ -4,7 +4,7 @@
     ds = PretrainStream(cfg, rank=0, exclude_pids=eval_pids)  # length-bucketed micro-batches
     loader = DataLoader(ds, batch_size=None, num_workers=4)
 
-Composition (doc: 预训练数据生成). `pretrain.comp_frac` is the share of supervised
+Composition (design.md "Streamed pretraining data"). `pretrain.comp_frac` is the share of supervised
 (target) tokens that come from composition examples; atoms (depth 1, all
 functions uniform) fill the rest. Because compositions have longer targets,
 the per-example probability of a composition is set from Monte-Carlo estimates
@@ -12,6 +12,13 @@ of the mean target length of each component, so the *token* share matches.
 
 Compositions: depth from `comp_depth_mix`; depths in `h_only_depths` use only H
 functions; the others are H-only with prob `h_ratio`, else contain >= 1 L.
+
+v2 (`task.binary_functions`, `pretrain.tree_frac`): atoms are uniform over the unary
+functions and the binary operators; a share `tree_frac` of the composition tokens comes
+from trees (n_ops from `tree_shape_mix`, n_bin 2 with prob p_bin2 else 1; the unary
+functions follow the same H / L rules, a tree without unary functions is group "bin").
+Noise (P10) applies to chains only. With tree_frac = 0 and no binary operators the
+stream is exactly v1's.
 
 Leak control: every example is rejection-sampled into the pretrain pool (pid
 hash) without held-out function pairs, and dropped if its pid is in
@@ -39,8 +46,8 @@ from .splits import Splits
 from .task import Problem, Task
 from .tokenizer import IGNORE_INDEX, CharTokenizer
 
-KINDS = ("atom", "comp")
-GROUP_IDS = {"H": 0, "L": 1, "mixed": 2}
+KINDS = ("atom", "comp", "tree")
+GROUP_IDS = {"H": 0, "L": 1, "mixed": 2, "bin": 3}
 REJECT_KINDS = ("pool", "heldout", "eval_dup")
 
 
@@ -69,25 +76,38 @@ class Mixture:
         self.comp_depths, self.comp_weights = list(mix), list(mix.values())
         self.h_only = {int(d) for d in pc["h_only_depths"]}
         self.rejects = Counter()
-        f = pc["comp_frac"]
-        assert 0.0 <= f <= 1.0
-        # Mean target tokens per component -> per-example composition probability.
-        tok, est = CharTokenizer(task.alphabet), random.Random(f"{seed}-estimate")
+        f, t = pc["comp_frac"], pc["tree_frac"]
+        assert 0.0 <= f <= 1.0 and 0.0 <= t <= 1.0
+        assert t == 0 or task.n_binary, "pretrain.tree_frac > 0 needs task.binary_functions"
+        shape = pc["tree_shape_mix"]
+        self.tree_nops = [int(d) for d in shape["n_ops"]]
+        self.tree_weights = [float(w) for w in shape["n_ops"].values()]
+        self.p_bin2 = float(shape["p_bin2"])
+        # Mean target tokens per component -> per-example probabilities matching the token shares.
+        kinds = KINDS if t > 0 else KINDS[:2]
+        tok, est = CharTokenizer.for_task(task), random.Random(f"{seed}-estimate")
         self.mean_target = {k: sum(len(tok.encode(self.target(*self._sample(k, est))))
-                                   for _ in range(n_estimate)) / n_estimate for k in KINDS}
+                                   for _ in range(n_estimate)) / n_estimate for k in kinds}
         if f in (0.0, 1.0):
             self.p_comp = f
         else:
-            a, c = (1 - f) / self.mean_target["atom"], f / self.mean_target["comp"]
-            self.p_comp = c / (a + c)
+            a, c = (1 - f) / self.mean_target["atom"], f * (1 - t) / self.mean_target["comp"]
+            tr = f * t / self.mean_target["tree"] if t > 0 else 0.0
+            self.p_comp = (c + tr) / (a + c + tr)
+        # P(tree | composition example); only drawn when trees are on, so v1 streams are unchanged
+        if t in (0.0, 1.0):
+            self.p_tree = t
+        else:
+            c, tr = (1 - t) / self.mean_target["comp"], t / self.mean_target["tree"]
+            self.p_tree = tr / (c + tr)
 
-    def _draw(self, depth: int, rng: random.Random, **kw) -> Problem:
+    def _draw(self, depth: int, rng: random.Random, n_bin: int = 0, **kw) -> Problem:
         task, splits = self.task, self.splits
         while True:
-            p = task.sample_problem(depth, rng, **kw)
+            p = task.sample_tree(depth, n_bin, rng, **kw) if n_bin else task.sample_problem(depth, rng, **kw)
             if splits.pool_of(p.pid) != "pretrain":
                 self.rejects["pool"] += 1
-            elif depth > 1 and splits.has_heldout_pair(p.funcs):
+            elif depth > 1 and splits.has_heldout(p):
                 self.rejects["heldout"] += 1
             elif p.pid in self.exclude:
                 self.rejects["eval_dup"] += 1
@@ -95,8 +115,22 @@ class Mixture:
                 return p
 
     def _sample(self, kind: str, rng: random.Random) -> tuple[Problem, list[str] | None]:
+        task = self.task
         if kind == "atom":
-            return self._draw(1, rng, func_pool=[rng.randrange(self.task.n_funcs)]), None
+            fid = rng.randrange(task.n_funcs + task.n_binary)
+            if fid >= task.n_funcs:
+                return self._draw(1, rng, n_bin=1, group="bin", bin_pool=[fid]), None
+            return self._draw(1, rng, func_pool=[fid]), None
+        if kind == "tree":
+            n_ops = rng.choices(self.tree_nops, self.tree_weights)[0]
+            n_bin = 2 if n_ops >= 2 and rng.random() < self.p_bin2 else 1
+            if n_ops == n_bin:
+                group = "bin"
+            elif n_ops in self.h_only:
+                group = "H"
+            else:
+                group = "H" if rng.random() < self.pc["h_ratio"] else "anyL"
+            return self._draw(n_ops, rng, n_bin=n_bin, group=group), None
         depth = rng.choices(self.comp_depths, self.comp_weights)[0]
         if depth in self.h_only:
             group = "H"
@@ -113,6 +147,8 @@ class Mixture:
 
     def sample(self, rng: random.Random) -> tuple[str, Problem, list[str] | None]:
         kind = "comp" if rng.random() < self.p_comp else "atom"
+        if kind == "comp" and self.p_tree > 0 and rng.random() < self.p_tree:
+            kind = "tree"
         return (kind, *self._sample(kind, rng))
 
 
@@ -128,7 +164,7 @@ class PretrainStream(torch.utils.data.IterableDataset):
     def _setup(self, worker: int):
         from .config import task_and_splits
         task, splits = task_and_splits(self.cfg)
-        self.task, self.tok = task, CharTokenizer(task.alphabet)
+        self.task, self.tok = task, CharTokenizer.for_task(task)
         self.mix = Mixture(task, splits, self.pc, self.cfg["seed"], self.exclude)
         self.rng = random.Random(f"{self.cfg['seed']}-{self.rank}-{worker}")
 
@@ -136,7 +172,7 @@ class PretrainStream(torch.utils.data.IterableDataset):
         ids, labels = self.tok.encode_example(self.task.format_prompt(p), self.mix.target(p, steps))
         assert len(ids) <= self.max_len, f"example of {len(ids)} tokens > model.max_len"
         return {"ids": ids, "labels": labels, "n_target": sum(t != IGNORE_INDEX for t in labels),
-                "kind": KINDS.index(kind), "depth": p.depth, "group": GROUP_IDS[p.group],
+                "kind": KINDS.index(kind), "depth": p.depth, "n_bin": p.n_bin, "group": GROUP_IDS[p.group],
                 "funcs": p.funcs, "noisy": steps is not None}
 
     def collate(self, rows: list[dict]) -> dict:
@@ -153,13 +189,13 @@ class PretrainStream(torch.utils.data.IterableDataset):
             labels[i, :L] = torch.tensor(r["labels"])
             if omax:
                 pos[i] += self.rng.randint(0, max(0, min(omax, self.max_len - T)))
-        func_counts = torch.zeros(self.task.n_funcs, dtype=torch.long)
+        func_counts = torch.zeros(self.task.n_funcs + self.task.n_binary, dtype=torch.long)
         for r in rows:
-            if r["kind"] == 1:
+            if r["kind"] != 0:
                 for f in r["funcs"]:
                     func_counts[f] += 1
         rejects = torch.tensor([self.mix.rejects.pop(k, 0) for k in REJECT_KINDS])
-        meta = {k: torch.tensor([r[k] for r in rows]) for k in ("kind", "depth", "group", "n_target", "noisy")}
+        meta = {k: torch.tensor([r[k] for r in rows]) for k in ("kind", "depth", "n_bin", "group", "n_target", "noisy")}
         return {"input_ids": ids, "labels": labels, "position_ids": pos, **meta,
                 "func_counts": func_counts, "rejects": rejects}
 

@@ -40,7 +40,7 @@ def main():
     args = ap.parse_args()
     cfg = load_config(args.config, args.overrides)
     task, splits = task_and_splits(cfg)
-    tok = CharTokenizer(task.alphabet)
+    tok = CharTokenizer.for_task(task)
     pc, seed = cfg["pretrain"], cfg["seed"]
     run_name = f"pt-{pc['level']}-s{seed}"
     out = resolve(cfg["paths"]["data"]) / "pretrain" / run_name

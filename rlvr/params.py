@@ -122,6 +122,10 @@ param("task.h_group", ["reverse", "rotl1", "swap_adjacent", "swap_halves", "riff
                        "sort_asc", "sort_first_half",
                        "even_pos_p1", "max_to_front"],
       "labels of the high-exposure group H; the rest form L", code="P6", priority=FROZEN)
+param("task.binary_functions", {},
+      "v2 binary operators: label -> spec (rlvr.atoms.BINARY), display ids F24.. in this order, not "
+      "shuffled; empty = v1 (chains only). v2 configs: add, alternate, splice, max (backups sub, min)",
+      code="P12", priority=FROZEN)
 
 # =============================================================================
 # Splits
@@ -136,6 +140,7 @@ param("splits.heldout_pairs_per_group_pair", 6, "held-out ordered pairs per HH/H
 # Evaluation sets and RL candidate pool
 # =============================================================================
 param("eval.version", "v2", "bump when eval sets change")
+param("eval.meta_dir", "meta", "task metadata dir (functions, held-out pairs, tokenizer), relative to paths.data")
 param("eval.seed", 1001, "eval-set sampling seed")
 param("eval.sets", {
     "E1": {"depths": [1], "groups": ["H", "L"], "per_cell": 50, "by_function": True},
@@ -144,7 +149,8 @@ param("eval.sets", {
     "E4": {"depths": [2, 3, 4, 5], "groups": [None], "per_cell": 200, "novel": True},
     "probe": {"depths": [1, 2, 3, 4, 5, 6, 7, 8], "groups": ["H", "L", "mixed"], "per_cell": 25},
     "calib": {"depths": [1, 2, 3, 4, 5, 6, 7, 8], "groups": ["H", "L", "mixed"], "per_cell": 200},
-}, "eval set name -> stratification (E1 atomic, E2 in-dist, E3 deeper, E4 novel pairs)")
+}, "eval set name -> stratification (E1 atomic, E2 in-dist, E3 deeper, E4 novel pairs); optional "
+   "n_bins (default [0] = chains) adds tree cells (depth = n_ops)")
 param("rl_pool.seed", 2002, "candidate sampling seed")
 param("rl_pool.depths", [1, 2, 3, 4, 5, 6, 7, 8], "candidate depths")
 param("rl_pool.groups", ["H", "L", "mixed"], "candidate groups")
@@ -152,6 +158,17 @@ param("rl_pool.per_cell", 1000, "candidates per (depth, group) cell")
 param("rl_pool.extra_cells", [{"depth": 2, "group": "L", "n": 4000}, {"depth": 4, "group": "H", "n": 4000},
                               {"depth": 5, "group": "H", "n": 4000}],
       "oversampled cells (origin=extra) for the matched-p datasets")
+param("rl_pool.mode", "file", "calibrate.py RL-pool step: 'file' labels rl_pool.path; 'pilot' (v2 stage B) "
+      "picks cells from the calib labels and labels per-cell candidates", choices=("file", "pilot"))
+param("rl_pool.path", "rl_pool/candidates.jsonl", "candidate file (mode file), relative to paths.data")
+param("rl_pool.pilot_n_ops", [1, 2, 3, 4, 5], "pilot: n_ops of the candidate cells (the RL range)")
+param("rl_pool.pilot_min_gap", 2, "pilot: E (complex) needs at least this many more operations than D (simple)")
+param("rl_pool.pilot_max_cells", 4, "pilot: cells that get candidates (best D/E pairs by calib p ~ 0.5 share)")
+param("rl_pool.pilot_per_cell", 10_000, "pilot: candidates per chosen cell (go criterion: from <= 10,000)")
+param("rl_pool.pilot_min_matched", 500, "pilot: go criterion, problems per cell with relabelled p in "
+      "gate.p_range after removing skippable ones, with a shared length mix")
+param("rl_pool.pilot_seed", 3003, "pilot: candidate seed; each cell has its own stream, so the first N "
+      "candidates of a cell do not depend on the other cells")
 
 # =============================================================================
 # Model (P)
@@ -173,7 +190,12 @@ param("pretrain.comp_frac", 0.01, "share of supervised tokens from composition e
       code="P4", priority=CORE, levels=(0.001, 0.01, 0.1))
 param("pretrain.comp_depth_mix", {2: 0.6, 3: 0.35, 4: 0.05},
       "composition depth -> share of composition examples", code="P5", priority=OPTIONAL)
-param("pretrain.h_only_depths", [4], "composition depths that use only H functions", code="P5b", priority=FROZEN)
+param("pretrain.h_only_depths", [4], "composition depths (chains and trees: n_ops) that use only H functions",
+      code="P5b", priority=FROZEN)
+param("pretrain.tree_frac", 0.0, "v2: share of composition tokens from trees (the rest are chains); 0 = v1",
+      code="P13", priority=CORE)
+param("pretrain.tree_shape_mix", {"n_ops": {2: 0.6, 3: 0.35, 4: 0.05}, "p_bin2": 0.3},
+      "v2 tree shapes: n_ops -> share of trees, and P(n_bin = 2) (else 1)", code="P14", priority=OPTIONAL)
 param("pretrain.h_ratio", 0.9, "fraction of the other compositions using only H functions", code="P6",
       priority=CORE, levels=(0.5, 0.9))
 param("pretrain.noise_frac", 0.0, "fraction of compositions with one corrupted step", code="P10",
@@ -208,7 +230,7 @@ param("eval.max_new_tokens", 256, "max completion length at eval (depth 8, lengt
 param("eval.batch_size", 256, "prompts per greedy generate() batch (256 -> ~6 GB)")
 
 # =============================================================================
-# Calibration and gate check after pretraining (doc: 门槛检查)
+# Calibration and gate check after pretraining (design.md "Deliverables")
 # =============================================================================
 param("gate.depth1_greedy", 0.98,
       "min greedy accuracy on E1 (depth 1): overall, and per function via its Wilson upper bound")

@@ -3,8 +3,9 @@
     rows = greedy_eval(model, tok, task, {"E1": problems, ...}, step=1000)
     df = label_pass_rates(model, tok, task, problems, k=32, model_id="pt-mid-s0")
 
-greedy_eval returns eval.jsonl rows: one per (eval_set, depth, group), one per
-eval_set with depth/group "all", and for E1 one per function (key `func`).
+greedy_eval returns eval.jsonl rows: one per (eval_set, depth, n_bin, group), one per
+eval_set with depth/n_bin/group "all", and for E1 one per function (key `func`; binary
+operators have group "bin"). depth is the number of operations; n_bin 0 = chains.
 """
 from __future__ import annotations
 
@@ -35,16 +36,16 @@ def greedy_eval(model, tok, task: Task, sets: dict[str, Sequence[Problem]], step
         cells, funcs = defaultdict(list), defaultdict(list)
         for p, o in zip(probs, outs):
             rec = (task.reward(o, p), task.parse_answer(o) is None, len(tok.encode(o)))
-            cells[(p.depth, p.group)].append(rec)
-            cells[("all", "all")].append(rec)
+            cells[(p.depth, p.n_bin, p.group)].append(rec)
+            cells[("all", "all", "all")].append(rec)
             if p.depth == 1:
                 funcs[p.funcs[0]].append(rec)
-        for (d, g), recs in sorted(cells.items(), key=lambda kv: str(kv[0])):
-            rows.append(_summarise(step, name, {"depth": d, "group": g}, recs))
+        for (d, nb, g), recs in sorted(cells.items(), key=lambda kv: str(kv[0])):
+            rows.append(_summarise(step, name, {"depth": d, "n_bin": nb, "group": g}, recs))
         if name == "E1":
             for f, recs in sorted(funcs.items()):
-                key = {"depth": 1, "group": "H" if f in task.H else "L",
-                       "func": task.fname(f), "label": task.id2name[f]}
+                grp = "bin" if task.is_binary(f) else "H" if f in task.H else "L"
+                key = {"depth": 1, "group": grp, "func": task.fname(f), "label": task.id2name[f]}
                 rows.append(_summarise(step, name, key, recs))
     return rows
 
@@ -52,7 +53,8 @@ def greedy_eval(model, tok, task: Task, sets: dict[str, Sequence[Problem]], step
 def label_pass_rates(model, tok, task: Task, problems: Sequence[Problem], k: int = 32,
                      temperature: float = 1.0, batch_size: int = 512, max_new_tokens: int = 128,
                      model_id: str = "", extra: dict[str, Sequence] | None = None) -> pd.DataFrame:
-    """p_hat = correct / k from k samples per problem. Columns as in the design doc;
+    """p_hat = correct / k from k samples per problem. Columns as in the design doc, plus the
+    structure variables (n_bin, tree_depth, dep_dist) and `skippable` (design.md decision 6);
     `extra` adds per-problem columns (e.g. origin)."""
     prompts = [task.format_prompt(p) for p in problems]
     outs = generate(model, tok, prompts, max_new_tokens, temperature=temperature,
@@ -62,7 +64,8 @@ def label_pass_rates(model, tok, task: Task, problems: Sequence[Problem], k: int
         n = int(sum(task.reward(o, p) for o in outs[i * k:(i + 1) * k]))
         lo, hi = wilson(n, k)
         rows.append({"pid": p.pid, "depth": p.depth, "funcs": list(p.funcs), "group": p.group,
-                     "str_len": len(p.x), "n_correct": n, "k": k, "p_hat": n / k,
+                     "str_len": len(p.x), "n_bin": p.n_bin, "tree_depth": p.tree_depth, "dep_dist": p.dep_dist,
+                     "skippable": task.is_skippable(p), "n_correct": n, "k": k, "p_hat": n / k,
                      "ci_lo": lo, "ci_hi": hi, "model_id": model_id})
     df = pd.DataFrame(rows)
     for col, vals in (extra or {}).items():

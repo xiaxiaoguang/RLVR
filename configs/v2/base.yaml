@@ -1,0 +1,32 @@
+# v2 (design.md "v2 revision: tree problems"): binary operators and tree problems.
+# Shared by every v2 run; level configs set pretrain.level / comp_frac / gate.target.
+# Generate the v3 eval sets once: python scripts/make_eval_sets.py --config configs/v2/base.yaml
+task:
+  # P12: display ids F24-F27 in this order. Backups if one fails stage A: sub, min (rlvr.atoms.BINARY).
+  binary_functions: {add: add, alternate: alternate, splice: splice, max: maximum}
+pretrain:
+  tree_frac: 0.5          # P13, pilot start value
+  # tree_shape_mix (P14): default n_ops {2: 0.6, 3: 0.35, 4: 0.05}, P(n_bin = 2) = 0.3; n_ops 4 H-only
+eval:
+  version: v3
+  meta_dir: eval/v3/meta
+  max_new_tokens: 320     # an 8-op tree with 3 binary nodes at length 10 needs ~263 target tokens
+  # depth = n_ops; n_bins adds tree cells (n_bin 0 = chains). E4 stays chains only.
+  sets:
+    E1: {depths: [1], n_bins: [0, 1], groups: [H, L, bin], per_cell: 50, by_function: true}
+    E2: {depths: [2, 3, 4, 5], n_bins: [0, 1, 2], groups: [H, L, mixed, bin], per_cell: 75}
+    E3: {depths: [6, 7, 8], n_bins: [0, 1, 2, 3], groups: [H, L, mixed], per_cell: 50}
+    E4: {depths: [2, 3, 4, 5], groups: [null], per_cell: 200, novel: true}
+    probe: {depths: [1, 2, 3, 4, 5, 6, 7, 8], n_bins: [0, 1, 2, 3], groups: [H, L, mixed, bin], per_cell: 10}
+    calib: {depths: [1, 2, 3, 4, 5, 6, 7, 8], n_bins: [0, 1, 2, 3], groups: [H, L, mixed, bin], per_cell: 200}
+rl:
+  max_new_tokens: 320
+rl_pool:
+  mode: pilot             # stage B: candidates for the cells with the most p ~ 0.5 calib problems
+label:
+  relabel_cells: []       # pilot mode relabels its own chosen cells
+gate:
+  # Stage B: D/E cells are chosen by the pilot (rlvr/pilot.py, go criterion in calib/pilot.json),
+  # so matched_cells cannot be a gate check yet.
+  matched_cells: []
+  hard_checks: [depth1_greedy, spread]

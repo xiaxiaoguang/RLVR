@@ -1,6 +1,9 @@
 """Generate RL-pool candidate problems (to be labelled with p by every base model).
 
     python scripts/make_rl_pool.py [--config overrides.yaml] [key=value ...]
+
+Writes {paths.data}/{rl_pool.path} (v1: data/rl_pool/candidates.jsonl). The v2 pilot (rl_pool.mode
+pilot) does not use a fixed file: calibrate.py draws per-cell candidates (rlvr.sets.cell_candidates).
 """
 from __future__ import annotations
 
@@ -34,10 +37,11 @@ def main():
     for extra in rcfg.get("extra_cells", []):
         rows += problems_to_rows(task, stratified_set(splits, "rl", [extra["depth"]], [extra["group"]],
                                                       extra["n"], rng, seen), origin="extra")
-    out = resolve(cfg["paths"]["data"]) / "rl_pool"
-    n = write_jsonl(out / "candidates.jsonl", rows)
-    (out / "manifest.json").write_text(json.dumps({"n": n, **rcfg}, indent=1))
-    print(f"{n} candidates -> {out / 'candidates.jsonl'}")
+    path = resolve(cfg["paths"]["data"]) / rcfg["path"]
+    n = write_jsonl(path, rows)
+    manifest = {"n": n, **{k: v for k, v in rcfg.items() if not k.startswith("pilot_") and k not in ("mode", "path")}}
+    (path.parent / "manifest.json").write_text(json.dumps(manifest, indent=1))
+    print(f"{n} candidates -> {path}")
 
 
 if __name__ == "__main__":

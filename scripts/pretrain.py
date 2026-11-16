@@ -15,7 +15,8 @@ Output:
   runs/pt-{level}-s{seed}/run_config.yaml   resolved config + git commit + world size
   runs/pt-{level}-s{seed}/metrics.jsonl     step, loss, loss_d{1..}, lr, grad_norm, tok_per_s, mfu, tokens ...
   runs/pt-{level}-s{seed}/eval.jsonl        step, eval_set, depth, group, greedy_acc, format_err, ...
-  runs/pt-{level}-s{seed}/stats.json        examples / supervised tokens by kind, depth, group, function; rejections
+  runs/pt-{level}-s{seed}/stats.json        examples / supervised tokens by kind, depth (n_ops), group, n_bin,
+                                            function; rejections
   runs/pt-{level}-s{seed}/ckpt/step-{N}/    checkpoints at pretrain.save_at (P9)
   runs/pt-{level}-s{seed}/bench.json        --bench only: throughput and suggested pretrain.steps
   checkpoints/pt-{level}-s{seed}/           final model (save_pretrained + tokenizer + run_config)
@@ -83,7 +84,7 @@ def token_losses(model, batch) -> tuple[torch.Tensor, torch.Tensor]:
 
 
 class Stats:
-    """Corpus statistics accumulated from batch metadata (doc: 在线统计)."""
+    """Corpus statistics accumulated from batch metadata (design.md "Streamed pretraining data")."""
 
     def __init__(self, n_funcs: int):
         self.examples, self.target_tokens = Counter(), Counter()
@@ -94,8 +95,9 @@ class Stats:
 
     def add(self, b: dict) -> None:
         groups = {v: k for k, v in GROUP_IDS.items()}
-        for k, d, g, n in zip(b["kind"].tolist(), b["depth"].tolist(), b["group"].tolist(), b["n_target"].tolist()):
-            key = f"{KINDS[k]}|d{d}|{groups[g]}"
+        for k, d, nb, g, n in zip(b["kind"].tolist(), b["depth"].tolist(), b["n_bin"].tolist(),
+                                  b["group"].tolist(), b["n_target"].tolist()):
+            key = f"{KINDS[k]}|d{d}|{groups[g]}" + (f"|b{nb}" if nb else "")  # chains: v1 keys
             self.examples[key] += 1
             self.target_tokens[key] += n
         self.func_counts += b["func_counts"]
@@ -118,10 +120,11 @@ class Stats:
         out = {"examples": sum(ex.values()), "target_tokens": total_tgt, "tokens": tokens,
                "pad_frac": 1 - tokens / max(1, padded), "noisy_examples": noisy,
                "rejects": dict(zip(REJECT_KINDS, rej.tolist()))}
-        for i, name in ((0, "kind"), (1, "depth"), (2, "group")):
+        for i, name in ((0, "kind"), (1, "depth"), (2, "group"), (3, "n_bin")):
             agg_ex, agg_tt = Counter(), Counter()
             for key in tt:
-                part = key.split("|")[i]
+                parts = key.split("|")
+                part = parts[i] if i < len(parts) else "b0"
                 agg_ex[part] += ex[key]
                 agg_tt[part] += tt[key]
             out[f"by_{name}"] = {k: {"examples": agg_ex[k], "target_tokens": agg_tt[k],
@@ -174,7 +177,7 @@ def main():
     steps = args.bench or pc["steps"]
     torch.manual_seed(seed)
     task = Task(cfg["task"])
-    tok = CharTokenizer(task.alphabet)
+    tok = CharTokenizer.for_task(task)
     raw = build_model(cfg["model"], tok).to(device)
     n_nonemb = n_params(raw, embeddings=False)
     if pc["compile"]:
@@ -209,7 +212,7 @@ def main():
         opt, lr_lambda(max(1, int(pc["warmup_frac"] * steps)), steps, pc["min_lr_frac"]))
     save_steps = {max(1, round(f * steps)) for f in pc["save_at"]} if not args.bench else set()
 
-    stats = Stats(task.n_funcs)
+    stats = Stats(task.n_funcs + task.n_binary)
     D = task.max_depth + 1
     metrics_f = (run_dir / "metrics.jsonl").open("w") if master and not args.bench else None
     eval_f = (run_dir / "eval.jsonl").open("w") if master and not args.bench else None

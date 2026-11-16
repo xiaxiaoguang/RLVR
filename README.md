@@ -1,9 +1,9 @@
 # RLVR data-difficulty experiments
 
-**Status: v1 (design doc `docs/design.md`): larger task (a-z, length 6-10, 24 functions, depth
-1-8), streamed pretraining corpus, 85M model trained with DDP on 4 GPUs (~1 h per model),
-pilot sweep, calibration and gate check implemented; data regenerated (eval v2).** The four v1
-base models are not trained yet. GRPO and RL-side analysis are not implemented yet.
+**Status (see `docs/design.md` "Status"): the four v1 base models are trained, calibrated and on
+Hugging Face (`rlvr-cs291k/rlvr-pretrain-v1`; results in `docs/pretrain_v1_results.md`). v2 (binary
+operators, tree problems, eval v3) is implemented and goes through the pilot (stages A and B) before
+the base models are retrained.** GRPO and RL-side analysis are not implemented yet.
 
 ## Environment
 
@@ -16,14 +16,18 @@ Dependencies live in `pyproject.toml`; `requirements.lock.txt` pins the full res
 
 ```
 rlvr/                 library (frozen interface after review)
-  task.py             24 atomic functions, Problem, sampling, format_prompt/target, parse_answer, reward
-  tokenizer.py        char-level tokenizer, 48 tokens; encode_example() masks the prompt with -100
+  task.py             24 atomic functions (+ v2 binary operators), Problem (chain or tree), sampling,
+                      format_prompt/target, parse_answer, reward, structure variables, is_skippable
+  tokenizer.py        char-level tokenizer, 48 tokens (v2: 49 with `,`); encode_example() masks the prompt with -100
   registry.py         generic name -> factory Registry (build from 'name' or {name: ..., **params})
   params.py           parameter registry: every config key, default, levels, priority, doc id (P1..R13)
-  atoms.py            ATOMS registry: parameterized atomic functions (rotate(k), shift(k), sort(descending), ...)
+  atoms.py            ATOMS registry: parameterized atomic functions (rotate(k), shift(k), sort(descending), ...);
+                      BINARY registry (v2): add, sub, alternate, splice, maximum, minimum
   rewards.py          REWARDS registry: binary, partial
   splits.py           pid-hash pools (pretrain 90% / rl 5% / eval 5%) + 24 held-out function pairs
-  sets.py             stratified (depth x group, balanced over input length) set generation
+  sets.py             stratified (depth [x n_bin] x group, balanced over input length) set generation;
+                      cell_candidates (per-cell seeded candidates for the v2 pilot)
+  pilot.py            v2 stage B: cells with the most p ~ 0.5 problems, shared-length-mix supply, go criterion
   stream.py           streamed pretraining corpus: Mixture (comp_frac by tokens, depth mix, H/L,
                       leak-free rejection) and PretrainStream (length-bucketed micro-batches)
   difficulty.py       p bins, Wilson CI, P_sig(p, G); WEIGHTS registry (uniform, learnability, signal)
@@ -45,8 +49,9 @@ scripts/
                       calib.sbatch (1 shared GPU, full calibration, chained with --dependency=afterok)
   relabel_report.py   winner's-curse check: first-pass p in [0.4, 0.6] vs the second labelling
   push_hf.py          upload final checkpoints (+ calib files, optional RL-pool labels) to a Hugging Face repo
-configs/              overrides only: pretrain/{weak,mid,strong,midbal,pilot}.yaml, datasets/*.yaml
-tests/                python tests/test_task.py; python tests/test_registry.py; python tests/test_model.py
+configs/              overrides only: pretrain/{weak,mid,strong,midbal,pilot}.yaml (v1), v2/{base,stage_a,mid,smoke}.yaml,
+                      datasets/*.yaml
+tests/                python -m pytest tests/ (test_task, test_registry, test_model, test_gate, test_tree)
 ```
 
 Regenerate: `bash scripts/make_all_data.sh` (deterministic; `SEED=1` for other preview seeds).
@@ -102,6 +107,36 @@ python scripts/build_dataset.py configs/datasets/*.yaml
 - Second labelling: RL-pool problems in d2-L / d4-H / d5-H with a first-pass p_hat in [0.3, 0.7]
   get 64 more independent samples (`label.relabel_*`, `*_relabel` columns); the matched-p specs
   select on it (`p_label: relabel`) to shrink the winner's curse of selecting on a 32-sample p_hat.
+
+## v2: tree problems (design.md "v2 revision", "v2 pilot")
+
+`configs/v2/base.yaml` adds four binary operators (F24-F27: add, alternate, splice, max), trees in
+the corpus (`pretrain.tree_frac` 0.5, `pretrain.tree_shape_mix`), eval v3 (`data/eval/v3/`, metadata
+in `data/eval/v3/meta/`) and the pilot pool (`rl_pool.mode: pilot`). With the v1 configs every chain,
+pid, eval set, RL-pool row and pretraining example is exactly as before (`tests/test_tree.py`).
+
+```bash
+python scripts/make_eval_sets.py --config configs/v2/base.yaml          # eval v3 (already in git)
+# pipeline check, stage A (operators learnable?), stage B (one run per comp_frac), one node each:
+CONFIG=configs/v2/smoke.yaml CALIB_ARGS="--calib-per-cell 4" bash scripts/slurm/model_pipeline.sh v2-smoke
+CONFIG=configs/v2/stage_a.yaml CALIB_ARGS=--e1-only bash scripts/slurm/model_pipeline.sh v2a-atoms
+CONFIG=configs/v2/mid.yaml TRAIN_ARGS=pretrain.comp_frac=0.00032 bash scripts/slurm/model_pipeline.sh v2mid-cf0.00032
+# -> runs/pt-v2mid-cf0.00032-s0/calib/pilot.json: supply per chosen cell and per D/E pair, "go"
+```
+
+- **Problems.** A tree stores its operations in post-order with operand refs (`args`: >= 0 = an
+  earlier step, < 0 = a leaf); `depth` is the number of operations (n_ops) for every problem. A
+  problem without binary operators is a v1 chain (same representation and pid). Leaves are
+  independent random strings of one length.
+- **Shapes.** `Task.sample_tree(n_ops, n_bin)`: a random binary skeleton with n_bin binary nodes
+  (left subtree size uniform), then each unary function on a uniformly random edge (above the root,
+  a binary node or a leaf).
+- **Groups.** H / L / mixed from the unary functions only; a tree without unary functions is `bin`.
+- **Cells.** Eval and calib cells are (n_ops, n_bin, group); calib covers n_ops 1-8 x n_bin 0-3 (77
+  cells x 200). Gate spread pools chains and trees per n_ops.
+- **Pilot pool.** From the calib labels, the D/E pairs (E >= D + 2 operations) with the largest
+  share of non-skippable p_hat in [0.4, 0.6]; their cells (<= 4) get 10,000 candidates each, drawn
+  from a per-cell random stream so every model sees the same first N candidates of a cell.
 
 ## Parameters and registries
 

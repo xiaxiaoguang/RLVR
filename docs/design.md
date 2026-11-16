@@ -19,7 +19,9 @@ Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Les
   `/global/cfs/cdirs/m4788/yupengsu/rlvr/{checkpoints,data/labels}/`.
 - **v2:** on 2026-11-15 we decided to add binary operators, so problems become trees instead of chains
   ([v2 revision](#v2-revision-tree-problems)). This week the task change gets implemented and piloted; the go/no-go
-  decision is on Sun Nov 22 ([v2 pilot](#v2-pilot)).
+  decision is on Sun Nov 22 ([v2 pilot](#v2-pilot)). The v2 code and eval v3 are implemented (2026-11-15;
+  configs in `configs/v2/`, choices the design left open in [Implementation](#implementation-2026-11-15)); stage A is
+  next.
 - **Compute:** 21.09 of 50 NERSC GPU node-hours used as of 2026-11-08.
 
 ## Decision log
@@ -511,6 +513,33 @@ operators also pass stage A.
 **If no-go:** keep the v1 models and use Jay's plan: expand the v1 RL pool (d4-H to ~34,000 and d2-L to ~11,000
 candidates, ~2–2.5 node-hours of labelling), remove skippable problems and give D and E the same length mix.
 
+### Implementation (2026-11-15)
+
+Choices the design above leaves open, as implemented (Yupeng; open for review, see open items):
+
+- **Tree shapes.** For given n_ops and n_bin: a random binary skeleton with n_bin binary nodes (the left subtree's
+  number of binary nodes uniform), then each of the n_ops − n_bin unary functions on a uniformly random edge (above
+  the root, a binary node or a leaf). Unary functions follow the group rules of chains; binary operators are uniform.
+- **Group of a tree without unary functions** (e.g. `F24(F25(x,y),z)`): `bin`, its own cell. In pretraining these
+  are the n_ops = n_bin trees (n_ops 2 with n_bin 2: ~20% of trees).
+- **Cells.** Calibration and evaluation cells are (n_ops, n_bin, group); "shape" in stage B is n_bin. Calib: n_ops
+  1–8 × n_bin 0–3 × group, 77 cells × 200 = 15,400 problems. Eval v3 (`data/eval/v3/`): E1 1,400 (adds 50 per binary
+  operator), E2 2,400 (n_ops 2–5, n_bin 0–2, 75 per cell), E3 1,800 (n_ops 6–8, n_bin 0–3, 50 per cell), E4 800
+  (chains, as v2), probe 770 (10 per cell). Longest sample 351 tokens (+ 128 offset < 512); longest target 263.
+- **Stage-B candidate pool** (`rl_pool.mode: pilot`, `rlvr/pilot.py`). From the calib labels, every D/E pair with
+  n_ops in 1–5 and E ≥ D + 2 operations is scored by the smaller of the two cells' shares of non-skippable problems
+  with p̂ in [0.4, 0.6]; the cells of the best pairs (≤ 4 cells) get 10,000 candidates each, labelled with k = 32,
+  and the non-skippable ones with p̂ in [0.3, 0.7] are relabelled with k = 64. `calib/pilot.json` reports, per pair,
+  the problems both cells can supply with one length mix (that of the scarcer cell); `go` if any pair reaches 500.
+  Candidates come from one random stream per cell, so every model sees the same first N candidates of a cell.
+- **Stage A** (`configs/v2/stage_a.yaml`): atoms only (24 unary + 4 binary, uniform), 2000 steps, then
+  `calibrate.py --e1-only`. **Smoke run** (`configs/v2/smoke.yaml`, 300 steps): a pipeline check before stage A/B,
+  not an experiment.
+- **Noisy examples** (P10, default off) apply to chains only.
+- **Gate in stage B:** hard checks depth1_greedy (incl. the binary operators) and spread (n_ops 2–4, chains and
+  trees pooled); matched_cells waits for the chosen D/E pair; the mid target (d3 0.35–0.55) pools n_ops-3 chains
+  and trees.
+
 **Compute (node-hours):** stage A ~0.3; stage B ~6 (3 × ~2 incl. calibration and labelling); final four v2 models
 with full calibration ~8.5 (one stage-B run can become mid if it is on target). Total ~15, i.e. ~36 of 50 if nothing
 else was used after 2026-11-08. The same cap also has to cover RL (see [Risks](#risks)).
@@ -788,7 +817,9 @@ stages. Pipeline: task → streamed corpus → pretraining → calibration and g
 operator registry), `rlvr/tokenizer.py` (`,`, loading both vocabularies), `rlvr/splits.py` (held-out edges in trees),
 `rlvr/stream.py` (tree component), `rlvr/sets.py` and `scripts/make_eval_sets.py` (structure cells, eval v3),
 `scripts/make_rl_pool.py`, `rlvr/gate.py` and `scripts/calibrate.py` (new cells and rules), `scripts/diag_steps.py`,
-`rlvr/rewards.py` (partial reward on trees).
+`rlvr/rewards.py` (partial reward on trees). Done on 2026-11-15 except `scripts/diag_steps.py` (step diagnosis on
+trees, needed only for analysis); the partial reward needed no change (it scores the post-order steps). With the v1
+configs, eval v2, the v1 RL pool and the pretraining stream regenerate byte for byte (`tests/test_tree.py`).
 
 ## Risks
 
@@ -819,6 +850,7 @@ The main risk is still that simple and complex problems do not both have enough 
 - [x] Fourth base model: midbal (h_ratio 0.5)
 - [x] Spread depths, midbal matched cells, strong comp_frac (decisions 2–4)
 - [x] Upload the v1 checkpoints to Hugging Face and put the repo name in [Status](#status-2026-11-16)
+- [ ] Review the v2 implementation choices ([Implementation](#implementation-2026-11-15))
 - [ ] v2: final binary operators (stage A)
 - [ ] v2: `tree_frac`, shape mix and comp_frac levels (stage B)
 - [ ] v2 go/no-go (Sun Nov 22) and the D/E cell pair

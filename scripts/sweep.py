@@ -1,4 +1,4 @@
-"""Pilot sweep (doc: 试点扫描): comp_frac x pos_offset_max on short single-GPU runs.
+"""Pilot sweep (v1, design.md "v1 results summary"): comp_frac x pos_offset_max on short single-GPU runs.
 
     python scripts/sweep.py --gpus 0 1 2 3 4 5 6 7                     # train + calibrate + summarise
     python scripts/sweep.py --gpus 0 1 --comp-fracs 0.001 0.01 --pos-offsets 128

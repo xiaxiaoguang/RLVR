@@ -1,0 +1,11 @@
+# Pipeline check of the v2 code (not an experiment): a few hundred steps with trees, then
+# calibrate.py with --calib-per-cell 4 and a tiny pilot pool. Run before stage A / B jobs.
+base: mid.yaml
+pretrain:
+  level: v2-smoke
+  comp_frac: 0.01
+  steps: 300
+  save_at: []
+  eval_every: 300
+rl_pool:
+  pilot_per_cell: 40

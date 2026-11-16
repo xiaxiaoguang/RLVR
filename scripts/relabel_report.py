@@ -2,7 +2,8 @@
 
     python scripts/relabel_report.py pt-mid-s0      # -> runs/pt-mid-s0/calib/relabel_report.json
 
-For each label.relabel_cells cell (d2-L, d4-H, d5-H by default):
+For each label.relabel_cells cell (d2-L, d4-H, d5-H by default; with rl_pool.mode pilot, the cells
+chosen in runs/{model_id}/calib/pilot.json; skippable problems excluded):
   first_selected    problems with a first-pass p_hat in gate.p_range: their mean first-pass p_hat
                     and mean independent second estimate (p_hat_relabel), and the share whose
                     second estimate is still in range. A gap between the two means is the
@@ -22,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pandas as pd  # noqa: E402
 
 from rlvr.config import load_config, resolve  # noqa: E402
+from rlvr.gate import _in_cells, cell_name  # noqa: E402
 
 
 def _mean(s: pd.Series) -> float | None:
@@ -33,10 +35,12 @@ def report(pool: pd.DataFrame, cells: list[dict], p_range: list[float]) -> dict:
     lens = sorted(int(v) for v in pool.str_len.unique())
     out = {}
     for c in cells:
-        sel = pool[(pool.depth == c["depth"]) & (pool.group == c["group"])]
+        sel = pool[_in_cells(pool, [c])]
+        if "skippable" in sel:
+            sel = sel[~sel.skippable.astype(bool)]
         first = sel[(sel.p_hat >= lo) & (sel.p_hat <= hi)]
         again = sel[(sel.p_hat_relabel >= lo) & (sel.p_hat_relabel <= hi)]
-        out[f"d{c['depth']}-{c['group']}"] = {
+        out[cell_name(c["depth"], c["group"], c.get("n_bin", 0))] = {
             "n_cell": len(sel),
             "mean_p_hat_cell": _mean(sel.p_hat),
             "n_relabelled": int(sel.p_hat_relabel.notna().sum()),
@@ -64,10 +68,15 @@ def main():
     pool = pd.read_parquet(resolve(cfg["paths"]["data"]) / "labels" / f"{args.model_id}.parquet")
     if "p_hat_relabel" not in pool:
         raise SystemExit(f"{args.model_id}: no p_hat_relabel column (label.relabel_k = 0?)")
+    out = resolve(cfg["paths"]["runs"]) / args.model_id / "calib" / "relabel_report.json"
+    cells = cfg["label"]["relabel_cells"]
+    if cfg["rl_pool"]["mode"] == "pilot":
+        pilot = json.loads((out.parent / "pilot.json").read_text())
+        cells = [{"depth": r["depth"], "n_bin": r["n_bin"], "group": r["group"]} for r in pilot["calib_rates"]
+                 if cell_name(r["depth"], r["group"], r["n_bin"]) in set(pilot["chosen_cells"])]
     res = {"model_id": args.model_id, "p_range": cfg["gate"]["p_range"],
            "relabel_range": cfg["label"]["relabel_range"], "relabel_k": cfg["label"]["relabel_k"],
-           "cells": report(pool, cfg["label"]["relabel_cells"], cfg["gate"]["p_range"])}
-    out = resolve(cfg["paths"]["runs"]) / args.model_id / "calib" / "relabel_report.json"
+           "cells": report(pool, cells, cfg["gate"]["p_range"])}
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(res, indent=1))
     print(json.dumps(res, indent=1))
