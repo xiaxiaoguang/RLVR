@@ -14,8 +14,8 @@ v2 base models. Since 2026-11-16 the v2 task is Hanzhong's **tree-v1** ([`tree_v
 | step | run | result | status |
 |---|---|---|---|
 | tree-v1 stage A: atomic skills of the 24 operators | pt-tree-a-atoms-s0 | 23 of 24 pass; rotate_by_sum E1 .12 | **FAIL** on one operator; replaced by rotate_by_first (decision 12) |
-| tree-v1 stage A, revised table | pt-tree-a2-atoms-s0 | — | running |
-| tree-v1 stage B: p ≈ 0.5 supply | — | — | after stage A passes (3 nodes) |
+| tree-v1 stage A, revised table | pt-tree-a2-atoms-s0 | all 24 pass; E1 .997 | **PASS**, operator table fixed |
+| tree-v1 stage B: p ≈ 0.5 supply | — | — | next (3 nodes) |
 | go/no-go | — | — | Sun Nov 22 |
 
 ## Tree-v1 stage A: can each operator be learned? (2026-11-16)
@@ -38,6 +38,17 @@ transformers learn poorly from examples. scatter_add and prefix_add, which also 
 late. By the design rule the failing operator is replaced before stage B: rotate_by_first (rotate x left by y[0] mod
 n) keeps the rotation set by the other operand without the global sum (design.md decision 12), and stage A is re-run.
 The first recipe's eval sets are kept in `data/tree-v1-rotate_by_sum/`.
+
+**Re-run on the revised table** (pt-tree-a2-atoms-s0, same config): **PASS**, E1 .997 (H 1.000, L .993).
+
+| operator | E1 at step 1000 | E1 at step 2000 |
+|---|---|---|
+| prefix_add (F12) | .32 | .96 (48/50; Wilson upper bound ≥ .98) |
+| scatter_add (F13) | .72 | .96 (48/50) |
+| rotate_by_first (F10) and the other 21 operators | ≥ .92 | 1.00 |
+
+prefix_add and scatter_add, the two operators that aggregate over positions, are learned last in both runs; in
+stage B (9500 steps, almost all atoms) they get ~5× more training. 15 min training; final loss 2.4e-4.
 
 Training: 15 min on one node (0.82M tokens/s, final loss .0047). Eval sets for tree-v1 (`data/tree-v1/eval/v1/`:
 E1 1200, E2 1800, E3 900, E4 800, probe 575, calib 4600) were generated on the node in 33 s.
@@ -90,3 +101,4 @@ minutes; final training loss 1.8e-5.
 | 2026-11-15 | 61385591 | smoke run + stage A (1 node, 0:23:31) | 0.39 | 21.48 |
 | 2026-11-16 | 61417711 | stage B, cancelled (3 nodes, 0:36:10) | 1.81 | 23.29 |
 | 2026-11-16 | 61422984 | tree-v1 eval sets + stage A (1 node, 0:17:18) | 0.29 | 23.58 |
+| 2026-11-16 | 61428426 | tree-v1 eval sets + stage A re-run (1 node, 0:17:41) | 0.29 | 23.87 |

@@ -25,10 +25,10 @@ Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Les
   stage B); go/no-go on Sun Nov 22.
 - **RL:** GRPO (`scripts/grpo.py`) and the sweep runner (`scripts/rl_sweep.py`) are implemented and smoke-tested on
   the v1 round-1 checkpoints ([GRPO](#grpo-hanzhong)); no RL experiment of the design has been run yet.
-- **Tree-v1 stage A (2026-11-16):** 23 of 24 operators pass; rotate_by_sum is not learned (E1 .12) and is replaced by
-  rotate_by_first (decision 12); stage A is re-run on the revised table
-  ([`pretrain_v2_results.md`](pretrain_v2_results.md)).
-- **Compute:** 23.58 of 50 NERSC GPU node-hours used as of 2026-11-16.
+- **Tree-v1 stage A (2026-11-16):** rotate_by_sum was not learned (E1 .12) and is replaced by rotate_by_first
+  (decision 12); on the revised table **all 24 operators pass** (E1 .997), so the operator table is fixed. Stage B is
+  next ([`pretrain_v2_results.md`](pretrain_v2_results.md)).
+- **Compute:** 23.87 of 50 NERSC GPU node-hours used as of 2026-11-16.
 
 ## Decision log
 
@@ -893,7 +893,7 @@ The main risk is still that simple and complex problems do not both have enough 
 - [x] Gate rules from decisions 2–3 in code and configs (2026-11-15)
 - [x] Operator set and code for the tree task: tree-v1 (decision 10)
 - [ ] Check that the Hugging Face v1 checkpoints load with `load_model` after download
-- [ ] Tree-v1 stage A: every operator learnable
+- [x] Tree-v1 stage A: every operator learnable (after decision 12)
 - [x] D/E cell definition for tree-v1 (decision 11)
 - [ ] Tree-v1 stage B: comp_frac levels, candidate pool code; skippable check for trees
 - [ ] v2 go/no-go (Sun Nov 22) and the D/E cell pair

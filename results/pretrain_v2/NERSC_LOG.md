@@ -288,3 +288,9 @@ only edits / submits / checks (offline tests are the exception). Commit scripts 
   prefix_add .36 -> .98, odd_pos_m1 .98. Eval sets (data/tree-v1/eval/v1) generated in 33 s on the node.
   Composition target tokens (Mixture estimate on the node): chain-v1 mid 68.7, tree-v1 mid 137.2 (2.0x); tree n_ops
   per depth 2/3/4 = 2.94/4.40/6.00. release.sh scancelled 61422984 at 12:07:36 (0:17:18 = 0.29 node-h; total 23.58).
+- 2026-11-16 13:15:07: rotate_by_sum -> rotate_by_first (decision 12, commit 9522809); old data moved to data/tree-v1-rotate_by_sum. Stage A re-run: salloc 61428426 (1 node, 1 h), runs/tree-v1-stage-a2/run.sh (eval sets + pt-tree-a2-atoms-s0).
+- 2026-11-16 13:32: **tree-v1 stage A PASS on the revised table** (pt-tree-a2-atoms-s0): E1 greedy .9967; every
+  operator >= .96 (prefix_add .32 -> .96, scatter_add .72 -> .96: 48/50, Wilson upper bound >= .98; rotate_by_first and
+  all others 1.00). At step 1000: H .998, L .917. Final loss 2.4e-4. release.sh scancelled 61428426 at 13:32:33
+  (0:17:41 = 0.29 node-h; total 23.87 of 50). Next: stage B (3 nodes, comp_frac 3.2e-4 / 6.4e-4 / 1.28e-3), waiting
+  for user approval.

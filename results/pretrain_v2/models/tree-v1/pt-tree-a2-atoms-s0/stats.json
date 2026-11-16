@@ -1,0 +1,82 @@
+{
+ "run_name": "pt-tree-a2-atoms-s0",
+ "world_size": 4,
+ "steps": 2000,
+ "examples": 9419055,
+ "target_tokens": 386164734,
+ "tokens": 612201001,
+ "pad_frac": 0.0727005783842708,
+ "noisy_examples": 0,
+ "rejects": {
+  "pool": 1081992,
+  "heldout": 9952,
+  "eval_dup": 0
+ },
+ "by_kind": {
+  "atom": {
+   "examples": 9419055,
+   "target_tokens": 386164734,
+   "target_token_frac": 1.0
+  }
+ },
+ "by_depth": {
+  "d1": {
+   "examples": 9419055,
+   "target_tokens": 386164734,
+   "target_token_frac": 1.0
+  }
+ },
+ "by_group": {
+  "H": {
+   "examples": 4711919,
+   "target_tokens": 193185478,
+   "target_token_frac": 0.5002670129893322
+  },
+  "L": {
+   "examples": 4707136,
+   "target_tokens": 192979256,
+   "target_token_frac": 0.4997329870106678
+  }
+ },
+ "by_cell": {
+  "atom|d1|H": {
+   "examples": 4711919,
+   "target_tokens": 193185478
+  },
+  "atom|d1|L": {
+   "examples": 4707136,
+   "target_tokens": 192979256
+  }
+ },
+ "by_structure_depth_ops_binary_ternary": {
+  "1|1|0|1": 1567829,
+  "1|1|0|0": 4710280,
+  "1|1|1|0": 3140946
+ },
+ "comp_func_exposure": {
+  "F00": 0,
+  "F01": 0,
+  "F02": 0,
+  "F03": 0,
+  "F04": 0,
+  "F05": 0,
+  "F06": 0,
+  "F07": 0,
+  "F08": 0,
+  "F09": 0,
+  "F10": 0,
+  "F11": 0,
+  "F12": 0,
+  "F13": 0,
+  "F14": 0,
+  "F15": 0,
+  "F16": 0,
+  "F17": 0,
+  "F18": 0,
+  "F19": 0,
+  "F20": 0,
+  "F21": 0,
+  "F22": 0,
+  "F23": 0
+ }
+}
