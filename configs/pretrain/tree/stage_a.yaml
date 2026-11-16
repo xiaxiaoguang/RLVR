@@ -1,0 +1,17 @@
+# Tree-v1 pilot stage A (design.md "v2 pilot"): can each of the 24 operators be learned?
+# One node, atoms only (comp_frac 0: the 24 operators uniform; also the pure-atom control of
+# docs/tree_v1.md), 2000 steps; pass = every operator >= 98% greedy on its 50 E1 problems
+# (Wilson rule): calibrate.py --e1-only.
+#   CONFIG=configs/pretrain/tree/stage_a.yaml CALIB_ARGS=--e1-only \
+#       bash scripts/slurm/model_pipeline.sh tree-a-atoms
+base: ../../tasks/tree_v1.yaml
+pretrain:
+  level: tree-a-atoms
+  comp_frac: 0.0
+  steps: 2000
+  save_at: []
+  eval_every: 1000
+  eval_sets: [E1]
+  target_minutes: 60
+gate:
+  hard_checks: [depth1_greedy]

@@ -4,7 +4,7 @@
 #   salloc --no-shell -A m4788_g -C gpu -q interactive -N 1 -t 04:00:00 -J rlvr-weak
 #   setsid nohup srun --jobid=<id> -N1 -n1 -c 128 --cpu-bind=none --gpus-per-node=4 \
 #       bash scripts/slurm/model_pipeline.sh weak > runs/slurm/pipe-weak-<id>.out 2>&1 &
-# Steps: 4-GPU training (skipped if checkpoints/pt-LEVEL-sSEED exists), 4-GPU calibrate.py
+# Steps: 4-GPU training (skipped if <paths.checkpoints>/pt-LEVEL-sSEED exists), 4-GPU calibrate.py
 # (E1, calib heatmap + interim gate.json, RL pool + second labelling, final gate.json), then
 # relabel_report.py. Exit code: calibrate's (1 = gate FAIL or error); training errors exit early.
 # Optional environment (comp_frac sweeps at the full budget):
@@ -23,9 +23,11 @@ read -r -a TRAIN_EXTRA <<< "${TRAIN_ARGS:-}"
 read -r -a CALIB_EXTRA <<< "${CALIB_ARGS:-}"
 source scripts/slurm/env.sh
 NAME=pt-$LEVEL-s$SEED
+# output roots from the config (chain-v1: checkpoints/, data/; tree-v1: checkpoints/tree-v1/, data/tree-v1/)
+read -r CKPTS DATA < <(python -c 'import sys; from rlvr.config import load_config; c = load_config(sys.argv[1])["paths"]; print(c["checkpoints"], c["data"])' "$CONFIG")
 job_header
 echo "== $NAME: pipeline start $(date '+%F %T'); config $CONFIG ${TRAIN_EXTRA[*]}; calibrate ${CALIB_EXTRA[*]}"
-if [ -f "checkpoints/$NAME/run_config.yaml" ]; then
+if [ -f "$CKPTS/$NAME/run_config.yaml" ]; then
   echo "== $NAME: final checkpoint exists, skipping training"
 else
   torchrun --standalone --nproc_per_node=4 scripts/pretrain.py \
@@ -33,8 +35,8 @@ else
   echo "== $NAME: training done $(date '+%F %T')"
 fi
 rc=0
-torchrun --standalone --nproc_per_node=4 scripts/calibrate.py "checkpoints/$NAME" "${CALIB_EXTRA[@]}" || rc=$?
-if [ -f "data/labels/$NAME.parquet" ]; then
+torchrun --standalone --nproc_per_node=4 scripts/calibrate.py "$CKPTS/$NAME" "${CALIB_EXTRA[@]}" || rc=$?
+if [ -f "$DATA/labels/$NAME.parquet" ]; then
   python scripts/relabel_report.py "$NAME"
 fi
 echo "== $NAME: done at $(date '+%F %T'), calibrate exit $rc (1 = gate FAIL or error)"

@@ -17,7 +17,13 @@ and 4 ternary operators, generating genuine expression trees. Use
 `bash scripts/make_tree_data.sh` in the `rlvr` environment; outputs are isolated under
 `data/tree-v1/`. See [operator definitions, sampling and training setup](docs/tree_v1.md).
 The original chain-v1 defaults and saved results remain available. No tree model has
-been trained yet.
+been trained yet. Pilot stage A (design.md "v2 pilot"; atoms only, E1 check per operator):
+
+```bash
+python scripts/make_eval_sets.py --config configs/tasks/tree_v1.yaml
+CONFIG=configs/pretrain/tree/stage_a.yaml CALIB_ARGS=--e1-only bash scripts/slurm/model_pipeline.sh tree-a-atoms
+# -> checkpoints/tree-v1/pt-tree-a-atoms-s0, runs/tree-v1/pt-tree-a-atoms-s0/calib/gate.json
+```
 
 ## Environment
 

@@ -2,6 +2,7 @@
 
     python scripts/calibrate.py checkpoints/pt-mid-s0 [--skip-pool] [key=value ...]
     python scripts/calibrate.py runs/pt-mid-s0/ckpt/step-3000 --skip-pool   # model_id pt-mid-s0-step-3000
+    python scripts/calibrate.py checkpoints/tree-v1/pt-tree-a-atoms-s0 --e1-only   # pilot stage A: E1 check only
     torchrun --standalone --nproc_per_node=4 scripts/calibrate.py checkpoints/pt-mid-s0   # 4 GPUs
 
 Under torchrun each rank labels every world-th problem (sampling seed 1000 * seed + rank) and
@@ -102,6 +103,8 @@ def main():
                     help="label only the first N calib problems per (depth, group) cell (pilot sweep)")
     ap.add_argument("--pool-first", type=int, default=0,
                     help="label only the first N RL-pool candidates (smoke tests; writes the same outputs)")
+    ap.add_argument("--e1-only", action="store_true",
+                    help="depth-1 greedy check (and final loss) only, no calibration or pool labelling: pilot stage A")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("overrides", nargs="*")
     args = ap.parse_args()
@@ -167,6 +170,15 @@ def main():
         metrics_path = resolve(cfg["paths"]["runs"]) / run_name / "metrics.jsonl"
         if metrics_path.exists() and (fl := G.final_loss(read_jsonl(metrics_path), gc, ckpt_step)) is not None:
             gate["checks"]["final_loss"] = fl
+
+    if args.e1_only:  # pilot stage A (design.md "v2 pilot"): can every operator be learned?
+        ok = True
+        if master:
+            write_gate(gate, final=True)
+            ok = gate["pass"]
+        if ddp:
+            dist.destroy_process_group()
+        sys.exit(0 if ok else 1)
 
     # 2. calibration heatmap + spread over depths
     calib_rows = read_jsonl(eval_dir / "calib.jsonl")
