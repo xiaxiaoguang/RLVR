@@ -9,7 +9,7 @@ add the decision to the [decision log](#decision-log). Round-by-round pretrainin
 
 Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Lesner (evaluation and analysis).
 
-## Status (2026-11-16)
+## Status (2026-11-17)
 
 - **v1 base models:** all four candidates are trained and fully calibrated
   ([v1 results summary](#v1-results-summary)). They stay available as chain-only reference models and for building
@@ -28,10 +28,10 @@ Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Les
 - **Tree-v1 stage A (2026-11-16):** rotate_by_sum was not learned (E1 .12) and is replaced by rotate_by_first
   (decision 12); on the revised table **all 24 operators pass** (E1 .997), so the operator table is fixed.
 - **Tree-v1 stage B (2026-11-16): no D/E pair** at comp_frac 3.2e-4 / 6.4e-4 / 1.28e-3 (best: depth 2 mean p .39,
-  depth 3 .05, depth 4 .002 at 1.28e-3), so the go criterion is not met in this round. Next step (another round with
-  more composition and v1-style uneven exposure, or no-go and the v1 pool expansion) is open for the team
-  ([`pretrain_v2_results.md`](pretrain_v2_results.md)).
-- **Compute:** 32.98 of 50 NERSC GPU node-hours used as of 2026-11-16.
+  depth 3 .05, depth 4 .002 at 1.28e-3), so the go criterion is not met in this round. **Round 2 (2026-11-17, decision 13):** more depth-4
+  compositions (depth mix {2: .3, 3: .35, 4: .35}) at comp_frac 2e-3 / 3.5e-3 / 6e-3, training and calibration
+  running ([`pretrain_v2_results.md`](pretrain_v2_results.md)).
+- **Compute:** 32.98 of 50 NERSC GPU node-hours used as of 2026-11-16; round 2 is estimated at ~6.5.
 
 ## Decision log
 
@@ -39,6 +39,7 @@ Newest first. "Proposed by" is who raised it in the team discussion.
 
 | # | date | question | decision | proposed by |
 | --- | --- | --- | --- | --- |
+| 13 | 2026-11-17 | Stage B round 1 found no D/E pair: the depth curve is too steep (mean p d2 .39, d3 .05, d4 .002 at comp_frac 1.28e-3), and raising comp_frac alone shifts the curve without flattening it (d4 near .5 means d2 near 1; depth 5 is never trained, so d3/d5 cannot pair either) | Round 2 changes the **composition depth mix** from {2: .6, 3: .35, 4: .05} to **{2: .3, 3: .35, 4: .35}** (`configs/pretrain/tree/mix.yaml`) at comp_frac 2e-3 / 3.5e-3 / 6e-3; per supervised token this gives ~9–27× the depth-4 examples of round 1's 1.28e-3 run and 0.6–1.9× the depth-2 ones. v1's way of pairing d2-L with d4-H (h_ratio .9 and H-only depth 4) is not used: it makes D and E differ in exposure as well as depth, the confound tree-v1 removed (h_ratio .5, h_only_depths [] stay). Round 2 trains and calibrates only (`--skip-pool`); the 10,000-candidate pilot pool is labelled afterwards, on one node, for a model whose calib labels have a D/E pair. | Yupeng |
 | 12 | 2026-11-16 | rotate_by_sum is not learned in tree-v1 stage A (E1 .12, no progress from step 1000 to 2000) | Replace it with **rotate_by_first** (rotate x left by y[0] mod n): still a rotation set by the other operand, but it reads one symbol instead of a sum over the whole string mod n (a parity-like reduction). It keeps id F10 and its place in H, so H and L keep 6 / 4 / 2 operators. Stage A is re-run on the revised table; the first recipe's generated data is kept in `data/tree-v1-rotate_by_sum/`. | Yupeng |
 | 11 | 2026-11-16 | How are the D/E cells defined in tree-v1, where depth and n_ops differ? | Fixed before stage B, applied to its data ([Matched cells](#matched-cells-v2)): a cell is (depth, group) as in the calib set; D/E pairs need E.depth ≥ D.depth + 2 within RL depths 1–5; pairs are ranked by the smaller of the two cells' calib shares of non-skippable problems with p̂ in [0.4, 0.6]. Depth is the axis because H2 is tested on E3 (depth 6–8); n_ops, n_binary, n_ternary, max_live_values and token length are reported for D and E as covariates, and input length is matched. | Yupeng |
 | 10 | 2026-11-16 | Which operator set and code for the tree task? | Hanzhong's **tree-v1** ([`tree_v1.md`](tree_v1.md)): 12 unary + 8 binary + 4 ternary operators reshuffled to F00–F23, depth = dependency depth, held-out (parent, slot, child) edges, data under `data/tree-v1/`. It replaces the pretrain-branch variant (24 unary + add / alternate / splice / max), whose stage A passed and whose stage B was cancelled after 36 min (1.81 node-hours). The pilot plan (stages A and B, go criterion) is unchanged. | Hanzhong (chosen by Yupeng) |

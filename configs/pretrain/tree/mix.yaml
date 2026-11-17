@@ -1,0 +1,12 @@
+# Tree-v1 pilot stage B, round 2 (design.md decision 13): the stage-B recipe (mid.yaml) with more
+# depth-4 compositions. Round 1 (comp_frac up to 1.28e-3) had a steep depth curve (mean p d2 .39,
+# d3 .05, d4 .002), so no two cells two depths apart were both near p = 0.5. Shifting the composition
+# depth mix flattens the curve without coupling depth to H/L exposure (h_ratio 0.5, h_only_depths []
+# as in the tree-v1 recipe). Training and calibration only (--skip-pool); the pilot pool is labelled
+# afterwards for a model whose calib labels have a D/E pair.
+#   CONFIG=configs/pretrain/tree/mix.yaml TRAIN_ARGS=pretrain.comp_frac=<cf> \
+#       CALIB_ARGS="--skip-pool label.batch_size=8" bash scripts/slurm/model_pipeline.sh tree-mix-cf<cf>
+base: mid.yaml
+pretrain:
+  level: tree-mix
+  comp_depth_mix: {2: 0.3, 3: 0.35, 4: 0.35}
