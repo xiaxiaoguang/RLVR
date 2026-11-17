@@ -145,6 +145,7 @@ def main():
         if ddp:
             df["_i"] = idx
             parts = [None] * world
+            torch.cuda.empty_cache()  # generation caches fill the GPU; NCCL needs memory for the gather
             dist.all_gather_object(parts, df)
             df = merge_shards(parts)
         if master:

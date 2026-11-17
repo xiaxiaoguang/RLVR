@@ -15,7 +15,7 @@ v2 base models. Since 2026-11-16 the v2 task is Hanzhong's **tree-v1** ([`tree_v
 |---|---|---|---|
 | tree-v1 stage A: atomic skills of the 24 operators | pt-tree-a-atoms-s0 | 23 of 24 pass; rotate_by_sum E1 .12 | **FAIL** on one operator; replaced by rotate_by_first (decision 12) |
 | tree-v1 stage A, revised table | pt-tree-a2-atoms-s0 | all 24 pass; E1 .997 | **PASS**, operator table fixed |
-| tree-v1 stage B: p ≈ 0.5 supply | — | — | next (3 nodes) |
+| tree-v1 stage B: p ≈ 0.5 supply | pt-tree-mid-cf{0.00032,0.00064,0.00128}-s0 | no D/E pair at any comp_frac | **no-go** for this round; next step is a team decision |
 | go/no-go | — | — | Sun Nov 22 |
 
 ## Tree-v1 stage A: can each operator be learned? (2026-11-16)
@@ -56,6 +56,37 @@ E1 1200, E2 1800, E3 900, E4 800, probe 575, calib 4600) were generated on the n
 **Composition length** (for the stage-B comp_frac levels; `Mixture` estimate): a tree-v1 composition example has 137
 target tokens on average, a chain-v1 one 69, so at equal `comp_frac` tree-v1 sees half as many composition examples.
 Mean `n_ops` per depth 2 / 3 / 4: 2.94 / 4.40 / 6.00.
+
+## Tree-v1 stage B: do trees give enough p ≈ 0.5 problems? (2026-11-16)
+
+`configs/pretrain/tree/mid.yaml`: the tree-v1 recipe (h_ratio 0.5, no H-only depth) at the full length (9500 steps),
+three runs in parallel at comp_frac 3.2e-4 (v1 mid's token share), 6.4e-4 (v1 mid's number of composition examples,
+as tree compositions are 2× longer) and 1.28e-3. Then calibration and the pilot pool by decision 11. Results in
+`results/pretrain_v2/models/tree-v1/`.
+
+Mean calib p (T = 1, k = 32, 200 problems per (depth, group) cell):
+
+| comp_frac | d1 | d2 (H / L / mixed) | d3 | d4 | d5 | spread signal d2 / d3 / d4 |
+|---|---|---|---|---|---|---|
+| 3.2e-4 | 1.00 | .002 (.005 / .001 / .001) | .000 | .000 | 0 | .03 / .00 / .00 |
+| 6.4e-4 | 1.00 | .038 (.058 / .035 / .020) | .0003 | .0001 | 0 | .24 / .02 / .00 |
+| 1.28e-3 | 1.00 | .387 (.548 / .291 / .322) | .050 | .002 | 0 | .67 / .20 / .03 |
+
+- **No go in this round.** At 1.28e-3 the calib shares of non-skippable problems with p̂ in [0.4, 0.6] are 5.5–12.5% at
+  depth 2, 2% at depth 3 and 0 at depths 4–5. No D/E pair with E.depth ≥ D.depth + 2 has a nonzero share in both
+  cells (depth 1 is at p = 1), so the pilot skipped the candidate pool for every run (`calib/pilot.json`: go false).
+  All three fail the spread check; E1 is 1.000 in all three.
+- **Why.** A depth gap of 2 is a large step in tree-v1 (mean n_ops 2.9 at depth 2, 6.0 at depth 4): when depth 2
+  reaches p ≈ 0.4, depth 4 is still near 0. In v1, d2-L and d4-H were brought together by uneven exposure (h_ratio
+  0.9 and H-only depth 4); the tree-v1 pilot recipe removes that on purpose (h_ratio 0.5, no H-only depth).
+  Interpolating the logits between 6.4e-4 and 1.28e-3, depth 3 reaches ~0.45 near comp_frac 2e-3 and depth 4 near
+  4.5e-3, where depth 2 is close to 1.
+- **Skippable problems** (decision 6) grow with depth: ~8% at depth 2, ~15% at depth 3, 19–28% at depth 4, 26–42% at
+  depth 5.
+- **Run notes.** Calibration of the first attempt ran out of GPU memory in the NCCL gather after the calib labelling
+  (40 GB A100s; tree-v1 completions up to 768 tokens). Fixed by emptying the CUDA cache before the gather; the three
+  calibrations were re-run with `label.batch_size=8` on the saved checkpoints. Calib labelling took 20–34 min per run
+  (v1: 5 min); weak models are slowest because they often do not stop before 768 tokens.
 
 ## Superseded variant: 24 unary + 4 binary operators (2026-11-15 to 16)
 
@@ -102,3 +133,4 @@ minutes; final training loss 1.8e-5.
 | 2026-11-16 | 61417711 | stage B, cancelled (3 nodes, 0:36:10) | 1.81 | 23.29 |
 | 2026-11-16 | 61422984 | tree-v1 eval sets + stage A (1 node, 0:17:18) | 0.29 | 23.58 |
 | 2026-11-16 | 61428426 | tree-v1 eval sets + stage A re-run (1 node, 0:17:41) | 0.29 | 23.87 |
+| 2026-11-16 | 61430769 | tree-v1 stage B, 3 runs incl. calibration re-runs (3 nodes, 3:02:12) | 9.11 | 32.98 |

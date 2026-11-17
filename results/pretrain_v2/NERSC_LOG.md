@@ -294,3 +294,20 @@ only edits / submits / checks (offline tests are the exception). Commit scripts 
   all others 1.00). At step 1000: H .998, L .917. Final loss 2.4e-4. release.sh scancelled 61428426 at 13:32:33
   (0:17:41 = 0.29 node-h; total 23.87 of 50). Next: stage B (3 nodes, comp_frac 3.2e-4 / 6.4e-4 / 1.28e-3), waiting
   for user approval.
+- 2026-11-16 13:53:08: **tree-v1 stage B** salloc 61430769 (interactive, 3 nodes, 4:00); runs/tree-v1-stage-b/launch.sh: configs/pretrain/tree/mid.yaml at comp_frac 3.2e-4 / 6.4e-4 / 1.28e-3 (pt-tree-mid-cf*-s0); logs runs/slurm/pipe-tree-mid-cf*-61430769.out; release.sh scancels after all three print "done at". Expected ~3.5 h, ~10.5 node-h -> ~34.4 of 50.
+- 2026-11-16 15:50: stage B calibrate crashed for cf 6.4e-4 (15:49) and 1.28e-3 (15:50) after calib labelling:
+  CUDA OOM inside NCCL all_gather_object (generation caches fill the 40 GB GPUs; tree-v1 completions up to 768
+  tokens). Training finished and checkpoints are saved. Fix: torch.cuda.empty_cache() before the gather
+  (scripts/calibrate.py), and label.batch_size=8 for the reruns. Re-ran only calibrate on the same nodes
+  (runs/slurm/pipe-tree-mid-cf{0.00064,0.00128}-61430769-recal.out). Old waiter killed; release2.sh releases once
+  all three runs have a final gate.json (with the "pilot" entry) and no pipeline step runs. cf 3.2e-4 calibrate
+  (started 15:30 with the old script) still running.
+- 2026-11-16 16:20:04: cf 3.2e-4 calibrate also hit the gather OOM (old script, 16:19); re-ran its calibrate on nid001317 (-recal.out).
+- 2026-11-16 16:23: stage B results (calib T=1, k=32, 200 per cell; mean p by depth 1/2/3/4/5):
+    cf 6.4e-4  (pt-tree-mid-cf0.00064-s0): 1.00 / .038 / .0005 / .0001 / 0  (d2 H .058, L .035)
+    cf 1.28e-3 (pt-tree-mid-cf0.00128-s0): 1.00 / .387 / .050 / .0024 / 0   (d2 H .548, L .291, mixed .322; d3 H .085)
+  In-range (non-skippable p in [0.4, 0.6]) calib shares at 1.28e-3: d2 5.5-12.5%, d3 2%, d4-5 0 -> no D/E pair with
+  E >= D + 2 has both cells > 0, so the pilot pool was skipped (pilot go=False) for both; gate FAIL (spread).
+  Skippable share grows with depth (d2 ~8%, d3 ~15%, d4 19-28%, d5 26-42%). cf 3.2e-4 calibrate re-running.
+- 2026-11-16 16:55: cf 3.2e-4 recalibration done (calib 2038 s): mean p d2 .002, d3+ 0; pilot go=False. release2.sh
+  scancelled 61430769 at 16:54:57 (3:02:12 x 3 nodes = 9.11 node-h; total 32.98 of 50). Stage B round 1: no-go.

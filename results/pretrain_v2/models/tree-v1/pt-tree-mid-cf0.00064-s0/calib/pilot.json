@@ -1,0 +1,120 @@
+{
+ "model_id": "pt-tree-mid-cf0.00064-s0",
+ "chosen_cells": [],
+ "calib_rates": [
+  {
+   "depth": 1,
+   "group": "H",
+   "n": 200,
+   "mean_p": 1.0,
+   "skippable_frac": 0.02,
+   "rate": 0.0
+  },
+  {
+   "depth": 1,
+   "group": "L",
+   "n": 200,
+   "mean_p": 1.0,
+   "skippable_frac": 0.01,
+   "rate": 0.0
+  },
+  {
+   "depth": 2,
+   "group": "H",
+   "n": 200,
+   "mean_p": 0.0581,
+   "skippable_frac": 0.1,
+   "rate": 0.025
+  },
+  {
+   "depth": 2,
+   "group": "L",
+   "n": 200,
+   "mean_p": 0.035,
+   "skippable_frac": 0.09,
+   "rate": 0.02
+  },
+  {
+   "depth": 2,
+   "group": "mixed",
+   "n": 200,
+   "mean_p": 0.02,
+   "skippable_frac": 0.06,
+   "rate": 0.0
+  },
+  {
+   "depth": 3,
+   "group": "H",
+   "n": 200,
+   "mean_p": 0.0009,
+   "skippable_frac": 0.135,
+   "rate": 0.0
+  },
+  {
+   "depth": 3,
+   "group": "L",
+   "n": 200,
+   "mean_p": 0.0002,
+   "skippable_frac": 0.145,
+   "rate": 0.0
+  },
+  {
+   "depth": 3,
+   "group": "mixed",
+   "n": 200,
+   "mean_p": 0.0005,
+   "skippable_frac": 0.165,
+   "rate": 0.0
+  },
+  {
+   "depth": 4,
+   "group": "H",
+   "n": 200,
+   "mean_p": 0.0,
+   "skippable_frac": 0.19,
+   "rate": 0.0
+  },
+  {
+   "depth": 4,
+   "group": "L",
+   "n": 200,
+   "mean_p": 0.0003,
+   "skippable_frac": 0.275,
+   "rate": 0.0
+  },
+  {
+   "depth": 4,
+   "group": "mixed",
+   "n": 200,
+   "mean_p": 0.0,
+   "skippable_frac": 0.23,
+   "rate": 0.0
+  },
+  {
+   "depth": 5,
+   "group": "H",
+   "n": 200,
+   "mean_p": 0.0,
+   "skippable_frac": 0.255,
+   "rate": 0.0
+  },
+  {
+   "depth": 5,
+   "group": "L",
+   "n": 200,
+   "mean_p": 0.0,
+   "skippable_frac": 0.415,
+   "rate": 0.0
+  },
+  {
+   "depth": 5,
+   "group": "mixed",
+   "n": 200,
+   "mean_p": 0.0,
+   "skippable_frac": 0.32,
+   "rate": 0.0
+  }
+ ],
+ "go": false,
+ "reason": "no D/E cell pair with p ~ 0.5 calib problems"
+}

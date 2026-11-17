@@ -26,9 +26,12 @@ Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Les
 - **RL:** GRPO (`scripts/grpo.py`) and the sweep runner (`scripts/rl_sweep.py`) are implemented and smoke-tested on
   the v1 round-1 checkpoints ([GRPO](#grpo-hanzhong)); no RL experiment of the design has been run yet.
 - **Tree-v1 stage A (2026-11-16):** rotate_by_sum was not learned (E1 .12) and is replaced by rotate_by_first
-  (decision 12); on the revised table **all 24 operators pass** (E1 .997), so the operator table is fixed. Stage B is
-  next ([`pretrain_v2_results.md`](pretrain_v2_results.md)).
-- **Compute:** 23.87 of 50 NERSC GPU node-hours used as of 2026-11-16.
+  (decision 12); on the revised table **all 24 operators pass** (E1 .997), so the operator table is fixed.
+- **Tree-v1 stage B (2026-11-16): no D/E pair** at comp_frac 3.2e-4 / 6.4e-4 / 1.28e-3 (best: depth 2 mean p .39,
+  depth 3 .05, depth 4 .002 at 1.28e-3), so the go criterion is not met in this round. Next step (another round with
+  more composition and v1-style uneven exposure, or no-go and the v1 pool expansion) is open for the team
+  ([`pretrain_v2_results.md`](pretrain_v2_results.md)).
+- **Compute:** 32.98 of 50 NERSC GPU node-hours used as of 2026-11-16.
 
 ## Decision log
 
