@@ -3,6 +3,7 @@
     python scripts/calibrate.py checkpoints/pt-mid-s0 [--skip-pool] [key=value ...]
     python scripts/calibrate.py runs/pt-mid-s0/ckpt/step-3000 --skip-pool   # model_id pt-mid-s0-step-3000
     python scripts/calibrate.py checkpoints/tree-v1/pt-tree-a-atoms-s0 --e1-only   # pilot stage A: E1 check only
+    python scripts/calibrate.py checkpoints/tree-v1/pt-tree-mix-cf0.0035-s0 --reuse-calib   # pool after --skip-pool
     torchrun --standalone --nproc_per_node=4 scripts/calibrate.py checkpoints/pt-mid-s0   # 4 GPUs
 
 Under torchrun each rank labels every world-th problem (sampling seed 1000 * seed + rank) and
@@ -107,6 +108,9 @@ def main():
                     help="label only the first N RL-pool candidates (smoke tests; writes the same outputs)")
     ap.add_argument("--e1-only", action="store_true",
                     help="depth-1 greedy check (and final loss) only, no calibration or pool labelling: pilot stage A")
+    ap.add_argument("--reuse-calib", action="store_true",
+                    help="read calib/calib_labels.parquet from an earlier run instead of labelling the calib set again "
+                         "(e.g. the pilot pool after a --skip-pool run)")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("overrides", nargs="*")
     args = ap.parse_args()
@@ -192,7 +196,13 @@ def main():
             if per_cell[(r["depth"], r["group"])] <= args.calib_per_cell:
                 kept.append(r)
         calib_rows = kept
-    calib = label([task.from_dict(r) for r in calib_rows])
+    reused = out / "calib_labels.parquet"
+    if args.reuse_calib and reused.exists():
+        calib = pd.read_parquet(reused)  # every rank reads it, as label() returns the full frame on every rank
+        if master:
+            print(f"{model_id}: calib labels reused from {reused} ({len(calib)} problems)", flush=True)
+    else:
+        calib = label([task.from_dict(r) for r in calib_rows])
     if master:
         calib.to_parquet(out / "calib_labels.parquet", index=False)
         heatmap(calib, f"{model_id}: p_hat at T={lc['temperature']}, k={lc['k']}", out / "heatmap.png")
