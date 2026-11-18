@@ -311,3 +311,23 @@ only edits / submits / checks (offline tests are the exception). Commit scripts 
   Skippable share grows with depth (d2 ~8%, d3 ~15%, d4 19-28%, d5 26-42%). cf 3.2e-4 calibrate re-running.
 - 2026-11-16 16:55: cf 3.2e-4 recalibration done (calib 2038 s): mean p d2 .002, d3+ 0; pilot go=False. release2.sh
   scancelled 61430769 at 16:54:57 (3:02:12 x 3 nodes = 9.11 node-h; total 32.98 of 50). Stage B round 1: no-go.
+- 2026-11-17 14:20: **tree-v1 stage B round 2** (decision 13, user approved): salloc 61495943 (interactive, 3 nodes, 2:45,
+  nid001500/001861/001885); runs/tree-v1-stage-b2/launch.sh: configs/pretrain/tree/mix.yaml (comp_depth_mix
+  {2: .3, 3: .35, 4: .35}, h_ratio .5, h_only_depths []) at comp_frac 2e-3 / 3.5e-3 / 6e-3 (pt-tree-mix-cf*-s0),
+  training + calibrate --skip-pool label.batch_size=8; logs runs/slurm/pipe-tree-mix-cf*-61495943.out; release.sh
+  scancels once no pipeline step runs. Expected ~2.2 h, ~6.5 node-h -> ~39.5 of 50. The pilot pool (1 node) follows
+  only if a calib set has a D/E pair, after asking the user.
+- 2026-11-17 15:36: cf 2e-3 **training OOM** between steps 7500 and 8000 (inductor forward, 38 GB allocated on GPU 3; likely
+  the longest micro-batch: the leftover tail of each 20,000-example bucket joins the last group, and this mix has many
+  long compositions). Only ckpt/step-2375 and step-4750 exist; no final model. Released its node by shrinking the
+  allocation (scontrol update NodeList=nid[001861,001885] at 15:36:57; nid001500 used 1:16 = 1.27 node-h).
+- 2026-11-17 15:45: cf 6e-3 trained (E2 .546, E4 .461 at 9500) but calibrate exited at once: overrides must come before
+  --skip-pool (argparse with nargs="*"); same for cf 3.5e-3 at 15:48 (E2 .344, E4 .273). After the resize srun cannot
+  create steps ("Invalid job id specified"), so both calibrations were started over ssh on their nodes (15:47:33 on
+  nid001885, 15:49:24 on nid001861; logs pipe-tree-mix-cf*-61495943-recal.out). release.sh killed;
+  runs/tree-v1-stage-b2/recal.sh scancels once both print "done at" or nothing runs on either node.
+- 2026-11-17 16:12:35: both calibrations done (22 min each); recal.sh scancelled 61495943 (3 nodes 14:20:31-15:36:57,
+  2 nodes to 16:12:35 = 5.01 node-h; sacct keeps a 3-node and a 2-node record; total 37.99 of 50).
+  Calib mean p d2/d3/d4/d5: cf 3.5e-3 .675/.314/.104/.014; cf 6e-3 .839/.673/.396/.132; gate PASS for both (spread).
+  Best D/E pairs (decision 11 on calib labels): cf 3.5e-3 d2-L/d4-H (rates .100/.055, ~550 per cell expected from
+  10,000 candidates); cf 6e-3 d3-L/d5-H (.055/.040, ~400). Pilot pool not labelled yet; asking the user.

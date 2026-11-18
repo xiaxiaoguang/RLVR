@@ -28,10 +28,11 @@ Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Les
 - **Tree-v1 stage A (2026-11-16):** rotate_by_sum was not learned (E1 .12) and is replaced by rotate_by_first
   (decision 12); on the revised table **all 24 operators pass** (E1 .997), so the operator table is fixed.
 - **Tree-v1 stage B (2026-11-16): no D/E pair** at comp_frac 3.2e-4 / 6.4e-4 / 1.28e-3 (best: depth 2 mean p .39,
-  depth 3 .05, depth 4 .002 at 1.28e-3), so the go criterion is not met in this round. **Round 2 (2026-11-17, decision 13):** more depth-4
-  compositions (depth mix {2: .3, 3: .35, 4: .35}) at comp_frac 2e-3 / 3.5e-3 / 6e-3, training and calibration
-  running ([`pretrain_v2_results.md`](pretrain_v2_results.md)).
-- **Compute:** 32.98 of 50 NERSC GPU node-hours used as of 2026-11-16; round 2 is estimated at ~6.5.
+  depth 3 .05, depth 4 .002 at 1.28e-3), so the go criterion is not met in this round. **Round 2 (2026-11-17, decision 13):** with more depth-4
+  compositions (depth mix {2: .3, 3: .35, 4: .35}) both finished models pass the gate; the best D/E pair is d2-L / d4-H
+  at comp_frac 3.5e-3 (calib shares .10 / .055, ~500–550 per cell expected from 10,000 candidates: borderline). Next:
+  label its pilot pool ([`pretrain_v2_results.md`](pretrain_v2_results.md)).
+- **Compute:** 37.99 of 50 NERSC GPU node-hours used as of 2026-11-17.
 
 ## Decision log
 

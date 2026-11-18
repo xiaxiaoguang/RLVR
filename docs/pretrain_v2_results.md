@@ -9,13 +9,14 @@ v2 base models. Since 2026-11-16 the v2 task is Hanzhong's **tree-v1** ([`tree_v
 - Small per-run files (gate.json, relabel_report.json, stats.json, eval.jsonl, run_config.yaml, calib heatmap):
   `results/pretrain_v2/models/<run>/`, collected from scratch by `scripts/collect_results.sh`.
 
-## Status (2026-11-16)
+## Status (2026-11-17)
 
 | step | run | result | status |
 |---|---|---|---|
 | tree-v1 stage A: atomic skills of the 24 operators | pt-tree-a-atoms-s0 | 23 of 24 pass; rotate_by_sum E1 .12 | **FAIL** on one operator; replaced by rotate_by_first (decision 12) |
 | tree-v1 stage A, revised table | pt-tree-a2-atoms-s0 | all 24 pass; E1 .997 | **PASS**, operator table fixed |
 | tree-v1 stage B: p ≈ 0.5 supply | pt-tree-mid-cf{0.00032,0.00064,0.00128}-s0 | no D/E pair at any comp_frac | **no-go** for this round; next step is a team decision |
+| tree-v1 stage B round 2: more depth-4 compositions (decision 13) | pt-tree-mix-cf{0.0035,0.006}-s0 | gate PASS for both; best D/E pair d2-L / d4-H (cf 3.5e-3, calib share .055) | borderline: ~550 per cell expected from 10,000 candidates; pilot pool not yet labelled |
 | go/no-go | — | — | Sun Nov 22 |
 
 ## Tree-v1 stage A: can each operator be learned? (2026-11-16)
@@ -56,6 +57,42 @@ E1 1200, E2 1800, E3 900, E4 800, probe 575, calib 4600) were generated on the n
 **Composition length** (for the stage-B comp_frac levels; `Mixture` estimate): a tree-v1 composition example has 137
 target tokens on average, a chain-v1 one 69, so at equal `comp_frac` tree-v1 sees half as many composition examples.
 Mean `n_ops` per depth 2 / 3 / 4: 2.94 / 4.40 / 6.00.
+
+## Tree-v1 stage B round 2: more depth-4 compositions (2026-11-17)
+
+`configs/pretrain/tree/mix.yaml` (decision 13): the round-1 recipe with the composition depth mix {2: .3, 3: .35,
+4: .35} instead of {2: .6, 3: .35, 4: .05}, still h_ratio 0.5 and no H-only depth, 9500 steps, at comp_frac 2e-3,
+3.5e-3 and 6e-3. Training and calibration only (`--skip-pool`); the D/E pairs below are computed from the calib labels
+with `rlvr/pilot.py` (decision 11), without the 10,000-candidate pool.
+
+Mean calib p (T = 1, k = 32, 200 problems per (depth, group) cell), and the calib share of non-skippable problems
+with p̂ in [0.4, 0.6] ("rate") for the cells of the best pairs:
+
+| comp_frac | d2 (H / L / mixed) | d3 (H / L / mixed) | d4 (H / L / mixed) | d5 (H / L / mixed) | spread signal d2 / d3 / d4 | gate |
+|---|---|---|---|---|---|---|
+| 2e-3 | training ran out of GPU memory at step ~7700 (no final model) | | | | | |
+| 3.5e-3 | .765 / .580 / .682 | .394 / .275 / .272 | .158 / .054 / .100 | .020 / .013 / .010 | .75 / .64 / .35 | PASS |
+| 6e-3 | .965 / .718 / .836 | .843 / .537 / .637 | .548 / .267 / .372 | .222 / .066 / .109 | .32 / .56 / .54 | PASS |
+
+| comp_frac | best pairs (D / E: rates) | expected per cell from 10,000 candidates |
+|---|---|---|
+| 3.5e-3 | d2-L / d4-H: .100 / .055; d2-mixed / d4-H: .075 / .055; d2-H / d4-H: .050 / .055 | ~500–550 (E cell d4-H is the bottleneck) |
+| 6e-3 | d3-L / d5-H: .055 / .040; d3-mixed / d5-H: .045 / .040; d2-mixed / d5-H: .035 / .040 | ~400 |
+
+- **The depth curve is flatter.** Mean p falls by 2–4× from depth 2 to 4 (round 1: ~200×), with symmetric H/L
+  exposure. Both models pass the gate's spread check (round 1 failed it). E1 is 1.000 for both.
+- **p ≈ 0.5 problems are still scarce within a cell.** Per-problem p is bimodal: d4-H at 6e-3 has mean p .55 but only
+  7.5% of its problems in [0.4, 0.6]; the shares are 3–10% in every cell (v1: ≤ 12.5%). The rates come from 200
+  problems per cell (±3% standard error at 5%).
+- **H is easier than L at every depth** (e.g. d4 .55 vs .27 at 6e-3) although exposure is even (h_ratio 0.5): the
+  operators differ in difficulty. The v1 pair d2-L / d4-H appears again, now without uneven exposure; d2-H / d4-H is a
+  same-group alternative.
+- **E3 (depth 6–8) stays near 0** (greedy .002 at 3.5e-3, .007 at 6e-3), as in v1 (decision 7).
+- **Run notes.** cf 2e-3 ran out of GPU memory in a training step between steps 7500 and 8000 (38 GB allocated on one
+  GPU), likely the longest micro-batch: the leftover tail of each 20,000-example length bucket joins the last group, and
+  this mix has many long compositions. Its node was released at once by shrinking the allocation; after the resize srun
+  could not start new steps in the job, so the two calibrations ran over ssh on their nodes. Calib labelling took
+  22 min per model (`label.batch_size=8`).
 
 ## Tree-v1 stage B: do trees give enough p ≈ 0.5 problems? (2026-11-16)
 
@@ -134,3 +171,4 @@ minutes; final training loss 1.8e-5.
 | 2026-11-16 | 61422984 | tree-v1 eval sets + stage A (1 node, 0:17:18) | 0.29 | 23.58 |
 | 2026-11-16 | 61428426 | tree-v1 eval sets + stage A re-run (1 node, 0:17:41) | 0.29 | 23.87 |
 | 2026-11-16 | 61430769 | tree-v1 stage B, 3 runs incl. calibration re-runs (3 nodes, 3:02:12) | 9.11 | 32.98 |
+| 2026-11-17 | 61495943 | tree-v1 stage B round 2 (3 nodes 1:16:26, then 2 nodes to 1:52:04) | 5.01 | 37.99 |
