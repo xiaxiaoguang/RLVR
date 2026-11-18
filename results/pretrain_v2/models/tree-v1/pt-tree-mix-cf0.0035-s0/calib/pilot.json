@@ -1,0 +1,238 @@
+{
+ "model_id": "pt-tree-mix-cf0.0035-s0",
+ "chosen_cells": [
+  "d2-L",
+  "d4-H",
+  "d2-mixed",
+  "d2-H"
+ ],
+ "calib_rates": [
+  {
+   "depth": 1,
+   "group": "H",
+   "n": 200,
+   "mean_p": 1.0,
+   "skippable_frac": 0.02,
+   "rate": 0.0
+  },
+  {
+   "depth": 1,
+   "group": "L",
+   "n": 200,
+   "mean_p": 1.0,
+   "skippable_frac": 0.01,
+   "rate": 0.0
+  },
+  {
+   "depth": 2,
+   "group": "H",
+   "n": 200,
+   "mean_p": 0.7645,
+   "skippable_frac": 0.1,
+   "rate": 0.05
+  },
+  {
+   "depth": 2,
+   "group": "L",
+   "n": 200,
+   "mean_p": 0.5798,
+   "skippable_frac": 0.09,
+   "rate": 0.1
+  },
+  {
+   "depth": 2,
+   "group": "mixed",
+   "n": 200,
+   "mean_p": 0.6817,
+   "skippable_frac": 0.06,
+   "rate": 0.075
+  },
+  {
+   "depth": 3,
+   "group": "H",
+   "n": 200,
+   "mean_p": 0.3938,
+   "skippable_frac": 0.135,
+   "rate": 0.09
+  },
+  {
+   "depth": 3,
+   "group": "L",
+   "n": 200,
+   "mean_p": 0.2752,
+   "skippable_frac": 0.145,
+   "rate": 0.095
+  },
+  {
+   "depth": 3,
+   "group": "mixed",
+   "n": 200,
+   "mean_p": 0.272,
+   "skippable_frac": 0.165,
+   "rate": 0.085
+  },
+  {
+   "depth": 4,
+   "group": "H",
+   "n": 200,
+   "mean_p": 0.1581,
+   "skippable_frac": 0.19,
+   "rate": 0.055
+  },
+  {
+   "depth": 4,
+   "group": "L",
+   "n": 200,
+   "mean_p": 0.0541,
+   "skippable_frac": 0.275,
+   "rate": 0.01
+  },
+  {
+   "depth": 4,
+   "group": "mixed",
+   "n": 200,
+   "mean_p": 0.0998,
+   "skippable_frac": 0.23,
+   "rate": 0.035
+  },
+  {
+   "depth": 5,
+   "group": "H",
+   "n": 200,
+   "mean_p": 0.0202,
+   "skippable_frac": 0.255,
+   "rate": 0.0
+  },
+  {
+   "depth": 5,
+   "group": "L",
+   "n": 200,
+   "mean_p": 0.0128,
+   "skippable_frac": 0.415,
+   "rate": 0.005
+  },
+  {
+   "depth": 5,
+   "group": "mixed",
+   "n": 200,
+   "mean_p": 0.0097,
+   "skippable_frac": 0.32,
+   "rate": 0.005
+  }
+ ],
+ "p_range": [
+  0.4,
+  0.6
+ ],
+ "min_matched": 500,
+ "cells": {
+  "d2-L": {
+   "n_candidates": 10000,
+   "skippable_frac": 0.0928,
+   "mean_p_hat": 0.6135,
+   "n_first_in_range": 1110,
+   "n_relabelled": 2093,
+   "n_in_range": 914,
+   "n_in_range_by_len": {
+    "6": 176,
+    "7": 169,
+    "8": 175,
+    "9": 181,
+    "10": 213
+   },
+   "in_range_covariates": {
+    "mean_n_ops": 3.253,
+    "mean_n_binary": 1.021,
+    "mean_n_ternary": 1.486,
+    "mean_max_live_values": 3.659
+   }
+  },
+  "d4-H": {
+   "n_candidates": 10000,
+   "skippable_frac": 0.2064,
+   "mean_p_hat": 0.1468,
+   "n_first_in_range": 473,
+   "n_relabelled": 897,
+   "n_in_range": 405,
+   "n_in_range_by_len": {
+    "6": 80,
+    "7": 84,
+    "8": 79,
+    "9": 86,
+    "10": 76
+   },
+   "in_range_covariates": {
+    "mean_n_ops": 4.294,
+    "mean_n_binary": 1.407,
+    "mean_n_ternary": 1.951,
+    "mean_max_live_values": 4.442
+   }
+  },
+  "d2-mixed": {
+   "n_candidates": 10000,
+   "skippable_frac": 0.0808,
+   "mean_p_hat": 0.6551,
+   "n_first_in_range": 1103,
+   "n_relabelled": 2171,
+   "n_in_range": 961,
+   "n_in_range_by_len": {
+    "6": 194,
+    "7": 175,
+    "8": 199,
+    "9": 184,
+    "10": 209
+   },
+   "in_range_covariates": {
+    "mean_n_ops": 3.552,
+    "mean_n_binary": 0.964,
+    "mean_n_ternary": 1.751,
+    "mean_max_live_values": 3.876
+   }
+  },
+  "d2-H": {
+   "n_candidates": 10000,
+   "skippable_frac": 0.0776,
+   "mean_p_hat": 0.7514,
+   "n_first_in_range": 867,
+   "n_relabelled": 1654,
+   "n_in_range": 667,
+   "n_in_range_by_len": {
+    "6": 128,
+    "7": 147,
+    "8": 117,
+    "9": 134,
+    "10": 141
+   },
+   "in_range_covariates": {
+    "mean_n_ops": 3.499,
+    "mean_n_binary": 0.924,
+    "mean_n_ternary": 1.745,
+    "mean_max_live_values": 3.918
+   }
+  }
+ },
+ "pairs": [
+  {
+   "d": "d2-L",
+   "e": "d4-H",
+   "calib_score": 0.055,
+   "shared_mix_supply": 405,
+   "pass": false
+  },
+  {
+   "d": "d2-mixed",
+   "e": "d4-H",
+   "calib_score": 0.055,
+   "shared_mix_supply": 405,
+   "pass": false
+  },
+  {
+   "d": "d2-H",
+   "e": "d4-H",
+   "calib_score": 0.05,
+   "shared_mix_supply": 405,
+   "pass": false
+  }
+ ],
+ "go": false
+}

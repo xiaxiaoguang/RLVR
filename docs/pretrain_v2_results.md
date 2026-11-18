@@ -16,7 +16,7 @@ v2 base models. Since 2026-11-16 the v2 task is Hanzhong's **tree-v1** ([`tree_v
 | tree-v1 stage A: atomic skills of the 24 operators | pt-tree-a-atoms-s0 | 23 of 24 pass; rotate_by_sum E1 .12 | **FAIL** on one operator; replaced by rotate_by_first (decision 12) |
 | tree-v1 stage A, revised table | pt-tree-a2-atoms-s0 | all 24 pass; E1 .997 | **PASS**, operator table fixed |
 | tree-v1 stage B: p ≈ 0.5 supply | pt-tree-mid-cf{0.00032,0.00064,0.00128}-s0 | no D/E pair at any comp_frac | **no-go** for this round; next step is a team decision |
-| tree-v1 stage B round 2: more depth-4 compositions (decision 13) | pt-tree-mix-cf{0.0035,0.006}-s0 | gate PASS for both; best D/E pair d2-L / d4-H (cf 3.5e-3, calib share .055) | borderline: ~550 per cell expected from 10,000 candidates; pilot pool not yet labelled |
+| tree-v1 stage B round 2: more depth-4 compositions (decision 13) | pt-tree-mix-cf{0.0035,0.006}-s0 | gate PASS for both; best D/E pair d2-L / d4-H (cf 3.5e-3) | pilot pool of cf 3.5e-3: d4-H has **405** problems in range from 10,000 candidates (D cells 667–961): **go criterion (≥ 500) not met**; next step is a team decision |
 | go/no-go | — | — | Sun Nov 22 |
 
 ## Tree-v1 stage A: can each operator be learned? (2026-11-16)
@@ -78,6 +78,25 @@ with p̂ in [0.4, 0.6] ("rate") for the cells of the best pairs:
 |---|---|---|
 | 3.5e-3 | d2-L / d4-H: .100 / .055; d2-mixed / d4-H: .075 / .055; d2-H / d4-H: .050 / .055 | ~500–550 (E cell d4-H is the bottleneck) |
 | 6e-3 | d3-L / d5-H: .055 / .040; d3-mixed / d5-H: .045 / .040; d2-mixed / d5-H: .035 / .040 | ~400 |
+
+Pilot pool of pt-tree-mix-cf0.0035-s0 (`calib/pilot.json`, `calib/relabel_report.json`; 1 node, 1.93 node-h): the
+cells of the best pairs get 10,000 RL-pool candidates each, labelled with k = 32; the 6,815 non-skippable ones with
+p̂ in [0.3, 0.7] are relabelled with k = 64. "In range" = non-skippable with relabelled p in [0.4, 0.6].
+
+| cell | mean p̂ | skippable | first p̂ in range | relabelled | in range | per input length 6 / 7 / 8 / 9 / 10 | mean n_ops / n_binary / n_ternary of in-range |
+|---|---|---|---|---|---|---|---|
+| d2-L | .614 | 9.3% | 1110 | 2093 | **914** | 176 / 169 / 175 / 181 / 213 | 3.25 / 1.02 / 1.49 |
+| d2-mixed | .655 | 8.1% | 1103 | 2171 | **961** | 194 / 175 / 199 / 184 / 209 | 3.55 / 0.96 / 1.75 |
+| d2-H | .751 | 7.8% | 867 | 1654 | **667** | 128 / 147 / 117 / 134 / 141 | 3.50 / 0.92 / 1.75 |
+| d4-H | .147 | 20.6% | 473 | 897 | **405** | 80 / 84 / 79 / 86 / 76 | 4.29 / 1.41 / 1.95 |
+
+- **No go:** every pair (d2-L, d2-mixed or d2-H with d4-H) can supply **405** problems per cell with one shared length
+  mix, below the 500 of the go criterion. The E cell d4-H is the bottleneck: 4.05% of its candidates are in range
+  (calib estimate 5.5%), so 500 would need ~12,400 candidates. The D cells have 1.3–2.4× what is needed.
+- **The second labelling shows no selection bias:** for d4-H the first-selected problems have mean p̂ .498 and
+  relabelled mean .492 (61.5% stay in range); for d2-L .504 and .508 (57.5%).
+- **Structure covariates differ** between D and E as intended (n_ops 3.3 vs 4.3); input length is balanced by
+  construction.
 
 - **The depth curve is flatter.** Mean p falls by 2–4× from depth 2 to 4 (round 1: ~200×), with symmetric H/L
   exposure. Both models pass the gate's spread check (round 1 failed it). E1 is 1.000 for both.
@@ -172,3 +191,4 @@ minutes; final training loss 1.8e-5.
 | 2026-11-16 | 61428426 | tree-v1 eval sets + stage A re-run (1 node, 0:17:41) | 0.29 | 23.87 |
 | 2026-11-16 | 61430769 | tree-v1 stage B, 3 runs incl. calibration re-runs (3 nodes, 3:02:12) | 9.11 | 32.98 |
 | 2026-11-17 | 61495943 | tree-v1 stage B round 2 (3 nodes 1:16:26, then 2 nodes to 1:52:04) | 5.01 | 37.99 |
+| 2026-11-17 | 61512421 | tree-v1 pilot pool of pt-tree-mix-cf0.0035-s0 (1 node, 1:55:55) | 1.93 | 39.92 |

@@ -331,3 +331,13 @@ only edits / submits / checks (offline tests are the exception). Commit scripts 
   Calib mean p d2/d3/d4/d5: cf 3.5e-3 .675/.314/.104/.014; cf 6e-3 .839/.673/.396/.132; gate PASS for both (spread).
   Best D/E pairs (decision 11 on calib labels): cf 3.5e-3 d2-L/d4-H (rates .100/.055, ~550 per cell expected from
   10,000 candidates); cf 6e-3 d3-L/d5-H (.055/.040, ~400). Pilot pool not labelled yet; asking the user.
+- 2026-11-17 20:08: **tree-v1 pilot pool** for pt-tree-mix-cf0.0035-s0 (user approved): salloc 61512421 (interactive,
+  1 node nid001245, 3:30); runs/tree-v1-stage-b2/pool.sh: model_pipeline.sh (training skipped) with calibrate
+  `label.batch_size=8 --reuse-calib` in pilot mode (cells from the calib labels, 10,000 candidates each, k 32, relabel
+  k 64 in [0.3, 0.7]), then relabel_report; log runs/slurm/pipe-tree-mix-cf0.0035-61512421-pool.out; waiter
+  pool-release-61512421.sh scancels when the pipeline ends. Expected ~2.5 h -> ~40.5 of 50.
+- 2026-11-17 22:04:38: pilot pool done and 61512421 released (1:55:55 = 1.93 node-h; total 39.92 of 50). First labelling
+  40,000 x 32 in 5512 s, relabelling 6,815 x 64 in 1301 s. **go = False**: d4-H has 405 non-skippable problems with
+  relabelled p in [0.4, 0.6] of 10,000 candidates (4.05%; even across input lengths 76-86); D cells d2-L 914, d2-mixed 961,
+  d2-H 667; shared-mix supply of every pair 405 (< 500). No selection bias in the relabel means (d4-H first-selected
+  mean .498 -> relabel .492).

@@ -83,6 +83,16 @@
   "d8-L": 0.0,
   "d8-mixed": 0.001
  },
+ "pilot": {
+  "go": false,
+  "best_pair": {
+   "d": "d2-L",
+   "e": "d4-H",
+   "calib_score": 0.055,
+   "shared_mix_supply": 405,
+   "pass": false
+  }
+ },
  "pass": true,
  "warnings": [
   "target"
