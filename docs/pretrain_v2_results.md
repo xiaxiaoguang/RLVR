@@ -9,14 +9,14 @@ v2 base models. Since 2026-11-16 the v2 task is Hanzhong's **tree-v1** ([`tree_v
 - Small per-run files (gate.json, relabel_report.json, stats.json, eval.jsonl, run_config.yaml, calib heatmap):
   `results/pretrain_v2/models/<run>/`, collected from scratch by `scripts/collect_results.sh`.
 
-## Status (2026-11-17)
+## Status (2026-11-18)
 
 | step | run | result | status |
 |---|---|---|---|
 | tree-v1 stage A: atomic skills of the 24 operators | pt-tree-a-atoms-s0 | 23 of 24 pass; rotate_by_sum E1 .12 | **FAIL** on one operator; replaced by rotate_by_first (decision 12) |
 | tree-v1 stage A, revised table | pt-tree-a2-atoms-s0 | all 24 pass; E1 .997 | **PASS**, operator table fixed |
 | tree-v1 stage B: p ≈ 0.5 supply | pt-tree-mid-cf{0.00032,0.00064,0.00128}-s0 | no D/E pair at any comp_frac | **no-go** for this round; next step is a team decision |
-| tree-v1 stage B round 2: more depth-4 compositions (decision 13) | pt-tree-mix-cf{0.0035,0.006}-s0 | gate PASS for both; best D/E pair d2-L / d4-H (cf 3.5e-3) | pilot pool of cf 3.5e-3: d4-H has **405** problems in range from 10,000 candidates (D cells 667–961): **go criterion (≥ 500) not met**; next step is a team decision |
+| tree-v1 stage B round 2: more depth-4 compositions (decision 13) | pt-tree-mix-cf{0.0035,0.006}-s0 | gate PASS for both; best D/E pair d2-L / d4-H (cf 3.5e-3) | pilot pool of cf 3.5e-3: d4-H has **405** problems in range from 10,000 candidates (D cells 667–961): **go criterion (≥ 500) not met**; handed over as the v2 result, next step is a team decision |
 | go/no-go | — | — | Sun Nov 22 |
 
 ## Tree-v1 stage A: can each operator be learned? (2026-11-16)
@@ -57,6 +57,28 @@ E1 1200, E2 1800, E3 900, E4 800, probe 575, calib 4600) were generated on the n
 **Composition length** (for the stage-B comp_frac levels; `Mixture` estimate): a tree-v1 composition example has 137
 target tokens on average, a chain-v1 one 69, so at equal `comp_frac` tree-v1 sees half as many composition examples.
 Mean `n_ops` per depth 2 / 3 / 4: 2.94 / 4.40 / 6.00.
+
+## v2 result models (handed over 2026-11-18)
+
+Round 2 of the pilot is the v2 pretraining result; what to do with it is left to the team.
+
+| run | comp_frac | calib mean p d2 / d3 / d4 / d5 | gate | pilot pool | Hugging Face folder |
+|---|---|---|---|---|---|
+| `pt-tree-mix-cf0.0035-s0` | 3.5e-3 | .68 / .31 / .10 / .01 | PASS | d2-L 914, d2-mixed 961, d2-H 667, d4-H 405 in range | `pt-tree-mix-cf0.0035-s0/` (+ `labels.parquet`, `calib/pilot.json`, `calib/pilot_candidates.jsonl`) |
+| `pt-tree-mix-cf0.006-s0` | 6e-3 | .84 / .67 / .40 / .13 | PASS | not labelled | `pt-tree-mix-cf0.006-s0/` |
+
+- Hugging Face (private org repo, ask Yupeng for an invite):
+  [`rlvr-cs291k/rlvr-pretrain-v2`](https://huggingface.co/rlvr-cs291k/rlvr-pretrain-v2). Load with
+  `rlvr.model.load_model` after `snapshot_download` (the model card has the snippet); the tree-v1 task config must be
+  the current one (rotate_by_first, decision 12), as the checkpoint's task fingerprint is checked.
+- CFS copy: `/global/cfs/cdirs/m4788/yupengsu/rlvr/checkpoints/tree-v1/`, `.../runs/tree-v1/` (run files without
+  intermediate checkpoints) and `.../data/tree-v1/labels/`.
+- Small files (gate, calib heatmap, pilot report, eval logs) are also in `results/pretrain_v2/models/tree-v1/`.
+- Open choices: (1) no-go as written and Jay's v1 pool expansion (~2–2.5 node-hours); (2) relax the 10,000-candidate
+  cap for d4-H (~3,000 more candidates, ~0.4 node-hours, expected ~500); (3) a model at comp_frac ~4.5e-3, between the
+  two, where d2-L and d4-H should both be near 5–6% in range (~3.7 node-hours); or use the 405 / 914 problems as they
+  are if the RL design needs fewer than 500 per arm. Before training more tree-v1 models, cap the tokens per
+  micro-batch (the cf 2e-3 run ran out of GPU memory, see round 2).
 
 ## Tree-v1 stage B round 2: more depth-4 compositions (2026-11-17)
 

@@ -9,7 +9,7 @@ add the decision to the [decision log](#decision-log). Round-by-round pretrainin
 
 Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Lesner (evaluation and analysis).
 
-## Status (2026-11-17)
+## Status (2026-11-18)
 
 - **v1 base models:** all four candidates are trained and fully calibrated
   ([v1 results summary](#v1-results-summary)). They stay available as chain-only reference models and for building
@@ -21,8 +21,14 @@ Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Les
   instead of chains ([v2 revision](#v2-revision-tree-problems)). On 2026-11-16 we adopted Hanzhong's tree-v1 recipe
   ([`tree_v1.md`](tree_v1.md): 12 unary + 8 binary + 4 ternary operators). An earlier variant on the pretrain branch
   (24 unary + 4 binary operators) passed its stage A and was dropped during stage B; its results stay in
-  [`pretrain_v2_results.md`](pretrain_v2_results.md). Next: the [v2 pilot](#v2-pilot) on tree-v1 (stage A, then
-  stage B); go/no-go on Sun Nov 22.
+  [`pretrain_v2_results.md`](pretrain_v2_results.md).
+- **v2 base models (handed over 2026-11-18):** the [v2 pilot](#v2-pilot) round 2 is taken as the v2 pretraining
+  result. `pt-tree-mix-cf0.0035-s0` (with its pilot pool: labels, candidates, `pilot.json`) and
+  `pt-tree-mix-cf0.006-s0` are on Hugging Face in the private org repo
+  [`rlvr-cs291k/rlvr-pretrain-v2`](https://huggingface.co/rlvr-cs291k/rlvr-pretrain-v2), with a CFS copy in
+  `/global/cfs/cdirs/m4788/yupengsu/rlvr/{checkpoints,runs,data}/tree-v1/`. Both pass the gate; the go criterion is
+  narrowly missed (below). Open for the team: use these models for v2 (with 405 E problems per arm, more d4-H
+  candidates, or another comp_frac) or fall back to the v1 models with Jay's pool expansion.
 - **RL:** GRPO (`scripts/grpo.py`) and the sweep runner (`scripts/rl_sweep.py`) are implemented and smoke-tested on
   the v1 round-1 checkpoints ([GRPO](#grpo-hanzhong)); no RL experiment of the design has been run yet.
 - **Tree-v1 stage A (2026-11-16):** rotate_by_sum was not learned (E1 .12) and is replaced by rotate_by_first
@@ -31,9 +37,9 @@ Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Les
   depth 3 .05, depth 4 .002 at 1.28e-3), so the go criterion is not met in this round. **Round 2 (2026-11-17, decision 13):** with more depth-4
   compositions (depth mix {2: .3, 3: .35, 4: .35}) both finished models pass the gate; the best D/E pair is d2-L / d4-H
   at comp_frac 3.5e-3. Its pilot pool gives **405** in-range problems for E (d4-H) from 10,000 candidates and 667–961
-  for the D cells, so the go criterion (≥ 500) is **not met**; the next step is open for the team
+  for the D cells, so the go criterion (≥ 500) is **not met**
   ([`pretrain_v2_results.md`](pretrain_v2_results.md)).
-- **Compute:** 39.92 of 50 NERSC GPU node-hours used as of 2026-11-17.
+- **Compute:** 39.92 of 50 NERSC GPU node-hours used as of 2026-11-18 (the rest is for RL).
 
 ## Decision log
 

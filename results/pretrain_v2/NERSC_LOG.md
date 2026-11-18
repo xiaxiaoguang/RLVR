@@ -341,3 +341,8 @@ only edits / submits / checks (offline tests are the exception). Commit scripts 
   relabelled p in [0.4, 0.6] of 10,000 candidates (4.05%; even across input lengths 76-86); D cells d2-L 914, d2-mixed 961,
   d2-H 667; shared-mix supply of every pair 405 (< 500). No selection bias in the relabel means (d4-H first-selected
   mean .498 -> relabel .492).
+- 2026-11-18: **v2 results handed over** (user: take this round as the v2 result, upload models and results, the team
+  decides next). Hugging Face private org repo rlvr-cs291k/rlvr-pretrain-v2 (commit 2cc23a4): pt-tree-mix-cf0.0035-s0
+  (checkpoint, calib/ incl. pilot.json and pilot_candidates.jsonl, labels.parquet) and pt-tree-mix-cf0.006-s0
+  (checkpoint, calib/); safetensors sha256 checked against the local files. CFS copy:
+  /global/cfs/cdirs/m4788/yupengsu/rlvr/{checkpoints,runs,data}/tree-v1/ (rsync verified; FILESYSTEM_MOVES.log).

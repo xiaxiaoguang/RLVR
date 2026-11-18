@@ -1,10 +1,13 @@
 # RLVR data-difficulty experiments
 
 **Status (see `docs/design.md` "Status"): the four chain-v1 base models are trained, calibrated and on
-Hugging Face (`rlvr-cs291k/rlvr-pretrain-v1`; results in `docs/pretrain_v1_results.md`). The next task
-is tree-v1 (below; adopted on 2026-11-16, design.md decision 10); its pilot (stage A: atomic skills,
-stage B: p ~ 0.5 supply) runs before new base models are trained. An earlier binary-operator variant
-(v2, 24 unary + 4 binary) was piloted and is superseded (`docs/pretrain_v2_results.md`).** GRPO
+Hugging Face (`rlvr-cs291k/rlvr-pretrain-v1`; results in `docs/pretrain_v1_results.md`). The v2 task
+is tree-v1 (below; adopted on 2026-11-16, design.md decision 10). Its pilot gave two tree-v1 base models
+that pass the gate, on Hugging Face as `rlvr-cs291k/rlvr-pretrain-v2` (pt-tree-mix-cf0.0035-s0 with its
+pilot pool, pt-tree-mix-cf0.006-s0); the pilot's go criterion was narrowly missed (405 of the required
+500 p ~ 0.5 problems in the deep cell), and how to use them is open for the team
+(`docs/pretrain_v2_results.md`). An earlier binary-operator variant (24 unary + 4 binary) was piloted
+and is superseded.** GRPO
 (`scripts/grpo.py`) and a checkpoint x dataset sweep runner (`scripts/rl_sweep.py`) are implemented
 and smoke-tested on the local round-1 checkpoints; see [Reinforcement learning](#reinforcement-learning-grpo).
 The RL experiments of the design doc (phases 0-3) have not been run, and the curve-fit analysis
