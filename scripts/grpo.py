@@ -236,7 +236,7 @@ def main(argv: list[str] | None = None) -> dict:
         nonlocal eval_seconds
         if not names:
             return
-        t = time.time()
+        t = time.monotonic()
         records = [] if eval_problems_f else None
         if cuda:  # the step's peak is already in its metrics row; the next step resets again
             torch.cuda.reset_peak_memory_stats(device)
@@ -257,10 +257,10 @@ def main(argv: list[str] | None = None) -> dict:
         evals[step].update(summarise_eval(res))
         step_evals[step].update({r["eval_set"]: {"step_score": r["step_score"], "step_frac": r["step_frac"]}
                                  for r in res if r["depth"] == "all"})
-        eval_seconds += time.time() - t
+        eval_seconds += time.monotonic() - t
         print(f"[eval step {step}] " + " ".join(f"{n} {evals[step][n]['all']:.3f} "
                                                 f"(steps {step_evals[step][n]['step_frac']:.3f})" for n in names)
-              + f" ({time.time() - t:.0f}s" + (f", {eval_mem_gb[-1]:.1f} GB" if cuda else "") + ")", flush=True)
+              + f" ({time.monotonic() - t:.0f}s" + (f", {eval_mem_gb[-1]:.1f} GB" if cuda else "") + ")", flush=True)
 
     def due(step: int, every: int) -> bool:
         return step in (0, steps) or (every > 0 and step % every == 0)
@@ -271,14 +271,14 @@ def main(argv: list[str] | None = None) -> dict:
             names.append(rc["probe_set"])
         return names
 
-    t_run = time.time()  # summary minutes: the whole run, step-0 eval included
+    t_run = time.monotonic()  # summary minutes: the whole run, step-0 eval included
     evaluate(0, names_due(0))  # also confirms the right checkpoint was loaded
-    t_start = time.time()  # ETA: training steps only
+    t_start = time.monotonic()  # ETA: training steps only
     window: list[dict] = []
     for step in range(1, steps + 1):
         if cuda:
             torch.cuda.reset_peak_memory_stats(device)
-        t0 = time.time()
+        t0 = time.monotonic()
         idx = sampler.sample(B)
         batch = [problems[i] for i in idx]
         prompts = [task.format_prompt(p) for p in batch]
@@ -289,7 +289,7 @@ def main(argv: list[str] | None = None) -> dict:
                           for j in range(G)]).view(B, G)
         adv = group_advantages(r, rc["adv_std_norm"])
         prompt_ids = [ids for p in prompts for ids in [tok.encode(p, add_bos=True)] * G]
-        t1 = time.time()
+        t1 = time.monotonic()
         model.train()
         with_kl = rc["kl_every"] > 0 and (step % rc["kl_every"] == 0 or step == 1)
         up = grpo_update(model, opt, prompt_ids, comp_ids, adv.flatten(), rc, tok.pad_id, ref_model, with_kl)
@@ -297,7 +297,7 @@ def main(argv: list[str] | None = None) -> dict:
         sched.step()
         group_mean = r.mean(1)
         sampler.update(idx, group_mean)
-        t2 = time.time()
+        t2 = time.monotonic()
 
         sig = signal_groups(r)
         lens = [len(c) for c in comp_ids]
@@ -322,7 +322,7 @@ def main(argv: list[str] | None = None) -> dict:
         if step % rc["log_every"] == 0 or step == steps:
             avg = {k: float(np.mean([w[k] for w in window])) for k in
                    ("mean_reward", "signal_frac", "entropy", "grad_norm", "mean_len", "sec_rollout", "sec_update")}
-            eta = (steps - step) * (time.time() - t_start) / step / 60
+            eta = (steps - step) * (time.monotonic() - t_start) / step / 60
             print(f"step {step}/{steps} reward {avg['mean_reward']:.3f} signal {avg['signal_frac']:.2f} "
                   f"entropy {avg['entropy']:.4f} gn {avg['grad_norm']:.2f} len {avg['mean_len']:.0f} "
                   f"{avg['sec_rollout']:.1f}+{avg['sec_update']:.1f}s/step eta {eta:.0f}m", flush=True)
@@ -342,7 +342,7 @@ def main(argv: list[str] | None = None) -> dict:
         "run_name": run_name, "model_id": model_id, "base": rc["base"], "dataset": Path(dc["dataset"]).stem,
         "n_problems": len(problems), "sampler": kind, "p_init": p_source, "seed": seed, "tag": rc["tag"],
         "group_size": G, "prompts_per_step": B, "steps": steps, "rollouts": steps * B * G, "lr": rc["lr"],
-        "git_commit": run_cfg["git_commit"], "minutes": (time.time() - t_run) / 60,
+        "git_commit": run_cfg["git_commit"], "minutes": (time.monotonic() - t_run) / 60,
         "eval_minutes": eval_seconds / 60,
         "gpu_mem_gb": max((m["gpu_mem_gb"] for m in metrics if "gpu_mem_gb" in m), default=None),
         "eval_gpu_mem_gb": max(eval_mem_gb, default=None),

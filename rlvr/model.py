@@ -138,7 +138,7 @@ def generate_ids(model, tok: CharTokenizer, prompts: list[str], max_new_tokens: 
     was_training = model.training
     model.eval()
     out: list[list[int]] = []
-    t0 = t_log = time.time()
+    t0 = t_log = time.monotonic()
     n_tok = 0
     for s in range(0, len(prompts), batch_size):
         input_ids, mask = left_pad(tok, prompts[s:s + batch_size], device)
@@ -152,7 +152,7 @@ def generate_ids(model, tok: CharTokenizer, prompts: list[str], max_new_tokens: 
         out.extend(row[:k] for row, k in zip(new.tolist(), n.tolist()))
         if progress:
             n_tok += new.numel()
-            done, now = min(s + batch_size, len(prompts)), time.time()
+            done, now = min(s + batch_size, len(prompts)), time.monotonic()
             if s == 0 or now - t_log >= 10 or done == len(prompts):
                 t_log = now
                 print(f"[{progress}] {done}/{len(prompts)} prompts x {num_return_sequences}, "

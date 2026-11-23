@@ -53,7 +53,7 @@ def greedy_eval(model, tok, task: Task, sets: dict[str, Sequence[Problem]], step
     cols = COLUMNS + tuple(f"pass@{k}" for k in ks)
     rows = []
     for name, probs in sets.items():
-        t0 = time.time()
+        t0 = time.monotonic()
         prompts = [task.format_prompt(p) for p in probs]
         outs = generate(model, tok, prompts, max_new_tokens, temperature=0.0, batch_size=batch_size,
                         progress=f"{name} greedy" if progress else "")
@@ -82,7 +82,7 @@ def greedy_eval(model, tok, task: Task, sets: dict[str, Sequence[Problem]], step
                                 **{k: getattr(p, k) for k in ("n_binary", "n_ternary") if hasattr(p, k)},
                                 "correct": rec[0] == 1.0, "err_type": err, "err_step": err_step,
                                 "n_correct": n_correct, "completion": o})
-        sec = time.time() - t0
+        sec = time.monotonic() - t0
         for (d, g), recs in sorted(cells.items(), key=lambda kv: str(kv[0])):
             rows.append(_summarise(step, name, {"depth": d, "group": g}, recs, cols))
             if d == g == "all":
