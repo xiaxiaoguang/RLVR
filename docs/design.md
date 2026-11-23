@@ -595,6 +595,7 @@ given by the generator, and model-relative difficulty (success rate p), measured
 4. Output `data/labels/{model_id}.parquet` with columns `pid, depth, funcs, group, str_len, n_correct, k, p_hat,
    ci_lo, ci_hi, model_id` (tree-v1 adds the structure variables and the task fingerprint); relabelled problems also have `n_correct_relabel,
    k_relabel, p_hat_relabel, ci_lo_relabel, ci_hi_relabel`.
+   Beside it, `{model_id}.meta.json` (a copy of `runs/{model_id}/calib/label_meta.json`) records how the labels were made (weights sha256, git commit, `label` config, seed and ranks, env, flags); an unknown commit stops the run unless `--allow-unknown-commit`. Existing label files are not replaced unless `--overwrite` (exit code 2), `--reuse-calib` refuses calib labels made differently, and `python -m rlvr.label_meta A B` compares two meta files (rules: `scripts/calibrate.py` header, `rlvr/label_meta.py`).
 5. Cost (measured in v1): ~730 sequences/s on 4 GPUs; calibration, pool labelling and relabelling take ~35–50 min per
    model.
 
@@ -687,7 +688,7 @@ grid, one run per GPU, resumable); usage in the README. A run inherits task, mod
 length budgets from the base checkpoint's `run_config.yaml`, so the same commands work for chain-v1 and tree-v1
 checkpoints. **Status:** implemented and smoke-tested on the v1 round-1 checkpoints (`tests/test_grpo.py`: advantages,
 log-probs equal to generation scores, update equal to the hand-written policy gradient, micro-batch invariance,
-samplers, a tiny end-to-end run). Not done yet: the TRL `GRPOTrainer` cross-check, pass@k, the A/B/C_mid fits.
+samplers, a tiny end-to-end run). Not done yet: the TRL `GRPOTrainer` cross-check, the A/B/C_mid fits.
 
 ### One step
 
@@ -784,12 +785,13 @@ One directory per run, `runs/{run_name}/`, named `pt-{level}-s{seed}` (pretraini
 
 | file | content per line |
 | --- | --- |
-| `run_config.yaml` | full config + git commit |
+| `run_config.yaml` | full config + git commit (RL also `env`: torch version, GPU name and memory in GiB; not saved with checkpoints) |
 | `stats.json` (pretraining) | examples and tokens actually consumed per component / depth / group / function |
 | `rollouts.jsonl` | one row per (step, problem): `step, pid, depth, group, str_len, rewards[G], lens[G], p_online, completions[G]` (`rl.log_completions=false` drops the texts) |
-| `metrics.jsonl` | `step, mean_reward, signal_frac, entropy, mean_len, grad_norm, kl_to_base, lr` (pretraining also `tok_per_s, mfu` and loss per depth; RL also `rollouts, trunc_frac, loss, reward_d{d}, signal_d{d}`, sampler state and time per step, `kl_to_base` every `rl.kl_every` steps) |
-| `summary.json` (RL) | written last: first and last greedy accuracy per evaluation set, training reward, time; `rl_sweep.py` uses it to see that a run finished |
-| `eval.jsonl` | `step, eval_set, depth, group, greedy_acc, pass@k…, step_score, format_err` |
+| `metrics.jsonl` | `step, mean_reward, signal_frac, entropy, mean_len, grad_norm, kl_to_base, lr` (pretraining also `tok_per_s, mfu` and loss per depth; RL also `rollouts, trunc_frac, loss, reward_d{d}, signal_d{d}`, sampler state and time per step, `kl_to_base` every `rl.kl_every` steps, `gpu_mem_gb` peak GPU memory of the step on CUDA) |
+| `summary.json` (RL) | written last: first and last greedy accuracy per evaluation set, training reward, time (`minutes` the whole run from the step-0 eval, `eval_minutes` the part spent in evals), peak GPU memory `gpu_mem_gb` (training steps) and `eval_gpu_mem_gb` (evals), `None` on CPU; `rl_sweep.py` uses it to see that a run finished |
+| `eval.jsonl` | `step, eval_set, depth, group, greedy_acc, pass@k…, step_score, step_frac, format_err` (pass@k only with `eval.pass_k_samples` > 0; off by default); the overall row of each set (depth and group `all`) also `sec`, that set's eval wall time |
+| `eval_problems.jsonl` (RL) | one row per (eval step, eval set, problem): `step, eval_set, pid, correct, n_correct, err_type, err_step` (problem fields join by `pid` from the eval set files; `rl.log_eval_problems=false` drops the file) |
 
 ### Offline analysis
 

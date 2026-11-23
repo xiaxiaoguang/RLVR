@@ -55,7 +55,7 @@ def run_job(gpu: str, level: str, args, log_dir: Path) -> int:
         [sys.executable, "scripts/pretrain.py", "--config", args.config, "--overwrite", f"pretrain.level={level}",
          f"pretrain.comp_frac={cf}", f"pretrain.pos_offset_max={po}", f"seed={args.seed}", *args.overrides],
         [sys.executable, "scripts/calibrate.py", f"checkpoints/pt-{level}-s{args.seed}", f"label.k={args.k}",
-         "--skip-pool", "--calib-per-cell", str(args.calib_per_cell)],
+         "--skip-pool", "--calib-per-cell", str(args.calib_per_cell), "--overwrite"],  # as pretrain.py above
     ]
     with (log_dir / f"{level}.log").open("w") as log:
         for cmd in cmds:
