@@ -51,7 +51,7 @@ from rlvr.config import git_commit, load_config, resolve  # noqa: E402
 from rlvr.evaluate import greedy_eval  # noqa: E402
 from rlvr.grpo import group_advantages, grpo_update, signal_groups  # noqa: E402
 from rlvr.io import load_problems, read_jsonl  # noqa: E402
-from rlvr.model import checkpoint_ids, generate_ids, load_model, load_run_config, save_model  # noqa: E402
+from rlvr.model import checkpoint_ids, env_info, generate_ids, load_model, load_run_config, save_model  # noqa: E402
 from rlvr.params import PARAMS, PARAMS_DEFAULTS, merge  # noqa: E402
 from rlvr.sampler import ProblemSampler  # noqa: E402
 
@@ -199,8 +199,7 @@ def main(argv: list[str] | None = None) -> dict:
     run_cfg = merge(cfg, {"git_commit": commit, "data": {"sampler": kind}})
     cuda = device.type == "cuda"
     # Only in the run's run_config.yaml, not in checkpoints: load_config() rejects unregistered keys.
-    env = {"torch": str(torch.__version__), "gpu": torch.cuda.get_device_name(device) if cuda else None,
-           "gpu_mem_gb": torch.cuda.get_device_properties(device).total_memory / 2**30 if cuda else None}
+    env = env_info(device)
     run_dir.mkdir(parents=True, exist_ok=True)
     for stale in ("summary.json", "eval_problems.jsonl"):  # --overwrite: not rewritten until / unless needed
         (run_dir / stale).unlink(missing_ok=True)

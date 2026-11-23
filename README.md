@@ -70,6 +70,8 @@ scripts/
   pretrain.py         train one base model (torchrun DDP or 1 GPU; --bench) -> runs/pt-*/, checkpoints/pt-*/
   sweep.py            pilot sweep comp_frac x pos_offset_max (1 GPU per run) -> runs/sweep/summary.*
   calibrate.py        p heatmap + gate check -> runs/pt-*/calib/; RL-pool labels -> data/labels/pt-*.parquet
+                      (+ .meta.json: how they were made, as calib/label_meta.json; --allow-unknown-commit;
+                      existing label files are kept unless --overwrite; compare: python -m rlvr.label_meta A B)
   eval_ckpt.py        evaluate one checkpoint: eval.jsonl (accuracy, step score, pass@k) + steps.parquet
   pretrain_all.sh     weak+strong then mid+midbal, 4 GPUs each, then calibrate
   slurm/              Perlmutter: pt-{level}.sbatch (1 node, 4-GPU training + quick calibration),

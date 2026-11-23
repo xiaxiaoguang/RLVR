@@ -16,8 +16,19 @@ Output:
   runs/{model_id}/calib/calib_labels.parquet   p_hat for the calib set (depth 1-8 x H/L/mixed x 200)
   runs/{model_id}/calib/heatmap.png            mean p_hat and signal fraction per (depth, group)
   runs/{model_id}/calib/gate.json              gate check (also printed); exit code 1 if it fails
+  runs/{model_id}/calib/label_meta.json        how the labels were made: weights sha256, git commit, label config,
+                                               seed and ranks, env, flags (not with --e1-only); written before labelling
   data/labels/{model_id}.parquet               p_hat for the whole RL pool (+ origin), for build_dataset.py;
                                                *_relabel columns for the second labelling (below)
+  data/labels/{model_id}.meta.json             copy of label_meta.json, written with the parquet
+                                               (compare two: python -m rlvr.label_meta a.json b.json)
+
+Existing label files (calib_labels.parquet, data/labels/{model_id}.parquet) are not replaced: the run
+stops with exit code 2 before the model loads, unless --overwrite is given. --reuse-calib also stops
+when calib/label_meta.json shows the calib labels were made differently (weights, label.k,
+label.temperature, eval.max_new_tokens, eval version); the reused labels' meta is kept as `reused_calib`.
+
+An unknown git commit (no .git, or no git) stops the run unless --allow-unknown-commit is given.
 
 Second labelling (label.relabel_*): RL-pool problems in label.relabel_cells whose first-pass
 p_hat is in label.relabel_range are labelled again with label.relabel_k independent samples.
@@ -37,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import sys
@@ -54,13 +66,15 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import torch  # noqa: E402
 import torch.distributed as dist  # noqa: E402
+import transformers  # noqa: E402
 
 from rlvr import gate as G  # noqa: E402
+from rlvr import label_meta as LM  # noqa: E402
 from rlvr import pilot as PL  # noqa: E402
-from rlvr.config import load_config, resolve, task_and_splits  # noqa: E402
+from rlvr.config import git_commit, load_config, resolve, task_and_splits  # noqa: E402
 from rlvr.evaluate import greedy_eval, label_pass_rates  # noqa: E402
 from rlvr.io import load_problems, problems_to_rows, read_jsonl, write_jsonl  # noqa: E402
-from rlvr.model import checkpoint_ids as ids_for, load_model  # noqa: E402
+from rlvr.model import checkpoint_ids as ids_for, env_info, load_model  # noqa: E402
 from rlvr.sets import cell_candidates  # noqa: E402
 from rlvr.task import GROUPS, make_task  # noqa: E402
 
@@ -98,7 +112,59 @@ def merge_shards(parts: list[pd.DataFrame]) -> pd.DataFrame:
     return pd.concat(parts).sort_values("_i").drop(columns="_i").reset_index(drop=True)
 
 
-def main():
+def label_meta(ckpt_arg: str, ckpt: Path, cfg: dict, commit: str, world: int, env: dict, flags: dict,
+               overrides: list[str]) -> dict:
+    """label_meta.json: what is needed to tell how a labels file was made (and compare two of them)."""
+    model_id, _, ckpt_step = ids_for(ckpt)
+    weights, sha = ckpt / "model.safetensors", None
+    if weights.exists():
+        h = hashlib.sha256()
+        with weights.open("rb") as f:
+            for chunk in iter(lambda: f.read(1 << 24), b""):
+                h.update(chunk)
+        sha = h.hexdigest()
+    return {"model_id": model_id, "ckpt": ckpt_arg, "ckpt_path": str(ckpt), "ckpt_step": ckpt_step,
+            "weights_sha256": sha, "git_commit": commit, "label": cfg["label"], "seed": cfg["seed"], "world": world,
+            "eval_version": cfg["eval"]["version"], "max_new_tokens": cfg["eval"]["max_new_tokens"],
+            "rl_pool": cfg["rl_pool"], **flags, "overrides": list(overrides), "env": env,
+            "transformers": transformers.__version__,
+            "time": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")}
+
+
+def check_outputs(meta: dict, out: Path, labels_path: Path, overwrite: bool, verbose: bool = True) -> dict:
+    """Refuse (RuntimeError) to replace label files unless `overwrite`, and to reuse calib labels that were
+    made differently (LM.CALIB_KEYS of calib/label_meta.json). Returns `meta`, with the reused labels' own
+    meta as `reused_calib` (None when they have none)."""
+    calib_path = out / "calib_labels.parquet"
+    targets = ([] if meta["reuse_calib"] else [calib_path]) + ([] if meta["skip_pool"] else [labels_path])
+    existing = [str(p) for p in targets if p.exists()]
+    if existing and not overwrite:
+        hint = "" if meta["reuse_calib"] or not calib_path.exists() else ", or --reuse-calib to keep the calib labels"
+        raise RuntimeError(f"label file(s) already exist: {', '.join(existing)}; move them away or pass "
+                           f"--overwrite to replace them{hint}")
+    if not meta["reuse_calib"]:
+        return meta
+    old_path = out / "label_meta.json"
+    if not old_path.exists():
+        if verbose:
+            print(f"warning: {calib_path} has no label_meta.json; how these labels were made is unknown", flush=True)
+        return {**meta, "reused_calib": None}
+    old = json.loads(old_path.read_text())
+    old = old.get("reused_calib") or old  # the run that made the labels, not a later run that reused them
+    d = LM.diff(old, meta)
+    bad = {k: v for k, v in d.items() if k in LM.CALIB_KEYS}
+    if bad:
+        raise RuntimeError(f"--reuse-calib: {calib_path} was made differently (then | now): "
+                           + "; ".join(f"{k}: {a!r} | {b!r}" for k, (a, b) in bad.items())
+                           + "; label the calib set again (drop --reuse-calib, pass --overwrite)")
+    notes = {k: v for k, v in d.items() if k in ("git_commit", "transformers") or k.startswith("env.")}
+    if notes and verbose:
+        print("note: reused calib labels were made with (then | now) "
+              + "; ".join(f"{k}: {a!r} | {b!r}" for k, (a, b) in notes.items()), flush=True)
+    return {**meta, "reused_calib": old}
+
+
+def main(argv: list[str] | None = None):
     ap = argparse.ArgumentParser()
     ap.add_argument("ckpt", help="checkpoint dir, e.g. checkpoints/pt-mid-s0")
     ap.add_argument("--skip-pool", action="store_true", help="skip RL-pool labelling (gate 3 not checked)")
@@ -111,9 +177,20 @@ def main():
     ap.add_argument("--reuse-calib", action="store_true",
                     help="read calib/calib_labels.parquet from an earlier run instead of labelling the calib set again "
                          "(e.g. the pilot pool after a --skip-pool run)")
+    ap.add_argument("--overwrite", action="store_true",
+                    help="replace existing label files (calib/calib_labels.parquet, data/labels/{model_id}.parquet)")
+    ap.add_argument("--allow-unknown-commit", action="store_true",
+                    help="run although the git commit cannot be read (a copy of the repo without .git, or no git)")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("overrides", nargs="*")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
+    commit = git_commit()
+    if commit == "unknown":  # git_commit()'s fallback; checked on every rank, before the process group exists
+        if not args.allow_unknown_commit:
+            raise SystemExit("git commit unknown (no .git here, or git is not installed), so the labels could not "
+                             "record their code version; copy .git with the code, or pass --allow-unknown-commit")
+        if os.environ.get("RANK", "0") == "0":
+            print("warning: git commit unknown; label_meta.json will not record the code version", flush=True)
     ddp = "WORLD_SIZE" in os.environ
     if ddp:
         dist.init_process_group("nccl", timeout=datetime.timedelta(hours=3))  # ranks wait for the slowest shard
@@ -129,13 +206,26 @@ def main():
     lc, gc, ec = cfg["label"], cfg["gate"], cfg["eval"]
     G.check_config(gc, lc)
     task = make_task(cfg["task"])
-    torch.manual_seed(1000 * cfg["seed"] + rank)  # independent sampling per rank
-    model, tok = load_model(ckpt, device)
     data = resolve(cfg["paths"]["data"])
     eval_dir = data / "eval" / ec["version"]
     out = resolve(cfg["paths"]["runs"]) / model_id / "calib"
+    if not args.e1_only:  # --e1-only labels nothing. Checked on every rank, before the model loads.
+        reuse = args.reuse_calib and (out / "calib_labels.parquet").exists()  # as actually reused
+        flags = {"skip_pool": args.skip_pool, "calib_per_cell": args.calib_per_cell, "pool_first": args.pool_first,
+                 "reuse_calib": reuse}
+        meta = label_meta(args.ckpt, ckpt, cfg, commit, world, env_info(device), flags, args.overrides)
+        try:
+            meta = check_outputs(meta, out, data / "labels" / f"{model_id}.parquet", args.overwrite, verbose=master)
+        except RuntimeError as e:
+            print(f"{model_id}: {e}", file=sys.stderr, flush=True)
+            sys.exit(2)  # not 1: that is a failed gate
+        meta = json.dumps(meta, indent=1)
+    torch.manual_seed(1000 * cfg["seed"] + rank)  # independent sampling per rank
+    model, tok = load_model(ckpt, device)
     if master:
         out.mkdir(parents=True, exist_ok=True)
+        if not args.e1_only:
+            (out / "label_meta.json").write_text(meta)
 
     def label(problems, k=None, **extra):
         """Label on all ranks (each its shard) and return the full frame on every rank."""
@@ -242,6 +332,7 @@ def main():
             if problems and lc["relabel_k"]:
                 (data / "labels").mkdir(parents=True, exist_ok=True)
                 pool.to_parquet(data / "labels" / f"{model_id}.parquet", index=False)
+                (data / "labels" / f"{model_id}.meta.json").write_text(meta)
                 write_jsonl(out / "pilot_candidates.jsonl", problems_to_rows(task, problems, origin="pilot"))
                 rep.update(PL.report(pool, cells, pairs, gc["p_range"], rc["pilot_min_matched"]))
             else:
@@ -264,6 +355,7 @@ def main():
         if master:
             (data / "labels").mkdir(parents=True, exist_ok=True)
             pool.to_parquet(data / "labels" / f"{model_id}.parquet", index=False)
+            (data / "labels" / f"{model_id}.meta.json").write_text(meta)
             relabelled = lc["relabel_cells"] if lc["relabel_k"] else []
             gate["checks"]["matched_cells"] = G.matched_cells(pool, gc, relabelled)
 

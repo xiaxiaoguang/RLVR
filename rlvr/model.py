@@ -95,6 +95,14 @@ def load_model(path: str | Path, device: str | torch.device = "cuda") -> tuple[L
     return model, tok
 
 
+def env_info(device: str | torch.device) -> dict:
+    """{torch, gpu, gpu_mem_gb} of the machine a run is on (gpu fields None off CUDA)."""
+    device = torch.device(device)
+    cuda = device.type == "cuda"
+    return {"torch": str(torch.__version__), "gpu": torch.cuda.get_device_name(device) if cuda else None,
+            "gpu_mem_gb": torch.cuda.get_device_properties(device).total_memory / 2**30 if cuda else None}
+
+
 def load_run_config(path: str | Path) -> dict:
     return yaml.safe_load((Path(path) / "run_config.yaml").read_text())
 

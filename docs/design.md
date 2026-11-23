@@ -595,6 +595,7 @@ given by the generator, and model-relative difficulty (success rate p), measured
 4. Output `data/labels/{model_id}.parquet` with columns `pid, depth, funcs, group, str_len, n_correct, k, p_hat,
    ci_lo, ci_hi, model_id` (tree-v1 adds the structure variables and the task fingerprint); relabelled problems also have `n_correct_relabel,
    k_relabel, p_hat_relabel, ci_lo_relabel, ci_hi_relabel`.
+   Beside it, `{model_id}.meta.json` (a copy of `runs/{model_id}/calib/label_meta.json`) records how the labels were made (weights sha256, git commit, `label` config, seed and ranks, env, flags); an unknown commit stops the run unless `--allow-unknown-commit`. Existing label files are not replaced unless `--overwrite` (exit code 2), `--reuse-calib` refuses calib labels made differently, and `python -m rlvr.label_meta A B` compares two meta files (rules: `scripts/calibrate.py` header, `rlvr/label_meta.py`).
 5. Cost (measured in v1): ~730 sequences/s on 4 GPUs; calibration, pool labelling and relabelling take ~35–50 min per
    model.
 
