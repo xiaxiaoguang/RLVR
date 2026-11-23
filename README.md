@@ -53,6 +53,7 @@ rlvr/                 library (frozen interface after review)
   config.py, io.py    defaults <- YAML (`base:` inheritance) <- key=value overrides, validated; jsonl helpers
   model.py            LlamaForCausalLM (RoPE, 12 x 768, ~85M) build/save/load; generate() (left pad, cut after <eos>)
   evaluate.py         greedy_eval (eval.jsonl rows, E1 per function); label_pass_rates (p_hat, Wilson CI)
+  steps.py            step checker: first error type and step, leading correct steps (step score), chain and tree
   grpo.py             GRPO core: group advantages, teacher-forced completion log-probs, micro-batched update
   sampler.py          per-step problem samplers (static / online_filter / learnability) + online p(t)
   tree_task.py        tree-v1: TreeTask (Leaf / Call trees, post-order trace, structure features, fingerprint)
@@ -69,6 +70,7 @@ scripts/
   pretrain.py         train one base model (torchrun DDP or 1 GPU; --bench) -> runs/pt-*/, checkpoints/pt-*/
   sweep.py            pilot sweep comp_frac x pos_offset_max (1 GPU per run) -> runs/sweep/summary.*
   calibrate.py        p heatmap + gate check -> runs/pt-*/calib/; RL-pool labels -> data/labels/pt-*.parquet
+  eval_ckpt.py        evaluate one checkpoint: eval.jsonl (accuracy, step score, pass@k) + steps.parquet
   pretrain_all.sh     weak+strong then mid+midbal, 4 GPUs each, then calibrate
   slurm/              Perlmutter: pt-{level}.sbatch (1 node, 4-GPU training + quick calibration),
                       calib.sbatch (1 shared GPU, full calibration, chained with --dependency=afterok)
@@ -79,7 +81,7 @@ scripts/
   push_hf.py          upload final checkpoints (+ calib files, optional RL-pool labels) to a Hugging Face repo
 configs/              overrides only: pretrain/{weak,mid,strong,midbal,pilot}.yaml, pretrain/tree/*.yaml,
                       tasks/tree_v1.yaml, datasets/*.yaml, rl/*.yaml
-tests/                pytest tests/ (CPU, tiny models): task, registry, model, gate, tree, grpo
+tests/                pytest tests/ (CPU, tiny models): task, registry, model, gate, tree, grpo, steps
 ```
 
 Regenerate: `bash scripts/make_all_data.sh` (deterministic; `SEED=1` for other preview seeds).
@@ -151,6 +153,9 @@ python scripts/rl_sweep.py --name G --gpus 0 1 --models checkpoints/pt-mid-s0 --
 # p-based datasets are per model: build them once the labels exist
 python scripts/build_dataset.py configs/datasets/learnability.yaml --model-id pt-weak-s0
 ```
+- **Code version.** A run stops at the start when it cannot read the git commit (a copy of the repo
+  without `.git`, or no `git`), because `run_config.yaml` would not record the code version: copy
+  `.git` with the code, or pass `--allow-unknown-commit`.
 - **What a run inherits.** Task, model, splits, paths, eval version and length budgets come from
   the base checkpoint's `run_config.yaml`, so the same commands work for chain-v1 and tree-v1
   checkpoints and for intermediate (`ckpt/step-N`) or RL-trained checkpoints; overriding `task.*`,
@@ -170,17 +175,18 @@ python scripts/build_dataset.py configs/datasets/learnability.yaml --model-id pt
   (`data.p_ema`). `data.explore_frac` (default 0) draws that share of each batch from the whole
   dataset; without it a problem filtered out at p = 0 only returns when too few problems qualify.
 - **Logs** (`runs/rl-*/`): `metrics.jsonl` per step (mean_reward, signal_frac, entropy, mean_len,
-  trunc_frac, grad_norm, kl_to_base every `rl.kl_every`, reward/signal per depth, sampler state),
+  trunc_frac, grad_norm, kl_to_base every `rl.kl_every`, reward/signal per depth, sampler state, gpu_mem_gb on CUDA),
   `rollouts.jsonl` one row per (step, problem) with the G rewards, lengths and completions,
   `eval.jsonl` (greedy E1-E4 every `rl.eval_every`, probe every `rl.probe_every`, step 0 and last
-  step always; `rollouts` = cumulative count), `summary.json` (written last; marks the run
+  step always; `rollouts` = cumulative count), `eval_problems.jsonl` (the same evals per problem: correct,
+  step score, first error), `summary.json` (written last; marks the run
   finished), `ckpt/step-N` (`rl.save_at`, `rl.save_final`; loadable by `calibrate.py` / as `--base`).
 - **Cost (measured, A100, weak round-1 checkpoint, B 64 x G 8).** ~3.3 s/step (2.6 s rollout,
   0.7 s update) at ~100-token completions, ~13 GB; a full E1-E4 greedy eval ~55 s. 500 steps with
   the default eval schedule is ~35-40 min. Deeper datasets are slower in proportion to length.
 - **Tests.** `tests/test_grpo.py`: advantages, teacher-forced log-probs equal to generation
   scores, update equal to the hand-written policy gradient, micro-batch invariance, samplers,
-  and an end-to-end tiny run. Not done yet: the TRL `GRPOTrainer` cross-check, pass@k, the
+  and an end-to-end tiny run. Not done yet: the TRL `GRPOTrainer` cross-check and the
   A/B/C_mid curve fits.
 
 ## Parameters and registries

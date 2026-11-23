@@ -220,6 +220,8 @@ param("pretrain.eval_sets", ["E1", "E2", "E3", "E4", "probe"], "eval sets scored
 # =============================================================================
 param("eval.max_new_tokens", 256, "max completion length at eval (depth 8, length 10 needs ~240)")
 param("eval.batch_size", 256, "prompts per greedy generate() batch (256 -> ~6 GB)")
+param("eval.pass_k_samples", 0, "samples per problem for pass@k at eval (T = 1.0); 0 = off")
+param("eval.pass_k", [1, 2, 4, 8, 16], "k values of the pass@k columns (those <= eval.pass_k_samples)")
 
 # =============================================================================
 # Calibration and gate check after pretraining (design.md "Deliverables")
@@ -313,6 +315,8 @@ param("rl.micro_batch_tokens", 16_000,
 param("rl.kl_every", 10, "log kl_to_base on the rollout tokens every N steps (0 = never; every step if kl_coef > 0)")
 param("rl.log_every", 10, "print interval (steps); metrics.jsonl gets every step")
 param("rl.log_completions", True, "store the sampled completions in rollouts.jsonl (rewards are always stored)")
+param("rl.log_eval_problems", True, "write eval_problems.jsonl: one row per (eval step, eval set, problem) with "
+      "correct, n_correct, err_type, err_step")
 param("rl.save_at", [], "fractions of training with a checkpoint in runs/{run}/ckpt/step-{N}")
 param("rl.save_final", True, "save the final model to runs/{run}/ckpt/step-{steps} (~340 MB)")
 param("rl.compile", False, "torch.compile the decoder layers for the policy-gradient forward/backward")

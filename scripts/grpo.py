@@ -16,13 +16,16 @@ advantages, one policy-gradient update (rlvr/grpo.py). Greedy eval of rl.eval_se
 every rl.eval_every steps and at the end; rl.probe_set every rl.probe_every steps.
 
 Output: runs/{run}/ with run = rl-{model_id}-{dataset}-G{G}-s{seed}[-{tag}]
-  run_config.yaml   resolved config + git commit
+  run_config.yaml   resolved config + git commit + env (torch version, GPU name and memory; not in ckpt/)
   metrics.jsonl     per step: mean_reward, signal_frac, entropy, mean_len, trunc_frac, grad_norm, loss,
-                    lr, kl_to_base (every rl.kl_every), reward_d{depth}, sampler state, seconds
+                    lr, kl_to_base (every rl.kl_every), reward_d{depth}, sampler state, seconds, gpu_mem_gb (CUDA)
   rollouts.jsonl    per (step, problem): pid, depth, group, str_len, rewards[G], lens[G], p_online,
                     completions[G] (rl.log_completions)
   eval.jsonl        greedy_eval rows + `rollouts` (cumulative count, the x axis of the curve fits)
-  summary.json      written last: first / final accuracy per eval set, timing (marks the run complete)
+  eval_problems.jsonl  per (eval step, eval set, problem): step, eval_set, pid, correct, n_correct, err_type,
+                    err_step (rl.log_eval_problems)
+  summary.json      written last: first / final accuracy and step score per eval set, timing (minutes: whole run,
+                    eval_minutes: part of it), peak GPU memory of training / evals (marks the run complete)
   ckpt/step-{N}/    rl.save_at fractions and, with rl.save_final, the last step
 """
 from __future__ import annotations
@@ -139,6 +142,8 @@ def main(argv: list[str] | None = None) -> dict:
     ap.add_argument("--base", default=None, help="base checkpoint dir (= rl.base)")
     ap.add_argument("--dataset", default=None, help="dataset name or .jsonl path (= data.dataset)")
     ap.add_argument("--overwrite", action="store_true", help="replace an existing run directory's logs")
+    ap.add_argument("--allow-unknown-commit", action="store_true",
+                    help="run although the git commit cannot be read (a copy of the repo without .git, or no git)")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("overrides", nargs="*")
     args = ap.parse_args(argv)
@@ -156,6 +161,12 @@ def main(argv: list[str] | None = None) -> dict:
     run_dir = resolve(cfg["paths"]["runs"]) / run_name
     if (run_dir / "metrics.jsonl").exists() and not args.overwrite:
         raise SystemExit(f"{run_dir} already exists; move it away, pass --overwrite or set rl.tag")
+    commit = git_commit()
+    if commit == "unknown":  # git_commit()'s fallback
+        if not args.allow_unknown_commit:
+            raise SystemExit("git commit unknown (no .git here, or git is not installed), so the run could not "
+                             "record its code version; copy .git with the code, or pass --allow-unknown-commit")
+        print("warning: git commit unknown; run_config.yaml will not record the code version", flush=True)
     ds_path = dataset_path(cfg, model_id)
     eval_dir = resolve(cfg["paths"]["data"]) / "eval" / ec["version"]
     if not eval_dir.exists():
@@ -185,10 +196,15 @@ def main(argv: list[str] | None = None) -> dict:
     p_init, p_source = initial_p(cfg, rows, model_id)
     sampler = ProblemSampler([p.depth for p in problems], kind, dc["order"], seed, steps * B, p_init,
                              dc["p_ema"], dc["p_edge"], dc["explore_frac"])
-    run_cfg = merge(cfg, {"git_commit": git_commit(), "data": {"sampler": kind}})
+    run_cfg = merge(cfg, {"git_commit": commit, "data": {"sampler": kind}})
+    cuda = device.type == "cuda"
+    # Only in the run's run_config.yaml, not in checkpoints: load_config() rejects unregistered keys.
+    env = {"torch": str(torch.__version__), "gpu": torch.cuda.get_device_name(device) if cuda else None,
+           "gpu_mem_gb": torch.cuda.get_device_properties(device).total_memory / 2**30 if cuda else None}
     run_dir.mkdir(parents=True, exist_ok=True)
-    (run_dir / "summary.json").unlink(missing_ok=True)
-    (run_dir / "run_config.yaml").write_text(yaml.safe_dump(run_cfg, sort_keys=False))
+    for stale in ("summary.json", "eval_problems.jsonl"):  # --overwrite: not rewritten until / unless needed
+        (run_dir / stale).unlink(missing_ok=True)
+    (run_dir / "run_config.yaml").write_text(yaml.safe_dump({**run_cfg, "env": env}, sort_keys=False))
     print(f"{run_name}: base {model_id}, dataset {ds_path.name} ({len(problems)} problems, sampler {kind}, "
           f"p init {p_source}), B {B} x G {G} x {steps} steps = {B * G * steps} rollouts", flush=True)
 
@@ -210,23 +226,41 @@ def main(argv: list[str] | None = None) -> dict:
     metrics_f = (run_dir / "metrics.jsonl").open("w")
     rollouts_f = (run_dir / "rollouts.jsonl").open("w")
     eval_f = (run_dir / "eval.jsonl").open("w")
+    eval_problems_f = (run_dir / "eval_problems.jsonl").open("w") if rc["log_eval_problems"] else None
     evals: dict[int, dict] = defaultdict(dict)  # step -> {eval_set: {all, d2, ...}}
+    step_evals: dict[int, dict] = defaultdict(dict)  # step -> {eval_set: {step_score, step_frac}}
     eval_seconds = 0.0
+    eval_mem_gb: list[float] = []  # peak GPU memory per eval (CUDA only)
 
     def evaluate(step: int, names: list[str]) -> None:
         nonlocal eval_seconds
         if not names:
             return
         t = time.time()
+        records = [] if eval_problems_f else None
+        if cuda:  # the step's peak is already in its metrics row; the next step resets again
+            torch.cuda.reset_peak_memory_stats(device)
         res = greedy_eval(model, tok, task, {n: eval_sets[n] for n in names}, step,
-                          ec["max_new_tokens"], ec["batch_size"])
+                          ec["max_new_tokens"], ec["batch_size"], ec["pass_k_samples"], ec["pass_k"],
+                          records=records, progress=True)
+        if cuda:
+            eval_mem_gb.append(torch.cuda.max_memory_allocated(device) / 2**30)
         for r in res:
             eval_f.write(json.dumps({**r, "rollouts": step * B * G}) + "\n")
         eval_f.flush()
+        if eval_problems_f:
+            for p in records:
+                row = {"step": step, **{k: p[k] for k in ("eval_set", "pid", "correct", "n_correct", "err_type",
+                                                          "err_step")}}
+                eval_problems_f.write(json.dumps(row, separators=(",", ":")) + "\n")
+            eval_problems_f.flush()
         evals[step].update(summarise_eval(res))
+        step_evals[step].update({r["eval_set"]: {"step_score": r["step_score"], "step_frac": r["step_frac"]}
+                                 for r in res if r["depth"] == "all"})
         eval_seconds += time.time() - t
-        print(f"[eval step {step}] " + " ".join(f"{n} {evals[step][n]['all']:.3f}" for n in names)
-              + f" ({time.time() - t:.0f}s)", flush=True)
+        print(f"[eval step {step}] " + " ".join(f"{n} {evals[step][n]['all']:.3f} "
+                                                f"(steps {step_evals[step][n]['step_frac']:.3f})" for n in names)
+              + f" ({time.time() - t:.0f}s" + (f", {eval_mem_gb[-1]:.1f} GB" if cuda else "") + ")", flush=True)
 
     def due(step: int, every: int) -> bool:
         return step in (0, steps) or (every > 0 and step % every == 0)
@@ -237,10 +271,13 @@ def main(argv: list[str] | None = None) -> dict:
             names.append(rc["probe_set"])
         return names
 
+    t_run = time.time()  # summary minutes: the whole run, step-0 eval included
     evaluate(0, names_due(0))  # also confirms the right checkpoint was loaded
-    t_start = time.time()
+    t_start = time.time()  # ETA: training steps only
     window: list[dict] = []
     for step in range(1, steps + 1):
+        if cuda:
+            torch.cuda.reset_peak_memory_stats(device)
         t0 = time.time()
         idx = sampler.sample(B)
         batch = [problems[i] for i in idx]
@@ -271,7 +308,8 @@ def main(argv: list[str] | None = None) -> dict:
              "trunc_frac": 1 - float(np.mean(ended)), "lr": lr, **up,
              **{f"reward_d{d}": float(r[depths == d].mean()) for d in sorted(set(depths.tolist()))},
              **{f"signal_d{d}": float(sig[depths == d].float().mean()) for d in sorted(set(depths.tolist()))},
-             "n_unique": len(set(idx.tolist())), **sampler.stats(), "sec_rollout": t1 - t0, "sec_update": t2 - t1}
+             "n_unique": len(set(idx.tolist())), **sampler.stats(), "sec_rollout": t1 - t0, "sec_update": t2 - t1,
+             **({"gpu_mem_gb": torch.cuda.max_memory_allocated(device) / 2**30} if cuda else {})}
         metrics_f.write(json.dumps(m) + "\n")
         metrics_f.flush()
         for i, p in enumerate(batch):
@@ -294,8 +332,9 @@ def main(argv: list[str] | None = None) -> dict:
         if step in save_steps:
             save_model(model, tok, run_cfg, run_dir / "ckpt" / f"step-{step}")
 
-    for f in (metrics_f, rollouts_f, eval_f):
-        f.close()
+    for f in (metrics_f, rollouts_f, eval_f, eval_problems_f):
+        if f:
+            f.close()
     metrics = read_jsonl(run_dir / "metrics.jsonl")
     k = max(1, min(10, steps // 4))
     first, last = min(evals), max(evals)
@@ -303,12 +342,15 @@ def main(argv: list[str] | None = None) -> dict:
         "run_name": run_name, "model_id": model_id, "base": rc["base"], "dataset": Path(dc["dataset"]).stem,
         "n_problems": len(problems), "sampler": kind, "p_init": p_source, "seed": seed, "tag": rc["tag"],
         "group_size": G, "prompts_per_step": B, "steps": steps, "rollouts": steps * B * G, "lr": rc["lr"],
-        "git_commit": run_cfg["git_commit"], "minutes": (time.time() - t_start) / 60,
+        "git_commit": run_cfg["git_commit"], "minutes": (time.time() - t_run) / 60,
         "eval_minutes": eval_seconds / 60,
+        "gpu_mem_gb": max((m["gpu_mem_gb"] for m in metrics if "gpu_mem_gb" in m), default=None),
+        "eval_gpu_mem_gb": max(eval_mem_gb, default=None),
         "train_reward_first": float(np.mean([m["mean_reward"] for m in metrics[:k]])),
         "train_reward_last": float(np.mean([m["mean_reward"] for m in metrics[-k:]])),
         "signal_frac_mean": float(np.mean([m["signal_frac"] for m in metrics])),
         "eval_first": evals[first], "eval_final": evals[last],
+        "steps_first": step_evals[first], "steps_final": step_evals[last],
         "ckpt": str(run_dir / "ckpt" / f"step-{steps}") if rc["save_final"] else None,
     }
     (run_dir / "summary.json").write_text(json.dumps(summary, indent=1))
