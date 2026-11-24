@@ -116,6 +116,37 @@ def test_generate_and_roundtrip():
         assert load_config(Path(d) / "run_config.yaml")["model"]["d_model"] == 32
 
 
+def test_precision_selects_requested_device_and_native_bf16(monkeypatch):
+    from rlvr.precision import autocast_dtype, model_autocast
+
+    def no_cuda_query(device):
+        raise AssertionError("CPU precision must not query CUDA")
+
+    monkeypatch.setattr(torch.cuda, "get_device_capability", no_cuda_query)
+    assert autocast_dtype("cpu") is None
+    # A surrounding CPU autocast must also be disabled by the fp32 fallback.
+    with torch.autocast("cpu", dtype=torch.bfloat16):
+        with model_autocast("cpu"):
+            assert (torch.ones(2, 2) @ torch.ones(2, 2)).dtype == torch.float32
+
+    seen = []
+    def capability(device):
+        seen.append(device)
+        return (6, 1) if device.index == 1 else (8, 0)
+
+    monkeypatch.setattr(torch.cuda, "get_device_capability", capability)
+    assert autocast_dtype("cuda:1") is None
+    assert autocast_dtype("cuda:0") == torch.bfloat16
+    assert seen == [torch.device("cuda:1"), torch.device("cuda:0")]
+
+    calls = []
+    monkeypatch.setattr(torch, "autocast", lambda *a, **kw: calls.append((a, kw)))
+    model_autocast("cuda:1")
+    model_autocast("cuda:0")
+    assert [kw["enabled"] for _, kw in calls] == [False, True]
+    assert all(kw["dtype"] == torch.bfloat16 for _, kw in calls)
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

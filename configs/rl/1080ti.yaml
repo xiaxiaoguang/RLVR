@@ -1,0 +1,9 @@
+# Execution/memory controls only. Inherit B=64, G=8, rollout budget, reward,
+# model, splits and completion limits from the normal GRPO configuration.
+# gen_batch_size counts prompts (each expands to G completions).
+rl:
+  gen_batch_size: 1
+  micro_batch_tokens: 1024
+  compile: false
+eval:
+  batch_size: 1

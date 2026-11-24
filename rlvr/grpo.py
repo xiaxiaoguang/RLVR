@@ -23,6 +23,8 @@ from __future__ import annotations
 
 import torch
 
+from .precision import model_autocast
+
 
 def group_advantages(r: torch.Tensor, std_norm: bool = True, eps: float = 1e-6) -> torch.Tensor:
     """r: [B, G] rewards -> [B, G] advantages. Groups with identical rewards get exactly 0."""
@@ -68,7 +70,7 @@ def token_logprobs(model, input_ids: torch.Tensor, comp_mask: torch.Tensor,
                    full: bool = False):
     """Teacher-forced log-prob of every completion token: ([N, T-1] zeros elsewhere, mask [N, T-1]).
     full=True also returns the whole log-softmax [N, T-1, V] (entropy / KL)."""
-    with torch.autocast(input_ids.device.type, dtype=torch.bfloat16, enabled=input_ids.device.type == "cuda"):
+    with model_autocast(input_ids.device):
         logits = model(input_ids=input_ids).logits
     logp_all = torch.log_softmax(logits[:, :-1].float(), dim=-1)
     m = comp_mask[:, 1:]

@@ -50,9 +50,27 @@ from rlvr.grpo import group_advantages, grpo_update, signal_groups  # noqa: E402
 from rlvr.io import load_problems, read_jsonl  # noqa: E402
 from rlvr.model import checkpoint_ids, generate_ids, load_model, load_run_config, save_model  # noqa: E402
 from rlvr.params import PARAMS, PARAMS_DEFAULTS, merge  # noqa: E402
+from rlvr.precision import autocast_dtype  # noqa: E402
 from rlvr.sampler import ProblemSampler  # noqa: E402
 
 FROZEN_SECTIONS = ("task", "model", "splits")
+
+
+def check_checkpoint_files(base: Path) -> None:
+    """Fail before model construction with actionable missing-asset paths."""
+    missing = [base / f for f in ("run_config.yaml", "config.json", "tokenizer.json")
+               if not (base / f).is_file()]
+    weights = [base / f for f in ("model.safetensors", "pytorch_model.bin") if (base / f).is_file()]
+    for name in ("model.safetensors.index.json", "pytorch_model.bin.index.json"):
+        if (base / name).is_file():
+            shards = set(json.loads((base / name).read_text())["weight_map"].values())
+            weights.extend(base / shard for shard in shards)
+    if not weights:
+        missing.append(base / "model.safetensors (or complete HF sharded weights)")
+    missing.extend(p for p in weights if not p.is_file())
+    if missing:
+        raise SystemExit("Missing checkpoint assets:\n" + "\n".join(str(p) for p in missing)
+                         + "\nObtain the documented pretrained checkpoint; results/ summaries are not weights.")
 
 
 def rl_config(config: str | None, overrides: list[str]) -> dict:
@@ -140,6 +158,7 @@ def main(argv: list[str] | None = None) -> dict:
     ap.add_argument("--dataset", default=None, help="dataset name or .jsonl path (= data.dataset)")
     ap.add_argument("--overwrite", action="store_true", help="replace an existing run directory's logs")
     ap.add_argument("--device", default="cuda")
+    ap.add_argument("--preflight", action="store_true", help="validate assets, task identity and device; no training/log writes")
     ap.add_argument("overrides", nargs="*")
     args = ap.parse_args(argv)
     overrides = list(args.overrides)
@@ -148,13 +167,16 @@ def main(argv: list[str] | None = None) -> dict:
     if args.dataset:
         overrides.append(f"data.dataset={args.dataset}")
 
+    requested = load_config(args.config, overrides)["rl"]["base"]
+    if requested:
+        check_checkpoint_files(resolve(requested))
     cfg = rl_config(args.config, overrides)
     rc, dc, ec, seed = cfg["rl"], cfg["data"], cfg["eval"], cfg["seed"]
     base = resolve(rc["base"])
     model_id = checkpoint_ids(base)[0]
     run_name = run_name_for(cfg)
     run_dir = resolve(cfg["paths"]["runs"]) / run_name
-    if (run_dir / "metrics.jsonl").exists() and not args.overwrite:
+    if (run_dir / "metrics.jsonl").exists() and not args.overwrite and not args.preflight:
         raise SystemExit(f"{run_dir} already exists; move it away, pass --overwrite or set rl.tag")
     ds_path = dataset_path(cfg, model_id)
     eval_dir = resolve(cfg["paths"]["data"]) / "eval" / ec["version"]
@@ -162,6 +184,9 @@ def main(argv: list[str] | None = None) -> dict:
         raise SystemExit(f"{eval_dir} missing; run scripts/make_eval_sets.py first")
 
     device = torch.device(args.device)
+    if device.type == "cuda" and not torch.cuda.is_available():
+        raise SystemExit("CUDA unavailable: check the assigned CUDA_VISIBLE_DEVICES and host NVIDIA driver; "
+                         "use --device cpu only for synthetic correctness checks.")
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
     torch.manual_seed(seed)
@@ -172,6 +197,8 @@ def main(argv: list[str] | None = None) -> dict:
         task.validate_lengths(cfg)
 
     rows = read_jsonl(ds_path)
+    if not rows:
+        raise SystemExit(f"{ds_path}: dataset is empty")
     problems = [task.from_dict(r) for r in rows]
     eval_names = list(rc["eval_sets"]) + ([rc["probe_set"]] if rc["probe_set"] else [])
     eval_sets = {name: load_problems(task, eval_dir / f"{name}.jsonl") for name in dict.fromkeys(eval_names)}
@@ -180,6 +207,21 @@ def main(argv: list[str] | None = None) -> dict:
     if leaked:
         raise SystemExit(f"{len(leaked)} dataset problems are in the eval sets of {eval_dir}")
 
+    runtime = {"device": str(device), "precision": "bf16" if autocast_dtype(device) else "fp32",
+               "torch": torch.__version__, "cuda_runtime": torch.version.cuda,
+               "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES")}
+    if device.type == "cuda":
+        runtime.update(gpu=torch.cuda.get_device_name(device), capability=torch.cuda.get_device_capability(device))
+    if args.preflight:
+        print(json.dumps({"status": "preflight_passed", "runtime": runtime, "base": str(base),
+                          "dataset": str(ds_path), "n_problems": len(problems), "eval_sets": list(eval_sets),
+                          "task_fingerprint": getattr(task, "fingerprint", None),
+                          "B": rc["prompts_per_step"], "G": rc["group_size"],
+                          "max_new_tokens": rc["max_new_tokens"], "eval_max_new_tokens": ec["max_new_tokens"],
+                          "gen_batch_size": rc["gen_batch_size"], "micro_batch_tokens": rc["micro_batch_tokens"],
+                          "eval_batch_size": ec["batch_size"]}, indent=2))
+        return {"status": "preflight_passed"}
+
     B, G, steps = rc["prompts_per_step"], rc["group_size"], rc["steps"]
     kind = sampler_kind(cfg, ds_path)
     p_init, p_source = initial_p(cfg, rows, model_id)
@@ -187,6 +229,7 @@ def main(argv: list[str] | None = None) -> dict:
                              dc["p_ema"], dc["p_edge"], dc["explore_frac"])
     run_cfg = merge(cfg, {"git_commit": git_commit(), "data": {"sampler": kind}})
     run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "runtime.json").write_text(json.dumps(runtime, indent=2) + "\n")
     (run_dir / "summary.json").unlink(missing_ok=True)
     (run_dir / "run_config.yaml").write_text(yaml.safe_dump(run_cfg, sort_keys=False))
     print(f"{run_name}: base {model_id}, dataset {ds_path.name} ({len(problems)} problems, sampler {kind}, "
@@ -298,7 +341,8 @@ def main(argv: list[str] | None = None) -> dict:
         f.close()
     metrics = read_jsonl(run_dir / "metrics.jsonl")
     k = max(1, min(10, steps // 4))
-    first, last = min(evals), max(evals)
+    eval_first = evals[min(evals)] if evals else {}
+    eval_final = evals[max(evals)] if evals else {}
     summary = {
         "run_name": run_name, "model_id": model_id, "base": rc["base"], "dataset": Path(dc["dataset"]).stem,
         "n_problems": len(problems), "sampler": kind, "p_init": p_source, "seed": seed, "tag": rc["tag"],
@@ -308,12 +352,12 @@ def main(argv: list[str] | None = None) -> dict:
         "train_reward_first": float(np.mean([m["mean_reward"] for m in metrics[:k]])),
         "train_reward_last": float(np.mean([m["mean_reward"] for m in metrics[-k:]])),
         "signal_frac_mean": float(np.mean([m["signal_frac"] for m in metrics])),
-        "eval_first": evals[first], "eval_final": evals[last],
+        "eval_first": eval_first, "eval_final": eval_final,
         "ckpt": str(run_dir / "ckpt" / f"step-{steps}") if rc["save_final"] else None,
     }
     (run_dir / "summary.json").write_text(json.dumps(summary, indent=1))
     print(f"{run_name}: done in {summary['minutes']:.1f} min; "
-          + " ".join(f"{n} {evals[first][n]['all']:.3f}->{evals[last][n]['all']:.3f}" for n in evals[last]),
+          + " ".join(f"{n} {eval_first[n]['all']:.3f}->{eval_final[n]['all']:.3f}" for n in eval_final),
           flush=True)
     return summary
 

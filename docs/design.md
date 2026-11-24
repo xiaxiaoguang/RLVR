@@ -43,10 +43,26 @@ Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Les
 
 ## Decision log
 
+Local readiness update (2026-11-21; execution evidence, no research decision):
+the PI authorized pinned HF retrieval and idle single-card selection, superseding
+the earlier download/allocation blockers. The original checkpoint's exact hash,
+CPU API load and resolved tree-v1 recipe match are verified. Actual GTX 1080 Ti
+sm61 fp32 primitive backward, tiny synthetic GRPO generation/update/save/reload,
+B64/G8 preflight and one finite real-checkpoint prompt forward pass. The CUDA
+supervisor charged 37/900 seconds (863 remaining), including cleanup/reserve.
+Required CPU suite: 50 passed in 17.05s. Sources:
+[`verification.json`](../runs/idea-20261121-01-assets-gpu/verification.json),
+[`REPRO.md`](../runs/idea-20261121-01-assets-gpu/REPRO.md),
+[`1080ti.md`](1080ti.md). Sampled synthetic reward/signal/gradient remain zero;
+the separate known-answer gradient is nonzero. The original eval/v1 files,
+fixed64 baseline, full-model rollout/update capacity and TRL check remain pending.
+The pilot's 405 < 500, go=false is unchanged; only the PI can approve closure.
+
 Newest first. "Proposed by" is who raised it in the team discussion.
 
 | # | date | question | decision | proposed by |
 | --- | --- | --- | --- | --- |
+| 14 | 2026-11-21 | Can local GRPO run on Pascal without bf16 or A100-sized batches? | Shared native-bf16/fp32 selector, batching-only 1080 Ti config and preflight; no scientific settings changed. Historical attempts and failures remain in `runs/idea-20261121-01-readiness*/`. Frozen `RLVR-rl1080` and restored 768-token synthetic budgets pass the original suite. Latest pinned assets and CPU recipe audit pass; actual Pascal primitive, synthetic CUDA GRPO/preflight and one real-checkpoint finite forward pass (37s conservatively charged). Tiny B64/G8 is preflight only. Real rollout/update capacity, frozen eval restoration and fixed64 baseline remain pending. See the update above and [`1080ti.md`](1080ti.md). No real RL or scientific decision was made. | local readiness tasks |
 | 13 | 2026-11-17 | Stage B round 1 found no D/E pair: the depth curve is too steep (mean p d2 .39, d3 .05, d4 .002 at comp_frac 1.28e-3), and raising comp_frac alone shifts the curve without flattening it (d4 near .5 means d2 near 1; depth 5 is never trained, so d3/d5 cannot pair either) | Round 2 changes the **composition depth mix** from {2: .6, 3: .35, 4: .05} to **{2: .3, 3: .35, 4: .35}** (`configs/pretrain/tree/mix.yaml`) at comp_frac 2e-3 / 3.5e-3 / 6e-3; per supervised token this gives ~9–27× the depth-4 examples of round 1's 1.28e-3 run and 0.6–1.9× the depth-2 ones. v1's way of pairing d2-L with d4-H (h_ratio .9 and H-only depth 4) is not used: it makes D and E differ in exposure as well as depth, the confound tree-v1 removed (h_ratio .5, h_only_depths [] stay). Round 2 trains and calibrates only (`--skip-pool`); the 10,000-candidate pilot pool is labelled afterwards, on one node, for a model whose calib labels have a D/E pair. | Yupeng |
 | 12 | 2026-11-16 | rotate_by_sum is not learned in tree-v1 stage A (E1 .12, no progress from step 1000 to 2000) | Replace it with **rotate_by_first** (rotate x left by y[0] mod n): still a rotation set by the other operand, but it reads one symbol instead of a sum over the whole string mod n (a parity-like reduction). It keeps id F10 and its place in H, so H and L keep 6 / 4 / 2 operators. Stage A is re-run on the revised table; the first recipe's generated data is kept in `data/tree-v1-rotate_by_sum/`. | Yupeng |
 | 11 | 2026-11-16 | How are the D/E cells defined in tree-v1, where depth and n_ops differ? | Fixed before stage B, applied to its data ([Matched cells](#matched-cells-v2)): a cell is (depth, group) as in the calib set; D/E pairs need E.depth ≥ D.depth + 2 within RL depths 1–5; pairs are ranked by the smaller of the two cells' calib shares of non-skippable problems with p̂ in [0.4, 0.6]. Depth is the axis because H2 is tested on E3 (depth 6–8); n_ops, n_binary, n_ternary, max_live_values and token length are reported for D and E as covariates, and input length is matched. | Yupeng |

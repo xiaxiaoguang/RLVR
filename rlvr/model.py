@@ -21,6 +21,7 @@ from transformers import GenerationConfig, LlamaConfig, LlamaForCausalLM
 from transformers.utils import logging as hf_logging
 
 from .task import EOS
+from .precision import model_autocast
 
 hf_logging.disable_progress_bar()
 from .tokenizer import CharTokenizer
@@ -138,7 +139,7 @@ def generate_ids(model, tok: CharTokenizer, prompts: list[str], max_new_tokens: 
     for s in range(0, len(prompts), batch_size):
         input_ids, mask = left_pad(tok, prompts[s:s + batch_size], device)
         kw = dict(do_sample=True, temperature=temperature) if temperature > 0 else dict(do_sample=False)
-        with torch.autocast(device.type, dtype=torch.bfloat16, enabled=device.type == "cuda"):
+        with model_autocast(device):
             seqs = model.generate(input_ids=input_ids, attention_mask=mask, max_new_tokens=max_new_tokens,
                                   num_return_sequences=num_return_sequences, **kw)
         new = seqs[:, input_ids.shape[1]:]

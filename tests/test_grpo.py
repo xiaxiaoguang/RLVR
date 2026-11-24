@@ -291,6 +291,22 @@ def test_grpo_script_end_to_end():
         assert chained["run_name"] == "rl-rl-pt-tiny-s0-toy-G3-s0-step-3-toy-G2-s0-x" and chained["ckpt"] is None
 
 
+def test_trainer_without_evaluation_saves_summary_and_checkpoint(tmp_path):
+    base = _workspace(tmp_path)
+    summary = grpo_script.main([
+        "--base", str(base), "--dataset", "toy", "--device", "cpu",
+        "rl.steps=1", "rl.prompts_per_step=2", "rl.group_size=2",
+        "rl.max_new_tokens=8", "rl.eval_sets=[]", "rl.probe_set=''",
+        "rl.kl_every=0", "rl.save_final=true",
+    ])
+    run = Path(summary["ckpt"]).parents[1]
+    assert summary["eval_first"] == summary["eval_final"] == {}
+    assert read_jsonl(run / "eval.jsonl") == []
+    assert len(read_jsonl(run / "metrics.jsonl")) == 1
+    assert (Path(summary["ckpt"]) / "model.safetensors").is_file()
+    assert json.loads((run / "summary.json").read_text()) == summary
+
+
 def test_rl_config_inherits_and_protects_the_checkpoint_task():
     with tempfile.TemporaryDirectory() as d:
         base = _workspace(Path(d))
@@ -310,6 +326,40 @@ def test_sweep_grid_points():
     assert grid_points([]) == [{}]
     assert grid_points(["rl.group_size=4,8", "rl.lr=3e-6"]) == [
         {"rl.group_size": "4", "rl.lr": "3e-6"}, {"rl.group_size": "8", "rl.lr": "3e-6"}]
+
+
+def test_1080ti_config_only_changes_execution_batching():
+    defaults = load_config()
+    local = load_config("configs/rl/1080ti.yaml")
+    assert local["rl"]["gen_batch_size"] == local["eval"]["batch_size"] == 1
+    assert local["rl"]["micro_batch_tokens"] == 1024
+    for section, keys in {"rl": ["gen_batch_size", "micro_batch_tokens", "compile"],
+                          "eval": ["batch_size"]}.items():
+        for key in keys:
+            local[section][key] = defaults[section][key]
+    assert local == defaults
+
+
+def test_missing_checkpoint_assets_and_shards_are_actionable(tmp_path):
+    import pytest
+    with pytest.raises(SystemExit, match="Missing checkpoint assets"):
+        grpo_script.check_checkpoint_files(tmp_path)
+    for name in ("run_config.yaml", "config.json", "tokenizer.json"):
+        (tmp_path / name).write_text("{}")
+    (tmp_path / "model.safetensors.index.json").write_text(json.dumps({"weight_map": {"weight": "part.safetensors"}}))
+    with pytest.raises(SystemExit, match="part.safetensors"):
+        grpo_script.check_checkpoint_files(tmp_path)
+    (tmp_path / "part.safetensors").write_bytes(b"existence-only unit fixture")
+    grpo_script.check_checkpoint_files(tmp_path)
+
+
+def test_tree_grpo_synthetic_end_to_end(tmp_path):
+    from smoke_tree_grpo import run
+    result = run(tmp_path / "synthetic-tree", "cpu")
+    assert result["label"] == "synthetic-random-smoke-only"
+    assert result["vocab_size"] == 49 and result["precision"] == "fp32"
+    assert result["known_answer_probe"]["grad_norm"] > 0
+    assert result["sampled_metrics"]["rollouts"] == 4
 
 
 if __name__ == "__main__":
