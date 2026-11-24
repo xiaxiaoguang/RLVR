@@ -195,6 +195,116 @@ def test_calibrate_shards():
         assert CA.merge_shards(parts[::-1]).equals(full)
 
 
+def _calibrate_module():
+    spec = importlib.util.spec_from_file_location("calibrate", ROOT / "scripts" / "calibrate.py")
+    CA = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(CA)
+    return CA
+
+
+def test_calibrate_label_meta():
+    import hashlib
+    import json
+    import tempfile
+
+    from rlvr.model import env_info
+    CA = _calibrate_module()
+    cfg = load_config(None, ["label.k=8", "label.temperature=0.7"])
+    flags = {"skip_pool": True, "calib_per_cell": 0, "pool_first": 5, "reuse_calib": False}
+    with tempfile.TemporaryDirectory() as d:
+        ckpt = Path(d) / "runs" / "pt-x-s0" / "ckpt" / "step-30"
+        ckpt.mkdir(parents=True)
+        blob = bytes(range(256)) * 1000
+        (ckpt / "model.safetensors").write_bytes(blob)
+        m = CA.label_meta("runs/pt-x-s0/ckpt/step-30", ckpt, cfg, "abc123", 4, env_info("cpu"), flags,
+                          ["label.k=8", "label.temperature=0.7"])
+        assert m["weights_sha256"] == hashlib.sha256(blob).hexdigest()
+        assert m["model_id"] == "pt-x-s0-step-30" and m["ckpt_step"] == 30 and m["ckpt_path"] == str(ckpt)
+        assert m["ckpt"] == "runs/pt-x-s0/ckpt/step-30" and m["git_commit"] == "abc123" and m["world"] == 4
+        assert m["label"] == cfg["label"] and m["label"]["k"] == 8 and m["label"]["temperature"] == 0.7
+        assert m["seed"] == cfg["seed"] and m["overrides"] == ["label.k=8", "label.temperature=0.7"]
+        assert set(m["env"]) == {"torch", "gpu", "gpu_mem_gb"} and m["env"]["gpu"] is None
+        assert m["transformers"] and m["time"].endswith("Z") and all(m[k] == v for k, v in flags.items())
+        json.dumps(m)  # serialisable as written
+        (ckpt / "model.safetensors").unlink()
+        assert CA.label_meta("x", ckpt, cfg, "abc123", 1, {}, flags, [])["weights_sha256"] is None
+
+
+def test_calibrate_stops_on_unknown_commit():
+    import contextlib
+    import io
+    import tempfile
+    CA = _calibrate_module()
+    CA.git_commit = lambda: "unknown"
+    with tempfile.TemporaryDirectory() as d:
+        missing = str(Path(d) / "no-such-ckpt")
+        msg = raises(SystemExit, CA.main, [missing, "--device", "cpu"])  # before the checkpoint is read
+        assert "--allow-unknown-commit" in msg, msg
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):  # with the flag it warns and goes on (to the missing checkpoint)
+            raises(FileNotFoundError, CA.main, [missing, "--device", "cpu", "--allow-unknown-commit"])
+        assert "warning: git commit unknown" in buf.getvalue()
+        assert list(Path(d).iterdir()) == []
+
+
+def test_calibrate_check_outputs():
+    """No silent replacement of label files; --reuse-calib only for calib labels made the same way."""
+    import json
+    import tempfile
+
+    from rlvr import label_meta as LM
+    CA = _calibrate_module()
+    base = {"model_id": "m", "weights_sha256": "aa", "label": {"k": 32, "temperature": 1.0, "batch_size": 16},
+            "max_new_tokens": 128, "eval_version": "v1", "git_commit": "c1", "env": {"torch": "2.14.1", "gpu": "A"},
+            "transformers": "5.20.2", "skip_pool": False, "reuse_calib": False, "time": "t1"}
+    with tempfile.TemporaryDirectory() as d:
+        out, labels = Path(d) / "calib", Path(d) / "labels" / "m.parquet"
+        out.mkdir()
+        labels.parent.mkdir()
+        assert CA.check_outputs(base, out, labels, False) == base  # nothing exists yet
+        (out / "calib_labels.parquet").write_bytes(b"x")
+        assert "--reuse-calib" in raises(RuntimeError, CA.check_outputs, base, out, labels, False)
+        assert CA.check_outputs(base, out, labels, True) == base  # --overwrite
+        # reuse: labels without a meta file are reused with a warning and reused_calib None
+        reuse = {**base, "reuse_calib": True, "time": "t2"}
+        assert CA.check_outputs(reuse, out, labels, False, verbose=False)["reused_calib"] is None
+        # reuse: same recipe on another machine / commit is fine, and the first meta is kept
+        (out / "label_meta.json").write_text(json.dumps({**base, "skip_pool": True}))
+        other = {**reuse, "git_commit": "c2", "env": {"torch": "2.15.0", "gpu": "B"},
+                 "label": {**base["label"], "batch_size": 64}}
+        got = CA.check_outputs(other, out, labels, False, verbose=False)
+        assert got["reused_calib"]["git_commit"] == "c1" and got["git_commit"] == "c2"
+        # a run that reuses again keeps the meta of the run that made the labels
+        (out / "label_meta.json").write_text(json.dumps(got))
+        assert CA.check_outputs({**other, "time": "t3"}, out, labels, False, verbose=False)["reused_calib"]["time"] == "t1"
+        # reuse: a different temperature or different weights is refused, also with --overwrite
+        for change in ({"label": {**base["label"], "temperature": 0.7}}, {"weights_sha256": "bb"}):
+            for ow in (False, True):
+                msg = raises(RuntimeError, CA.check_outputs, {**reuse, **change}, out, labels, ow)
+                assert "made differently" in msg, msg
+        # the pool labels file: refused when it exists, not looked at with --skip-pool
+        labels.write_bytes(b"x")
+        assert str(labels) in raises(RuntimeError, CA.check_outputs, reuse, out, labels, False)
+        assert CA.check_outputs({**reuse, "skip_pool": True}, out, labels, False, verbose=False)["reuse_calib"]
+
+    # comparing two meta files: notes (machine, commit, batch size) against real differences
+    d1 = LM.diff(base, {**base, "time": "t9", "git_commit": "c2", "label": {**base["label"], "batch_size": 64},
+                        "env": {"torch": "2.15.0", "gpu": "A"}})
+    assert set(d1) == {"git_commit", "label.batch_size", "env.torch"} and all(LM.is_note(k) for k in d1)
+    d2 = LM.diff(base, {**base, "weights_sha256": "bb", "label": {**base["label"], "k": 64}})
+    assert set(d2) == {"weights_sha256", "label.k"} and not any(LM.is_note(k) for k in d2)
+    with tempfile.TemporaryDirectory() as d:
+        import contextlib
+        import io
+        a, b, c = (Path(d) / n for n in ("a.json", "b.json", "c.json"))
+        a.write_text(json.dumps(base))
+        b.write_text(json.dumps({**base, "git_commit": "c2"}))
+        c.write_text(json.dumps({**base, "max_new_tokens": 64}))
+        with contextlib.redirect_stdout(io.StringIO()) as buf:
+            assert LM.main([str(a), str(b)]) == 0 and LM.main([str(a), str(c)]) == 1
+        assert "DIFFER max_new_tokens: 128 | 64" in buf.getvalue() and "note   git_commit" in buf.getvalue()
+
+
 if __name__ == "__main__":
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]
     for fn in fns:

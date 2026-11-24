@@ -3,13 +3,16 @@ import json
 import random
 import sys
 import tempfile
+from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 import numpy as np  # noqa: E402
+import pytest  # noqa: E402
 import torch  # noqa: E402
+import yaml  # noqa: E402
 
 import grpo as grpo_script  # noqa: E402
 from rlvr.config import load_config, task_and_splits  # noqa: E402
@@ -275,10 +278,28 @@ def test_grpo_script_end_to_end():
         ev = read_jsonl(run / "eval.jsonl")
         steps_by_set = {n: sorted({r["step"] for r in ev if r["eval_set"] == n}) for n in ("E1", "E2", "probe")}
         assert steps_by_set == {"E1": [0, 2, 3], "E2": [0, 2, 3], "probe": [0, 1, 2, 3]}
+        per_problem = read_jsonl(run / "eval_problems.jsonl")
+        assert Counter((r["step"], r["eval_set"]) for r in per_problem) == {
+            (r["step"], r["eval_set"]): r["n"] for r in ev if r["depth"] == r["group"] == "all"}
+        assert all(list(r) == ["step", "eval_set", "pid", "correct", "n_correct", "err_type", "err_step"]
+                   for r in per_problem)
         assert set(summary["eval_final"]) == {"E1", "E2", "probe"}
+        assert summary["eval_minutes"] <= summary["minutes"]
+        assert json.loads((run / "runtime.json").read_text())["precision"] == "fp32"
+        for endpoint in ("first", "final"):
+            top = {r["eval_set"]: r for r in ev if r["depth"] == r["group"] == "all"
+                   and r["step"] == (0 if endpoint == "first" else 3)}
+            assert summary[f"steps_{endpoint}"] == {
+                name: {key: row[key] for key in ("step_score", "step_frac")} for name, row in top.items()}
+        env = yaml.safe_load((run / "run_config.yaml").read_text())["env"]
+        assert set(env) == {"torch", "gpu", "gpu_mem_gb"} and isinstance(env["torch"], str)
+        assert env["gpu"] is None and env["gpu_mem_gb"] is None  # CPU
+        assert all("gpu_mem_gb" not in m for m in metrics)
+        assert summary["gpu_mem_gb"] is None and summary["eval_gpu_mem_gb"] is None
         for step in (1, 3):  # RL checkpoints load like base checkpoints (and can seed another RL run)
             model, _ = load_model(run / "ckpt" / f"step-{step}", "cpu")
             assert model.config.hidden_size == 32
+            load_config(run / "ckpt" / f"step-{step}" / "run_config.yaml")  # validates: no unregistered `env` key
         try:
             grpo_script.main(args)
             raise AssertionError("existing run must not be overwritten silently")
@@ -301,10 +322,23 @@ def test_trainer_without_evaluation_saves_summary_and_checkpoint(tmp_path):
     ])
     run = Path(summary["ckpt"]).parents[1]
     assert summary["eval_first"] == summary["eval_final"] == {}
+    assert summary["steps_first"] == summary["steps_final"] == {}
+    assert summary["eval_minutes"] == 0.0
+    assert json.loads((run / "runtime.json").read_text())["precision"] == "fp32"
+    assert yaml.safe_load((run / "run_config.yaml").read_text())["env"]["gpu"] is None
     assert read_jsonl(run / "eval.jsonl") == []
     assert len(read_jsonl(run / "metrics.jsonl")) == 1
     assert (Path(summary["ckpt"]) / "model.safetensors").is_file()
     assert json.loads((run / "summary.json").read_text()) == summary
+
+
+def test_grpo_script_stops_on_unknown_commit(monkeypatch):
+    with tempfile.TemporaryDirectory() as d:
+        base = _workspace(Path(d))
+        monkeypatch.setattr(grpo_script, "git_commit", lambda: "unknown")
+        with pytest.raises(SystemExit, match="--allow-unknown-commit"):
+            grpo_script.main(["--base", base, "--dataset", "toy", "--device", "cpu"])
+        assert not list(Path(d).rglob("metrics.jsonl"))  # stopped before the run directory was written
 
 
 def test_rl_config_inherits_and_protects_the_checkpoint_task():

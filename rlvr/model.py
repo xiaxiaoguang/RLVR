@@ -13,6 +13,7 @@ right after its first <eos> (a completion without <eos> scores 0).
 """
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import torch
@@ -95,6 +96,14 @@ def load_model(path: str | Path, device: str | torch.device = "cuda") -> tuple[L
     return model, tok
 
 
+def env_info(device: str | torch.device) -> dict:
+    """{torch, gpu, gpu_mem_gb} of the machine a run is on (gpu fields None off CUDA)."""
+    device = torch.device(device)
+    cuda = device.type == "cuda"
+    return {"torch": str(torch.__version__), "gpu": torch.cuda.get_device_name(device) if cuda else None,
+            "gpu_mem_gb": torch.cuda.get_device_properties(device).total_memory / 2**30 if cuda else None}
+
+
 def load_run_config(path: str | Path) -> dict:
     return yaml.safe_load((Path(path) / "run_config.yaml").read_text())
 
@@ -128,14 +137,18 @@ def checkpoint_ids(ckpt: str | Path) -> tuple[str, str, int | None]:
 @torch.no_grad()
 def generate_ids(model, tok: CharTokenizer, prompts: list[str], max_new_tokens: int = 128,
                  temperature: float = 0.0, num_return_sequences: int = 1,
-                 batch_size: int = 1024) -> list[list[int]]:
+                 batch_size: int = 1024, progress: str = "") -> list[list[int]]:
     """Sampled completion token ids (prompt excluded), grouped by prompt: out[i*n + j] is
     sample j of prompt i. Each row ends with its first <eos>; a row without <eos> has all
-    max_new_tokens tokens. temperature=0 means greedy. batch_size counts prompts."""
+    max_new_tokens tokens. temperature=0 means greedy. batch_size counts prompts.
+    progress: a label; if set, prints prompts done, rate and ETA after the first batch and
+    then at most every 10 s."""
     device = next(model.parameters()).device
     was_training = model.training
     model.eval()
     out: list[list[int]] = []
+    t0 = t_log = time.monotonic()
+    n_tok = 0
     for s in range(0, len(prompts), batch_size):
         input_ids, mask = left_pad(tok, prompts[s:s + batch_size], device)
         kw = dict(do_sample=True, temperature=temperature) if temperature > 0 else dict(do_sample=False)
@@ -146,13 +159,21 @@ def generate_ids(model, tok: CharTokenizer, prompts: list[str], max_new_tokens: 
         is_eos = new == tok.eos_id
         n = torch.where(is_eos.any(1), is_eos.int().argmax(1) + 1, new.shape[1])
         out.extend(row[:k] for row, k in zip(new.tolist(), n.tolist()))
+        if progress:
+            n_tok += new.numel()
+            done, now = min(s + batch_size, len(prompts)), time.monotonic()
+            if s == 0 or now - t_log >= 10 or done == len(prompts):
+                t_log = now
+                print(f"[{progress}] {done}/{len(prompts)} prompts x {num_return_sequences}, "
+                      f"{done / (now - t0):.1f} prompts/s, {n_tok / (now - t0):.0f} tok/s, "
+                      f"{now - t0:.0f}s, eta {(len(prompts) - done) * (now - t0) / done:.0f}s", flush=True)
     model.train(was_training)
     return out
 
 
 def generate(model, tok: CharTokenizer, prompts: list[str], max_new_tokens: int = 128,
              temperature: float = 0.0, num_return_sequences: int = 1,
-             batch_size: int = 1024) -> list[str]:
+             batch_size: int = 1024, progress: str = "") -> list[str]:
     """Completions as text (see generate_ids); <pad> tokens are dropped."""
     return [tok.decode(ids) for ids in generate_ids(model, tok, prompts, max_new_tokens, temperature,
-                                                    num_return_sequences, batch_size)]
+                                                    num_return_sequences, batch_size, progress)]

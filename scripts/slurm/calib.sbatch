@@ -22,7 +22,8 @@ source scripts/slurm/env.sh
 job_header
 echo "== $NAME: full calibration ($*)"
 rc=0
-python scripts/calibrate.py "checkpoints/$NAME" "$@" || rc=$?
+# --reuse-calib: keep the calib labels of the training job's quick calibration (calibrate.py does not replace them)
+python scripts/calibrate.py "checkpoints/$NAME" "$@" --reuse-calib || rc=$?
 if [ -f "data/labels/$NAME.parquet" ]; then
   python scripts/relabel_report.py "$NAME"
 fi

@@ -51,7 +51,7 @@ pids=()
 for i in "${!all_levels[@]}"; do
   name=pt-${all_levels[$i]}-s$SEED; dev=${GPUS[$((i % ${#GPUS[@]}))]}
   echo "calibrate $name -> GPU $dev (runs/calib-$name.log)"
-  CUDA_VISIBLE_DEVICES=$dev python scripts/calibrate.py "checkpoints/$name" > "runs/calib-$name.log" 2>&1 &
+  CUDA_VISIBLE_DEVICES=$dev python scripts/calibrate.py "checkpoints/$name" --reuse-calib > "runs/calib-$name.log" 2>&1 &
   pids+=($!)
 done
 for p in "${pids[@]}"; do wait "$p" || true; done
