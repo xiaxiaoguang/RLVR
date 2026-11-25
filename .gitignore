@@ -18,6 +18,20 @@ dist/
 .ipynb_checkpoints/
 torchinductor_*/
 
+# Environments and local secrets
+.venv/
+venv/
+.env
+.env.*
+.claude/settings.local.json
+
+# Model weights and tensors (share through Hugging Face, not git)
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+*.bin
+
 # Editors / OS
 .vscode/
 .idea/

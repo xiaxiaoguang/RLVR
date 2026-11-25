@@ -1,0 +1,45 @@
+rl:
+  gen_batch_size: 1
+  micro_batch_tokens: 1024
+  compile: false
+  steps: 500
+  prompts_per_step: 64
+  group_size: 8
+  max_new_tokens: 768
+  eval_sets:
+  - E1
+  - E2
+  - E3
+  - E4
+  probe_set: probe
+  eval_every: 50
+  probe_every: 25
+  kl_every: 10
+  log_every: 1
+  log_completions: true
+  save_final: true
+  save_at:
+  - 0.1
+  - 0.2
+  - 0.3
+  - 0.4
+  - 0.5
+  - 0.6
+  - 0.7
+  - 0.8
+  - 0.9
+  - 1.0
+  base: /home/lab_admin/workspace/RLVR/checkpoints/tree-v1/pt-tree-mix-cf0.006-s0
+  tag: paired-original
+  log_eval_problems: true
+eval:
+  batch_size: 2
+seed: 0
+paths:
+  data: /home/lab_admin/workspace/RLVR/runs/idea-20261121-01-comparison-prep/data-root
+  runs: /home/lab_admin/workspace/RLVR/runs/idea-20261121-01-paired-rl/main/output
+data:
+  dataset: /home/lab_admin/workspace/RLVR/data/tree-v1/rl_pool/pt-tree-mix-cf0.0035-s0/pilot_candidates.jsonl
+  sampler: static
+  order: shuffle
+  p_init_labels: false

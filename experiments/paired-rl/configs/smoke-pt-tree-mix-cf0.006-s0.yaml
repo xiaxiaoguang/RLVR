@@ -1,0 +1,35 @@
+rl:
+  gen_batch_size: 1
+  micro_batch_tokens: 1024
+  compile: false
+  steps: 1
+  prompts_per_step: 64
+  group_size: 8
+  max_new_tokens: 768
+  eval_sets:
+  - E1
+  - E2
+  - E3
+  - E4
+  probe_set: probe
+  eval_every: 50
+  probe_every: 25
+  kl_every: 10
+  log_every: 1
+  log_completions: true
+  save_final: true
+  save_at: []
+  base: /home/lab_admin/workspace/RLVR/checkpoints/tree-v1/pt-tree-mix-cf0.006-s0
+  tag: paired-smoke
+  log_eval_problems: true
+eval:
+  batch_size: 2
+seed: 0
+paths:
+  data: /home/lab_admin/workspace/RLVR/runs/idea-20261121-01-paired-rl/tiny-data
+  runs: /home/lab_admin/workspace/RLVR/runs/idea-20261121-01-paired-rl/smoke/output
+data:
+  dataset: /home/lab_admin/workspace/RLVR/data/tree-v1/rl_pool/pt-tree-mix-cf0.0035-s0/pilot_candidates.jsonl
+  sampler: static
+  order: shuffle
+  p_init_labels: false

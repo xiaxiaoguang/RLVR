@@ -9,7 +9,7 @@ add the decision to the [decision log](#decision-log). Round-by-round pretrainin
 
 Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Lesner (evaluation and analysis).
 
-## Status (2026-11-18)
+## Status (2026-11-25)
 
 - **v1 base models:** all four candidates are trained and fully calibrated
   ([v1 results summary](#v1-results-summary)). They stay available as chain-only reference models and for building
@@ -29,8 +29,11 @@ Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Les
   `/global/cfs/cdirs/m4788/yupengsu/rlvr/{checkpoints,runs,data}/tree-v1/`. Both pass the gate; the go criterion is
   narrowly missed (below). Open for the team: use these models for v2 (with 405 E problems per arm, more d4-H
   candidates, or another comp_frac) or fall back to the v1 models with Jay's pool expansion.
-- **RL:** GRPO (`scripts/grpo.py`) and the sweep runner (`scripts/rl_sweep.py`) are implemented and smoke-tested on
-  the v1 round-1 checkpoints ([GRPO](#grpo-hanzhong)); no RL experiment of the design has been run yet.
+- **RL (2026-11-25):** GRPO (`scripts/grpo.py`) and the sweep runner (`scripts/rl_sweep.py`) are implemented,
+  smoke-tested on the v1 round-1 checkpoints and ported to the lab GTX 1080 Ti (decision 14). A 20-step run on
+  `pt-tree-mix-cf0.0035-s0` trains end to end. A paired 500-step run of both v2 base models on the same pool is in
+  progress (cf0.0035 at step ~280: E2 .344 → .379, E4 .271 → .333 by step 250). Phases 0–3 have not started.
+  Details in [`rl.md`](rl.md).
 - **Tree-v1 stage A (2026-11-16):** rotate_by_sum was not learned (E1 .12) and is replaced by rotate_by_first
   (decision 12); on the revised table **all 24 operators pass** (E1 .997), so the operator table is fixed.
 - **Tree-v1 stage B (2026-11-16): no D/E pair** at comp_frac 3.2e-4 / 6.4e-4 / 1.28e-3 (best: depth 2 mean p .39,
@@ -43,26 +46,11 @@ Team: Yupeng Su (pretraining), Hanzhong Cao (RL post-training and laws), Jay Les
 
 ## Decision log
 
-Local readiness update (2026-11-21; execution evidence, no research decision):
-the PI authorized pinned HF retrieval and idle single-card selection, superseding
-the earlier download/allocation blockers. The original checkpoint's exact hash,
-CPU API load and resolved tree-v1 recipe match are verified. Actual GTX 1080 Ti
-sm61 fp32 primitive backward, tiny synthetic GRPO generation/update/save/reload,
-B64/G8 preflight and one finite real-checkpoint prompt forward pass. The CUDA
-supervisor charged 37/900 seconds (863 remaining), including cleanup/reserve.
-Required CPU suite: 50 passed in 17.05s. Sources:
-[`verification.json`](../runs/idea-20261121-01-assets-gpu/verification.json),
-[`REPRO.md`](../runs/idea-20261121-01-assets-gpu/REPRO.md),
-[`1080ti.md`](1080ti.md). Sampled synthetic reward/signal/gradient remain zero;
-the separate known-answer gradient is nonzero. The original eval/v1 files,
-fixed64 baseline, full-model rollout/update capacity and TRL check remain pending.
-The pilot's 405 < 500, go=false is unchanged; only the PI can approve closure.
-
 Newest first. "Proposed by" is who raised it in the team discussion.
 
 | # | date | question | decision | proposed by |
 | --- | --- | --- | --- | --- |
-| 14 | 2026-11-21 | Can local GRPO run on Pascal without bf16 or A100-sized batches? | Shared native-bf16/fp32 selector, batching-only 1080 Ti config and preflight; no scientific settings changed. Historical attempts and failures remain in `runs/idea-20261121-01-readiness*/`. Frozen `RLVR-rl1080` and restored 768-token synthetic budgets pass the original suite. Latest pinned assets and CPU recipe audit pass; actual Pascal primitive, synthetic CUDA GRPO/preflight and one real-checkpoint finite forward pass (37s conservatively charged). Tiny B64/G8 is preflight only. Real rollout/update capacity, frozen eval restoration and fixed64 baseline remain pending. See the update above and [`1080ti.md`](1080ti.md). No real RL or scientific decision was made. | local readiness tasks |
+| 14 | 2026-11-21 | Can local GRPO run on the lab GTX 1080 Ti (Pascal: no bf16, 11 GB)? | Yes, with execution settings only: fp32 on GPUs below capability 8 (`rlvr/precision.py`), generation batch 1 and 1024-token micro-batches (`configs/rl/1080ti.yaml`), and a `--preflight` mode. B, G, lengths, reward and all scientific settings are unchanged. Runs and results in [`rl.md`](rl.md). | local readiness tasks |
 | 13 | 2026-11-17 | Stage B round 1 found no D/E pair: the depth curve is too steep (mean p d2 .39, d3 .05, d4 .002 at comp_frac 1.28e-3), and raising comp_frac alone shifts the curve without flattening it (d4 near .5 means d2 near 1; depth 5 is never trained, so d3/d5 cannot pair either) | Round 2 changes the **composition depth mix** from {2: .6, 3: .35, 4: .05} to **{2: .3, 3: .35, 4: .35}** (`configs/pretrain/tree/mix.yaml`) at comp_frac 2e-3 / 3.5e-3 / 6e-3; per supervised token this gives ~9–27× the depth-4 examples of round 1's 1.28e-3 run and 0.6–1.9× the depth-2 ones. v1's way of pairing d2-L with d4-H (h_ratio .9 and H-only depth 4) is not used: it makes D and E differ in exposure as well as depth, the confound tree-v1 removed (h_ratio .5, h_only_depths [] stay). Round 2 trains and calibrates only (`--skip-pool`); the 10,000-candidate pilot pool is labelled afterwards, on one node, for a model whose calib labels have a D/E pair. | Yupeng |
 | 12 | 2026-11-16 | rotate_by_sum is not learned in tree-v1 stage A (E1 .12, no progress from step 1000 to 2000) | Replace it with **rotate_by_first** (rotate x left by y[0] mod n): still a rotation set by the other operand, but it reads one symbol instead of a sum over the whole string mod n (a parity-like reduction). It keeps id F10 and its place in H, so H and L keep 6 / 4 / 2 operators. Stage A is re-run on the revised table; the first recipe's generated data is kept in `data/tree-v1-rotate_by_sum/`. | Yupeng |
 | 11 | 2026-11-16 | How are the D/E cells defined in tree-v1, where depth and n_ops differ? | Fixed before stage B, applied to its data ([Matched cells](#matched-cells-v2)): a cell is (depth, group) as in the calib set; D/E pairs need E.depth ≥ D.depth + 2 within RL depths 1–5; pairs are ranked by the smaller of the two cells' calib shares of non-skippable problems with p̂ in [0.4, 0.6]. Depth is the axis because H2 is tested on E3 (depth 6–8); n_ops, n_binary, n_ternary, max_live_values and token length are reported for D and E as covariates, and input length is matched. | Yupeng |
@@ -702,9 +690,10 @@ teacher-forced completion log-probs, micro-batched update), `rlvr/sampler.py` (s
 samplers and online p(t)), `scripts/grpo.py` (one run) and `scripts/rl_sweep.py` (checkpoints × datasets × seeds ×
 grid, one run per GPU, resumable); usage in the README. A run inherits task, model, splits, paths, eval version and
 length budgets from the base checkpoint's `run_config.yaml`, so the same commands work for chain-v1 and tree-v1
-checkpoints. **Status:** implemented and smoke-tested on the v1 round-1 checkpoints (`tests/test_grpo.py`: advantages,
+checkpoints. **Status:** implemented, smoke-tested on the v1 round-1 checkpoints and run on the v2 base models on a
+GTX 1080 Ti ([`rl.md`](rl.md)). Tests (`tests/test_grpo.py`): advantages,
 log-probs equal to generation scores, update equal to the hand-written policy gradient, micro-batch invariance,
-samplers, a tiny end-to-end run). Not done yet: the TRL `GRPOTrainer` cross-check, the A/B/C_mid fits.
+samplers, a tiny end-to-end run. Not done yet: the TRL `GRPOTrainer` cross-check, the A/B/C_mid fits.
 
 ### One step
 
@@ -752,6 +741,9 @@ update) at ~100-token completions, ~13 GB; a full E1–E4 greedy evaluation ~55 
 schedule ~35–40 min. Longer completions (deeper problems, tree-v1) are slower in proportion. At ~40 min, 135 runs are
 ~90 GPU-hours, ~22 node-hours. If it is much slower, speed up generation (vLLM or a static KV cache) before shrinking
 the plan.
+**On the lab GTX 1080 Ti** (fp32, generation batch 1, tree-v1 ~140-token completions) a step takes ~112 s and a full
+E1–E4 + probe evaluation ~1.7 h, so a 500-step run with the default evaluation schedule takes ~37 h
+([`rl.md`](rl.md#measured-cost-on-the-1080-ti)).
 
 ### Common pitfalls
 
@@ -919,7 +911,7 @@ The main risk is still that simple and complex problems do not both have enough 
 - [x] v1 comp_frac levels, pos_offset_max 128, 24 unary functions
 - [x] Fourth base model: midbal (h_ratio 0.5)
 - [x] Spread depths, midbal matched cells, strong comp_frac (decisions 2–4)
-- [x] Upload the v1 checkpoints to Hugging Face and put the repo name in [Status](#status-2026-11-16)
+- [x] Upload the v1 checkpoints to Hugging Face and put the repo name in [Status](#status-2026-11-25)
 - [x] Gate rules from decisions 2–3 in code and configs (2026-11-15)
 - [x] Operator set and code for the tree task: tree-v1 (decision 10)
 - [ ] Check that the Hugging Face v1 checkpoints load with `load_model` after download

@@ -9,9 +9,10 @@ pilot pool, pt-tree-mix-cf0.006-s0); the pilot's go criterion was narrowly misse
 (`docs/pretrain_v2_results.md`). An earlier binary-operator variant (24 unary + 4 binary) was piloted
 and is superseded.** GRPO
 (`scripts/grpo.py`) and a checkpoint x dataset sweep runner (`scripts/rl_sweep.py`) are implemented
-and smoke-tested on the local round-1 checkpoints; see [Reinforcement learning](#reinforcement-learning-grpo).
-The RL experiments of the design doc (phases 0-3) have not been run, and the curve-fit analysis
-is not implemented yet.
+and smoke-tested on the local round-1 checkpoints, and run on the v2 base models on the lab
+GTX 1080 Ti: a 20-step run, and a paired 500-step run of both v2 models that is in progress
+(runs, results and the 1080 Ti setup in `docs/rl.md`). The RL experiments of the design doc
+(phases 0-3) have not been run, and the curve-fit analysis is not implemented yet.
 
 ## Multi-input task (tree-v1)
 
@@ -19,8 +20,7 @@ The new versioned recipe replaces 12 simple/redundant unary operators with 8 bin
 and 4 ternary operators, generating genuine expression trees. Use
 `bash scripts/make_tree_data.sh` in the `rlvr` environment; outputs are isolated under
 `data/tree-v1/`. See [operator definitions, sampling and training setup](docs/tree_v1.md).
-The original chain-v1 defaults and saved results remain available. No tree model has
-been trained yet. Pilot stage A (design.md "v2 pilot"; atoms only, E1 check per operator):
+The original chain-v1 defaults and saved results remain available. Pilot stage A (design.md "v2 pilot"; atoms only, E1 check per operator):
 
 ```bash
 python scripts/make_eval_sets.py --config configs/tasks/tree_v1.yaml
@@ -186,6 +186,10 @@ python scripts/build_dataset.py configs/datasets/learnability.yaml --model-id pt
 - **Cost (measured, A100, weak round-1 checkpoint, B 64 x G 8).** ~3.3 s/step (2.6 s rollout,
   0.7 s update) at ~100-token completions, ~13 GB; a full E1-E4 greedy eval ~55 s. 500 steps with
   the default eval schedule is ~35-40 min. Deeper datasets are slower in proportion to length.
+- **GTX 1080 Ti (Pascal).** `bash scripts/grpo_1080ti.sh [--run] --base ... --dataset ...` uses
+  fp32 and `configs/rl/1080ti.yaml` (generation batch 1, 1024-token micro-batches); without
+  `--run` it only does `--preflight`. ~112 s/step and ~1.7 h per full eval on tree-v1; environment
+  and results in `docs/rl.md`.
 - **Tests.** `tests/test_grpo.py`: advantages, teacher-forced log-probs equal to generation
   scores, update equal to the hand-written policy gradient, micro-batch invariance, samplers,
   and an end-to-end tiny run. Not done yet: the TRL `GRPOTrainer` cross-check and the
