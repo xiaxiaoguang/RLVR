@@ -166,6 +166,10 @@ param("rl_pool.pilot_min_matched", 500, "pilot: go criterion, problems per cell 
       "after removing skippable ones, with a shared length mix")
 param("rl_pool.pilot_seed", 3003, "pilot: candidate seed; each cell has its own stream, so the first N candidates "
       "of a cell do not depend on the other cells")
+param("rl_pool.pilot_cells", "", "pilot: cells that get candidates, e.g. 'd4-H' or 'd2-L,d4-H', in place of the "
+      "choice from the calib rates (no D/E pairs, so no go criterion); empty = choose from the calib rates")
+param("rl_pool.pilot_skip", 0, "pilot: skip the first N candidates of each cell's stream (generate N + "
+      "pilot_per_cell, keep the last pilot_per_cell), to extend an earlier pilot with new candidates")
 
 # =============================================================================
 # Model (P)

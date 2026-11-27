@@ -30,6 +30,12 @@ label.temperature, eval.max_new_tokens, eval version); the reused labels' meta i
 
 An unknown git commit (no .git, or no git) stops the run unless --allow-unknown-commit is given.
 
+Pilot extension (rl_pool.mode pilot): rl_pool.pilot_cells names the cells that get candidates (e.g.
+rl_pool.pilot_cells=d4-H) in place of the choice from the calib rates; such a run has no D/E pairs, so
+pilot.json and gate.json give go = null. rl_pool.pilot_skip=N drops the first N candidates of each cell's
+stream, so a run with N = the earlier pilot_per_cell labels new candidates of the same streams. Give such a
+run its own paths.data and paths.runs (its outputs have the same names as the earlier pilot's).
+
 Second labelling (label.relabel_*): RL-pool problems in label.relabel_cells whose first-pass
 p_hat is in label.relabel_range are labelled again with label.relabel_k independent samples.
 The matched-p datasets (p_label: relabel) and gate check 3 select on that second estimate,
@@ -75,7 +81,6 @@ from rlvr.config import git_commit, load_config, resolve, task_and_splits  # noq
 from rlvr.evaluate import greedy_eval, label_pass_rates  # noqa: E402
 from rlvr.io import load_problems, problems_to_rows, read_jsonl, write_jsonl  # noqa: E402
 from rlvr.model import checkpoint_ids as ids_for, env_info, load_model  # noqa: E402
-from rlvr.sets import cell_candidates  # noqa: E402
 from rlvr.task import GROUPS, make_task  # noqa: E402
 
 
@@ -209,6 +214,13 @@ def main(argv: list[str] | None = None):
     data = resolve(cfg["paths"]["data"])
     eval_dir = data / "eval" / ec["version"]
     out = resolve(cfg["paths"]["runs"]) / model_id / "calib"
+    rc = cfg["rl_pool"]
+    try:  # a bad cell name or skip stops the run here, before the model loads
+        named_cells = PL.parse_cells(rc["pilot_cells"])
+        if rc["pilot_skip"] < 0:
+            raise ValueError(f"rl_pool.pilot_skip must be >= 0, got {rc['pilot_skip']}")
+    except ValueError as e:
+        raise SystemExit(f"rl_pool.pilot_cells / pilot_skip: {e}")
     if not args.e1_only:  # --e1-only labels nothing. Checked on every rank, before the model loads.
         reuse = args.reuse_calib and (out / "calib_labels.parquet").exists()  # as actually reused
         flags = {"skip_pool": args.skip_pool, "calib_per_cell": args.calib_per_cell, "pool_first": args.pool_first,
@@ -306,18 +318,17 @@ def main(argv: list[str] | None = None):
             write_gate(dict(gate, checks=dict(gate["checks"])), final=False)
 
     # 3. RL-pool labels (+ independent second labelling of the screened matched cells) and matched-p cells
-    rc = cfg["rl_pool"]
     if not args.skip_pool and rc["mode"] == "pilot":
         # v2 pilot stage B (design.md decision 11): D/E cells from the calib rates, 10,000 candidates
         # per chosen cell, second labelling of the non-skippable ones in label.relabel_range
         rates = PL.cell_rates(calib, rc["pilot_depths"], gc["p_range"])
-        cells, pairs = PL.choose_cells(rates, rc["pilot_min_gap"], rc["pilot_max_cells"])
+        cells, pairs = PL.select_cells(rc, rates)  # rl_pool.pilot_cells, else the best D/E pairs
         _, splits = task_and_splits(cfg)
         t = time.time()
-        problems = [p for d, g in cells for p in cell_candidates(splits, "rl", d, g, rc["pilot_per_cell"],
-                                                                 rc["pilot_seed"])]
+        problems = PL.candidates(splits, cells, rc)  # after the first rl_pool.pilot_skip of each cell
         if master:
-            print(f"{model_id}: pilot cells {[PL.cell_name(*c) for c in cells]}, {len(problems)} candidates "
+            skip = f" (after the first {rc['pilot_skip']} per cell)" if rc["pilot_skip"] else ""
+            print(f"{model_id}: pilot cells {[PL.cell_name(*c) for c in cells]}, {len(problems)} candidates{skip} "
                   f"in {time.time() - t:.0f}s", flush=True)
         if problems:
             pool = label(problems, origin=["pilot"] * len(problems))
@@ -338,10 +349,18 @@ def main(argv: list[str] | None = None):
             else:
                 rep.update(go=False, reason="no D/E cell pair with p ~ 0.5 calib problems" if not problems
                            else "label.relabel_k is 0")
+            if named_cells:  # named cells: no D/E pairs, so the go criterion does not apply
+                rep.update(go=None, go_note="cells named by rl_pool.pilot_cells: no D/E pairs, go not evaluated")
             (out / "pilot.json").write_text(json.dumps(rep, indent=1))
             best = rep["pairs"][0] if rep.get("pairs") else None
             gate["pilot"] = {"go": rep["go"], "best_pair": best}
-            print(f"{model_id}: pilot go={rep['go']} best pair {best}", flush=True)
+            if named_cells:
+                gate["pilot"]["go_note"] = rep["go_note"]
+                n = {c: v["n_in_range"] for c, v in rep.get("cells", {}).items()}
+                print(f"{model_id}: pilot cells named by rl_pool.pilot_cells, go not evaluated; in range {n}",
+                      flush=True)
+            else:
+                print(f"{model_id}: pilot go={rep['go']} best pair {best}", flush=True)
     elif not args.skip_pool:
         pool_rows = read_jsonl(data / "rl_pool" / "candidates.jsonl")
         if args.pool_first:
