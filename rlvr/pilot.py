@@ -14,12 +14,20 @@ rl_pool.mode = pilot). A cell is (depth, group), the stratification of the calib
                  structure covariates; per pair the number both cells can supply with one shared
                  length mix (set by the scarcer cell, decision 6); go if a pair reaches
                  rl_pool.pilot_min_matched (the operators must also pass stage A, checked apart)
+  select_cells   the cells named by rl_pool.pilot_cells (e.g. "d4-H", comma-separated; no pairs),
+                 else choose_cells
+  candidates     per cell, rl_pool.pilot_per_cell candidates of its stream after the first
+                 rl_pool.pilot_skip (an extension of an earlier pilot continues the same stream)
 """
 from __future__ import annotations
 
 import math
+import re
 
 import pandas as pd
+
+from .sets import cell_candidates
+from .task import GROUPS
 
 CELL = ["depth", "group"]
 COVARIATES = ("n_ops", "n_binary", "n_ternary", "max_live_values")
@@ -63,6 +71,39 @@ def choose_cells(rates: pd.DataFrame, min_gap: int, max_cells: int) -> tuple[lis
             break
     chosen = [p for p in pairs if p["d"] in cells and p["e"] in cells]
     return cells, chosen
+
+
+def parse_cells(names: str) -> list[tuple]:
+    """rl_pool.pilot_cells, e.g. "d4-H" or "d2-L,d4-H" -> [(4, "H")] in the order given; "" -> [].
+    ValueError on a malformed name, an unknown group, d1-mixed (no such cell) or a repeated cell."""
+    cells: list[tuple] = []
+    if not names.strip():
+        return cells
+    for name in (s.strip() for s in names.split(",")):
+        m = re.fullmatch(r"d([1-9][0-9]*)-(\w+)", name)
+        if not m or m.group(2) not in GROUPS:
+            raise ValueError(f"{name!r} is not a cell name like d4-H (groups {', '.join(GROUPS)})")
+        c = (int(m.group(1)), m.group(2))
+        if c == (1, "mixed") or c in cells:
+            raise ValueError(f"{name!r}: {'no such cell' if c == (1, 'mixed') else 'named twice'}")
+        cells.append(c)
+    return cells
+
+
+def select_cells(rc: dict, rates: pd.DataFrame) -> tuple[list[tuple], list[dict]]:
+    """(cells, pairs) of the pilot: the cells named by rl_pool.pilot_cells, with no D/E pairs, or
+    else choose_cells on the calib rates."""
+    named = parse_cells(rc["pilot_cells"])
+    if named:
+        return named, []
+    return choose_cells(rates, rc["pilot_min_gap"], rc["pilot_max_cells"])
+
+
+def candidates(splits, cells: list[tuple], rc: dict) -> list:
+    """Per cell in order: rl_pool.pilot_skip + pilot_per_cell candidates of the cell's stream
+    (sets.cell_candidates, seed rl_pool.pilot_seed), of which the first pilot_skip are dropped."""
+    skip, n = rc["pilot_skip"], rc["pilot_per_cell"]
+    return [p for d, g in cells for p in cell_candidates(splits, "rl", d, g, skip + n, rc["pilot_seed"])[skip:]]
 
 
 def shared_mix_supply(a: dict[int, int], b: dict[int, int]) -> int:
