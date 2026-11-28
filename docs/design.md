@@ -206,12 +206,12 @@ parameterisation) and Data Mixing Laws (parametric formulas).
 | [The Art of Scaling RL Compute](https://arxiv.org/abs/2510.13786) (ScaleRL, ICLR 2026) | sigmoid fit of compute vs performance, separating ceiling A and efficiency B; loss aggregation, normalisation, curricula mostly affect efficiency | curve parameterisation; tests H3 |
 | [RegMix](https://arxiv.org/abs/2407.01492) | 512 models of 1M parameters + regression predict unseen data mixtures | "many small runs + regression" screening |
 | [Data Mixing Laws](https://arxiv.org/abs/2403.16952) | performance is a predictable function of the data mixture, predictable before training | parametric formula form |
-| [Can GRPO Transcend Its Pretraining Origin?](https://arxiv.org/abs/2510.15990) | from-scratch transformers, effect of the pretraining distribution on GRPO | precedent for controlling the model through pretraining; does not study RL data make-up |
+| [Can GRPO Transcend Its Pretraining Origin?](https://arxiv.org/abs/2510.15990) | from-scratch transformers, effect of the pretraining distribution on GRPO | precedent for controlling the model through pretraining; also varies the depth of the GRPO data (§5.1), but does not report the pass rate of the GRPO prompts |
 | [Outcome-Based RL ... Only With the Right Data](https://arxiv.org/abs/2601.15158) (NeurIPS 2026) | theory: the training distribution needs enough easy samples for RL to learn extrapolating reasoning | we test whether easy samples matter for their content or because they give reward |
-| [From f(x) and g(x) to f(g(x))](https://arxiv.org/abs/2509.25123) (ICLR 2026) | string function-composition task; RL teaches composing atomic skills | direct source of the task |
+| [From f(x) and g(x) to f(g(x))](https://arxiv.org/abs/2509.25123) | string function-composition task; RL teaches composing atomic skills | direct source of the task |
 | [No Regrets / SFL](https://arxiv.org/abs/2408.15099) (NeurIPS 2024) | classic RL curricula: environments with mixed success work best | learnability baseline |
-| [Reasoning Depth and Environment Complexity](https://arxiv.org/abs/2605.26934) | both difficulty axes need coverage; uniform mixing beats staged curricula | already answers "which difficulty axis matters"; we do not repeat it |
-| [Mechanistic Role of Sample Difficulty](https://arxiv.org/abs/2605.28388) | success rate as difficulty proxy; medium difficulty is best | difficulty and p entangled, exactly what we separate |
+| [Reasoning Depth and Environment Complexity](https://arxiv.org/abs/2605.26934) | both difficulty axes need coverage; uniform mixing beats staged curricula | compares two structural axes (depth, distractor complexity) and never measures the pass rate of the training data (§2.1, §2.4), so our question stays open |
+| [Mechanistic Role of Sample Difficulty](https://arxiv.org/abs/2605.28388) | success rate as difficulty proxy; "easy and medium-difficulty problems yield the strongest and most stable reasoning improvements" (abstract) | difficulty and p entangled, exactly what we separate |
 
 **Do not claim "first".** The proposal says "to our knowledge"; repeat the literature search before writing up.
 
@@ -670,7 +670,7 @@ match_covariates: [str_len]   # lengths vary, so match them to the control group
 | heatmap | depth_k | only depth k (k = 1…5), and the uniform mix | main goal: make-up × model level |
 | A | uniform_pool | uniform over the whole RL pool | "all data is fine" baseline; also mid vs midbal (decision 3) |
 | B | online_filter | whole pool, keep only problems with 0 < p < 1 during training | common practice |
-| C | learnability | sample in proportion to p(1 − p) (SFL) | learnability baseline |
+| C | learnability | sample in proportion to p(1 − p), the learnability score of SFL (SFL itself keeps the top K levels by that score and samples them uniformly, Alg. 2) | learnability baseline |
 | D | matched_p_shallow | simple cell, p ∈ [0.4, 0.6] (v1: depth 2, L) | decoupling |
 | E | matched_p_deep | complex cell, p ∈ [0.4, 0.6] (v1: depth 4, H) | decoupling |
 | F | predicted_p | whole pool weighted by p(1 − p) with p from a cheap regressor on problem features | can selection skip labelling? (from the proposal) |
